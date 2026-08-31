@@ -97,11 +97,19 @@ class ChapterWorkflow:
         graph.add_node("summarize", self._summarize)
         graph.add_edge(START, "write")
         graph.add_edge("write", "review")
-        graph.add_conditional_edges("review", self._route, {"write": "write", "summarize": "summarize", "end": END})
+        graph.add_conditional_edges(
+            "review",
+            self._route,
+            {"write": "write", "summarize": "summarize", "end": END},
+        )
         graph.add_edge("summarize", END)
         return graph.compile()
 
     def run(self, *, book: BookState, chapter_number: int) -> ChapterWorkflowState:
         if not book.outline_approved:
             raise ValueError("The author must approve the outline before generating chapters")
-        return self.build().invoke(ChapterWorkflowState(book=book, chapter_number=chapter_number))
+
+        result = self.build().invoke(
+            ChapterWorkflowState(book=book, chapter_number=chapter_number)
+        )
+        return ChapterWorkflowState(**result)
