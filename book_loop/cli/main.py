@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import argparse
 
-from book_loop.application.services.book import BookService
+from book_loop.application.use_cases.create_book import CreateBook
 from book_loop.infrastructure.config import Settings
 from book_loop.infrastructure.database.repository import SQLiteBookRepository
 
@@ -26,7 +26,7 @@ def main() -> None:
     repository = SQLiteBookRepository(settings.database_url)
 
     if args.command == "create":
-        book = BookService(repository).create(
+        book = CreateBook(repository).execute(
             title=args.title,
             theme=args.theme,
             author_idea=args.idea,
