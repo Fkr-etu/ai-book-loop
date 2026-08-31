@@ -3,8 +3,8 @@ from book_loop.agents.summarizer import SummarizerAgent
 from book_loop.agents.writer import WriterAgent
 from book_loop.application.services.context import ContextBuilder
 from book_loop.application.services.linter import ChapterLinter
-from book_loop.domain.models import BookState, Chapter, SceneReview
-from book_loop.workflow.chapter_graph import ChapterWorkflow
+from book_loop.domain.models import BookState, Chapter
+from book_loop.workflow.chapter_graph import ChapterWorkflow, ChapterWorkflowState
 
 
 class FakeLLM:
@@ -39,6 +39,15 @@ class InMemoryRepository:
         self.reviews.append((book_id, chapter_number, version, review))
 
 
+def make_workflow(book, repository):
+    llm = FakeLLM()
+    return ChapterWorkflow(
+        repository=repository, writer=WriterAgent(llm), reviewer=ReviewerAgent(llm),
+        summarizer=SummarizerAgent(llm), context_builder=ContextBuilder(),
+        linter=ChapterLinter(),
+    )
+
+
 def test_workflow_requires_approved_outline():
     book = BookState(
         id="b1", title="Book", theme="Fantasy", author_idea="Idea",
@@ -46,12 +55,7 @@ def test_workflow_requires_approved_outline():
         chapters=[Chapter(id="c1", number=1, title="Beginning", objective="Start")],
     )
     repository = InMemoryRepository(book)
-    llm = FakeLLM()
-    workflow = ChapterWorkflow(
-        repository=repository, writer=WriterAgent(llm), reviewer=ReviewerAgent(llm),
-        summarizer=SummarizerAgent(llm), context_builder=ContextBuilder(),
-        linter=ChapterLinter(),
-    )
+    workflow = make_workflow(book, repository)
 
     try:
         workflow.run(book=book, chapter_number=1)
@@ -67,15 +71,11 @@ def test_workflow_accepts_and_summarizes():
         chapters=[Chapter(id="c1", number=1, title="Beginning", objective="Start")],
     )
     repository = InMemoryRepository(book)
-    llm = FakeLLM()
-    workflow = ChapterWorkflow(
-        repository=repository, writer=WriterAgent(llm), reviewer=ReviewerAgent(llm),
-        summarizer=SummarizerAgent(llm), context_builder=ContextBuilder(),
-        linter=ChapterLinter(),
-    )
+    workflow = make_workflow(book, repository)
 
     result = workflow.run(book=book, chapter_number=1)
 
+    assert isinstance(result, ChapterWorkflowState)
     assert result.decision == "accept"
     assert result.summary == "Canonical chapter summary."
     assert len(repository.versions) == 1
