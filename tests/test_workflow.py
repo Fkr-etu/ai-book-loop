@@ -13,9 +13,10 @@ class FakeLLM:
 
     def generate(self, *, system_prompt: str, user_prompt: str) -> str:
         self.calls += 1
-        if "Review" in system_prompt:
+        prompt = system_prompt.casefold()
+        if "review" in prompt:
             return '{"score": 8, "approved": true, "issues": [], "suggestions": []}'
-        if "summarize" in system_prompt:
+        if "summarize" in prompt:
             return "Canonical chapter summary."
         return "A complete chapter draft."
 
