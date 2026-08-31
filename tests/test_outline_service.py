@@ -1,4 +1,5 @@
-from book_loop.application.services.outline import OutlineService
+from book_loop.application.use_cases.approve_outline import ApproveOutline
+from book_loop.application.use_cases.generate_outline import GenerateOutline
 from book_loop.domain.models import BookState
 
 
@@ -20,12 +21,12 @@ class InMemoryRepository:
 
 def test_generated_outline_requires_explicit_approval() -> None:
     repository = InMemoryRepository()
-    service = OutlineService(repository, FakeOutlineAgent())
+    agent = FakeOutlineAgent()
     book = BookState(id="b1", title="Book", theme="Fantasy", author_idea="Idea")
 
-    service.generate(book)
+    GenerateOutline(repository, agent).execute(book)
     assert book.outline
     assert book.outline_approved is False
 
-    service.approve(book)
+    ApproveOutline(repository).execute(book)
     assert book.outline_approved is True
