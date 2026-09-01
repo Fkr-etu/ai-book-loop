@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 from book_loop.domain.models import BookState
-from book_loop.workflow.chapter_graph import ChapterWorkflow, ChapterWorkflowState
+from book_loop.workflow.chapter import ChapterRunResult, ChapterWorkflow
 
 
 class GenerateChapter:
     def __init__(self, workflow: ChapterWorkflow) -> None:
         self.workflow = workflow
 
-    def execute(self, book: BookState, *, chapter_number: int) -> ChapterWorkflowState:
+    def execute(self, book: BookState, *, chapter_number: int) -> ChapterRunResult:
         if not book.outline_approved:
             raise ValueError("The author must approve the outline before generating chapters")
 

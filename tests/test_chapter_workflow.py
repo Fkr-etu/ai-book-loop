@@ -3,7 +3,7 @@ from book_loop.agents.summarizer import SummarizerAgent
 from book_loop.agents.writer import WriterAgent
 from book_loop.application.services.context import ContextBuilder
 from book_loop.application.services.linter import ChapterLinter
-from book_loop.domain.models import BookState, Chapter, SceneReview
+from book_loop.domain.models import BookState, Chapter
 from book_loop.workflow.chapter import ChapterWorkflow
 
 
@@ -20,24 +20,65 @@ class FakeLLM:
         return "A valid chapter draft."
 
 
+def make_workflow(llm: FakeLLM) -> ChapterWorkflow:
+    return ChapterWorkflow(
+        repository=FakeRepository(),
+        writer=WriterAgent(llm),
+        reviewer=ReviewerAgent(llm),
+        summarizer=SummarizerAgent(llm),
+        context_builder=ContextBuilder(),
+        linter=ChapterLinter(),
+        max_retries=3,
+        review_threshold=7,
+    )
+
+
+class FakeRepository:
+    def __init__(self):
+        self.books = {}
+
+    def save(self, book):
+        self.books[book.id] = book
+
+    def get(self, book_id):
+        return self.books[book_id]
+
+    def save_chapter_version(self, book_id, chapter_number, version, draft):
+        return None
+
+    def save_review(self, book_id, chapter_number, version, review):
+        return None
+
+
 def test_workflow_requires_approved_outline() -> None:
     book = BookState(id="b", title="B", theme="T", author_idea="I", outline="Outline", outline_approved=False,
                      chapters=[Chapter(id="c", number=1, title="One", objective="Start")])
     llm = FakeLLM()
-    workflow = ChapterWorkflow(WriterAgent(llm), ReviewerAgent(llm), SummarizerAgent(llm), ContextBuilder(), ChapterLinter(), max_retries=3, threshold=7)
+    workflow = make_workflow(llm)
     try:
-        workflow.run(book, 1)
+        workflow.run(book=book, chapter_number=1)
         assert False, "expected approval gate"
     except ValueError as exc:
-        assert "approved" in str(exc)
+        assert "approve the outline" in str(exc)
 
 
 def test_workflow_generates_reviews_and_summary() -> None:
     book = BookState(id="b", title="B", theme="T", author_idea="I", outline="Outline", outline_approved=True,
                      chapters=[Chapter(id="c", number=1, title="One", objective="Start")])
+    repository = FakeRepository()
+    repository.save(book)
     llm = FakeLLM()
-    workflow = ChapterWorkflow(WriterAgent(llm), ReviewerAgent(llm), SummarizerAgent(llm), ContextBuilder(), ChapterLinter(), max_retries=3, threshold=7)
-    result = workflow.run(book, 1)
+    workflow = ChapterWorkflow(
+        repository=repository,
+        writer=WriterAgent(llm),
+        reviewer=ReviewerAgent(llm),
+        summarizer=SummarizerAgent(llm),
+        context_builder=ContextBuilder(),
+        linter=ChapterLinter(),
+        max_retries=3,
+        review_threshold=7,
+    )
+    result = workflow.run(book=book, chapter_number=1)
     assert result.decision.value == "accept"
     assert result.summary == "Canonical summary."
     assert result.attempts == 1

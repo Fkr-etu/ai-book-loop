@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from book_loop.domain.models import BookState, Chapter
+from book_loop.domain.value_objects import ChapterSummary
 
 
 @dataclass(frozen=True)
@@ -14,7 +15,7 @@ class CanonicalContext:
     lore: str
     outline: str
     constraints: tuple[str, ...]
-    previous_summaries: tuple[str, ...]
+    previous_summaries: tuple[ChapterSummary, ...]
     chapter_title: str
     chapter_objective: str
 
@@ -25,7 +26,7 @@ class CanonicalContext:
             ("LORE", self.lore),
             ("GLOBAL OUTLINE", self.outline),
             ("CONSTRAINTS", "\n".join(f"- {item}" for item in self.constraints)),
-            ("PREVIOUS CHAPTER SUMMARIES", "\n".join(self.previous_summaries)),
+            ("PREVIOUS CHAPTER SUMMARIES", "\n".join(s.render() for s in self.previous_summaries)),
             ("CURRENT CHAPTER", self.chapter_title),
             ("CURRENT CHAPTER OBJECTIVE", self.chapter_objective),
         )
@@ -44,14 +45,10 @@ class ContextBuilder:
             outline=book.outline or "",
             constraints=tuple(book.constraints),
             previous_summaries=tuple(
-                self._summary(c)
+                ChapterSummary(c.number, c.title, c.summary)
                 for c in book.chapters
                 if c.number < chapter_number and c.summary
             ),
             chapter_title=chapter.title,
             chapter_objective=chapter.objective,
         )
-
-    @staticmethod
-    def _summary(chapter: Chapter) -> str:
-        return f"Chapter {chapter.number} ({chapter.title}): {chapter.summary}"

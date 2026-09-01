@@ -1,10 +1,11 @@
 from book_loop.agents.reviewer import ReviewerAgent
 from book_loop.agents.summarizer import SummarizerAgent
 from book_loop.agents.writer import WriterAgent
+from book_loop.application.policies.review import ReviewDecision
 from book_loop.application.services.context import ContextBuilder
 from book_loop.application.services.linter import ChapterLinter
 from book_loop.domain.models import BookState, Chapter
-from book_loop.workflow.chapter_graph import ChapterWorkflow, ChapterWorkflowState
+from book_loop.workflow.chapter import ChapterRunResult, ChapterWorkflow
 
 
 class FakeLLM:
@@ -76,9 +77,11 @@ def test_workflow_accepts_and_summarizes():
 
     result = workflow.run(book=book, chapter_number=1)
 
-    assert isinstance(result, ChapterWorkflowState)
-    assert result.decision == "accept"
+    assert isinstance(result, ChapterRunResult)
+    assert result.decision == ReviewDecision.ACCEPT
     assert result.summary == "Canonical chapter summary."
+    assert result.attempts == 1
     assert len(repository.versions) == 1
     assert len(repository.reviews) == 1
     assert repository.get("b1").chapters[0].current_version == 1
+    assert repository.get("b1").chapters[0].summary == "Canonical chapter summary."

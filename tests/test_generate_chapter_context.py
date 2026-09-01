@@ -33,12 +33,12 @@ def test_generate_chapter_passes_previous_canonical_summary_to_writer() -> None:
         outline="Chapter 1: discovery\nChapter 2: confrontation",
         outline_approved=True,
         chapters=[
-            Chapter(id="c1", number=1, title="Discovery", objective="Discover", summary="The heir learns the truth."),
+            Chapter(id="c1", number=1, title="Discovery", objective="Discover", summary="The heir learns the truth.", status="approved"),
             Chapter(id="c2", number=2, title="Confrontation", objective="Face the ruler"),
         ],
     )
 
-    GenerateChapter(workflow=FakeWorkflow(writer)).execute(book, 2)
+    GenerateChapter(workflow=FakeWorkflow(writer)).execute(book, chapter_number=2)
 
     assert writer.context is not None
     assert "The heir learns the truth." in writer.context
