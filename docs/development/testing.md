@@ -10,11 +10,19 @@ Do not call Gemini or another live provider from the normal test suite. Use dete
 
 ## What to test
 
-- Domain invariants and state transitions.
-- Use cases with fake repositories/providers.
-- Workflow behavior, including review decisions, retries, and summaries.
-- Repository persistence against an isolated SQLite database.
-- CLI parsing and command behavior without requiring external services.
+- **Python Backend Unit Tests (`tests/`):**
+  - Domain invariants and state transitions.
+  - Use cases with fake repositories/providers.
+  - Workflow behavior, including review decisions, retries, and summaries.
+  - Repository persistence against an isolated SQLite database.
+  - CLI parsing and command behavior without requiring external services.
+  - Run with: `uv run --extra dev pytest`
+
+- **Frontend E2E Tests (`web/tests/`):**
+  - Page rendering across all 13 routes.
+  - Form interactions, character creation, lore additions, setup wizard steps, and Linter validation.
+  - Visual verification and automated screenshot captures.
+  - Run with: `cd web && npm run test:e2e`
 
 ## CI
 
