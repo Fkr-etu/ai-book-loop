@@ -24,7 +24,11 @@ def test_context_contains_author_intent_and_canonical_history() -> None:
     assert context.author_idea == "A hidden heir discovers the truth."
     assert context.lore == "The kingdom forbids magic."
     assert context.constraints == ("First person",)
-    assert context.previous_summaries == ("Chapter 1 (Discovery): The heir learns the truth.",)
+    assert len(context.previous_summaries) == 1
+    summary = context.previous_summaries[0]
+    assert summary.chapter_number == 1
+    assert summary.title == "Discovery"
+    assert summary.summary == "The heir learns the truth."
     assert context.chapter_objective == "Face the ruler"
     rendered = context.render()
     assert "A hidden heir discovers the truth." in rendered
@@ -44,4 +48,5 @@ def test_context_excludes_current_and_future_chapter_summaries() -> None:
 
     context = ContextBuilder().for_chapter(book, 2)
 
-    assert context.previous_summaries == ("Chapter 1 (One): Past",)
+    assert len(context.previous_summaries) == 1
+    assert context.previous_summaries[0].chapter_number == 1
