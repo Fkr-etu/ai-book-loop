@@ -7,7 +7,7 @@ from book_loop.domain.models import BookState, Chapter
 
 @dataclass(frozen=True)
 class CanonicalContext:
-    """Focused, deterministic context for generating one chapter."""
+    """Focused, structured context for generating one chapter."""
 
     author_idea: str
     theme: str
@@ -19,18 +19,17 @@ class CanonicalContext:
     chapter_objective: str
 
     def render(self) -> str:
-        constraints = "\n".join(f"- {item}" for item in self.constraints)
-        summaries = "\n".join(self.previous_summaries)
-        return "\n\n".join([
-            f"AUTHOR IDEA:\n{self.author_idea}",
-            f"THEME:\n{self.theme}",
-            f"LORE:\n{self.lore}",
-            f"GLOBAL OUTLINE:\n{self.outline}",
-            f"CONSTRAINTS:\n{constraints}",
-            f"PREVIOUS CHAPTER SUMMARIES:\n{summaries}",
-            f"CURRENT CHAPTER:\n{self.chapter_title}",
-            f"CURRENT CHAPTER OBJECTIVE:\n{self.chapter_objective}",
-        ])
+        sections = (
+            ("AUTHOR IDEA", self.author_idea),
+            ("THEME", self.theme),
+            ("LORE", self.lore),
+            ("GLOBAL OUTLINE", self.outline),
+            ("CONSTRAINTS", "\n".join(f"- {item}" for item in self.constraints)),
+            ("PREVIOUS CHAPTER SUMMARIES", "\n".join(self.previous_summaries)),
+            ("CURRENT CHAPTER", self.chapter_title),
+            ("CURRENT CHAPTER OBJECTIVE", self.chapter_objective),
+        )
+        return "\n\n".join(f"{name}:\n{value}" for name, value in sections if value)
 
 
 class ContextBuilder:
