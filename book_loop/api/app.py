@@ -236,6 +236,13 @@ def create_app(container: Container | None = None) -> FastAPI:
             raise HTTPException(status_code=404, detail=f"Chapitre {chapter_number} introuvable.")
 
         formatted = context_builder.for_chapter(book, chapter_number)
+        if isinstance(formatted, dict):
+            formatted_text = "\n\n".join(
+                f"{k.upper().replace('_', ' ')}:\n{v}" for k, v in formatted.items()
+            )
+        else:
+            formatted_text = str(formatted)
+
         prev_summaries = "\n".join(
             f"Chapter {c.number} ({c.title}): {c.summary}"
             for c in book.chapters
@@ -250,7 +257,7 @@ def create_app(container: Container | None = None) -> FastAPI:
             "constraints": book.constraints,
             "previousSummaries": prev_summaries,
             "currentObjective": chapter.objective,
-            "formattedContext": formatted,
+            "formattedContext": formatted_text,
         }
 
     return app
