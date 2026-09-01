@@ -1,95 +1,4 @@
-export interface Character {
-  id: string;
-  name: string;
-  role: string;
-  archetype: string;
-  psychology: string;
-  goal: string;
-  secret: string;
-  avatarUrl?: string;
-  status: "active" | "draft" | "archived";
-}
-
-export interface LoreItem {
-  id: string;
-  title: string;
-  category: "faction" | "location" | "artifact" | "rule";
-  description: string;
-  importance: "high" | "medium" | "low";
-  canonStatus: "canonical" | "proposed" | "deprecated";
-}
-
-export interface GraphNode {
-  id: string;
-  label: string;
-  type: "character" | "location" | "faction" | "artifact";
-  x?: number;
-  y?: number;
-}
-
-export interface GraphEdge {
-  id: string;
-  source: string;
-  target: string;
-  relation: string;
-}
-
-export interface Scene {
-  id: string;
-  title: string;
-  summary: string;
-  status: "validated" | "in_review" | "draft" | "rejected";
-  content?: string;
-  scoreStyle?: number;
-  scoreCoherence?: number;
-}
-
-export interface Chapter {
-  id: string;
-  number: number;
-  title: string;
-  summary: string;
-  status: "approved" | "in_progress" | "pending";
-  scenes: Scene[];
-}
-
-export interface CreativeConstraint {
-  id: string;
-  type: "forbidden_word" | "pacing" | "tone" | "pov";
-  description: string;
-  active: boolean;
-}
-
-export interface SceneReview {
-  id: string;
-  sceneId: string;
-  scoreStyle: number;
-  scoreCoherence: number;
-  forbiddenPatternsFound: string[];
-  critique: string;
-  approved: boolean;
-  timestamp: string;
-}
-
-export interface ProjectState {
-  id: string;
-  title: string;
-  subtitle: string;
-  genre: string;
-  targetAudience: string;
-  theme: string;
-  loreSummary: string;
-  styleTone: string;
-  wordCountTarget: number;
-  currentWordCount: number;
-  characters: Character[];
-  loreItems: LoreItem[];
-  graphNodes: GraphNode[];
-  graphEdges: GraphEdge[];
-  chapters: Chapter[];
-  constraints: CreativeConstraint[];
-  reviews: SceneReview[];
-}
+import { ProjectState } from "@/types";
 
 export const initialProjectData: ProjectState = {
   id: "proj-001",
@@ -98,7 +7,7 @@ export const initialProjectData: ProjectState = {
   genre: "Dark Fantasy / Sci-Fi",
   targetAudience: "Adulte / Fiction Littéraire",
   theme: "Le prix de l'immortalité et la décomposition de la mémoire collective au fil des siècles.",
-  loreSummary: "Dans l'Empire de Cendres, les mages utilisent le minerai d'Obsidienne stellaire pour figer les souvenirs. Mais la Porte Centrale menace de céder sous la pression du Vide.",
+  loreSummary: "Dans l'Empire de Cendres, les mages utilisent l'Obsidienne stellaire pour figer les souvenirs. Mais la Porte Centrale menace de céder sous la pression du Vide.",
   styleTone: "Scholastique, poétique, sombre, rythme soutenu mais descriptif.",
   wordCountTarget: 80000,
   currentWordCount: 24500,

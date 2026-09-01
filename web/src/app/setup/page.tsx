@@ -9,21 +9,17 @@ import {
   ArrowRight,
   ArrowLeft,
   Check,
-  BookOpen,
   Compass,
-  Sliders,
-  Plus,
-  Trash2
+  Plus
 } from "lucide-react";
 import { useProjectStore } from "@/lib/useProjectStore";
 
 export default function SetupPage() {
   const router = useRouter();
-  const { project, updateProjectInfo, addLoreItem, addConstraint } = useProjectStore();
+  const { project, updateProjectInfo, addLoreItem } = useProjectStore();
 
   const [step, setStep] = useState(1);
 
-  // Form states initialized with existing project data or defaults
   const [title, setTitle] = useState(project.title);
   const [subtitle, setSubtitle] = useState(project.subtitle);
   const [genre, setGenre] = useState(project.genre);
@@ -33,7 +29,6 @@ export default function SetupPage() {
   const [styleTone, setStyleTone] = useState(project.styleTone);
   const [wordCountTarget, setWordCountTarget] = useState(project.wordCountTarget);
 
-  // Temporary lore list during setup
   const [newLoreTitle, setNewLoreTitle] = useState("");
   const [newLoreDesc, setNewLoreDesc] = useState("");
   const [newLoreCategory, setNewLoreCategory] = useState<"faction" | "location" | "artifact" | "rule">("artifact");
@@ -337,8 +332,8 @@ export default function SetupPage() {
             {step > 1 ? (
               <button
                 type="button"
-                onClick={() => setStep(step - 1)}
-                className="px-4 py-2 text-xs font-semibold text-[#0b1c30] border border-[#c6c6cd] rounded hover:bg-[#eff4ff] flex items-center gap-1.5"
+                onClick={() => setStep((s) => s - 1)}
+                className="px-4 py-2 text-xs font-semibold text-[#0b1c30] border border-[#c6c6cd] rounded hover:bg-[#eff4ff] flex items-center gap-1.5 cursor-pointer"
               >
                 <ArrowLeft className="w-3.5 h-3.5" /> Précédent
               </button>
@@ -349,8 +344,9 @@ export default function SetupPage() {
             {step < 3 ? (
               <button
                 type="button"
-                onClick={() => setStep(step + 1)}
-                className="px-5 py-2.5 text-xs font-semibold bg-[#0b1c30] text-white rounded hover:bg-[#131b2e] flex items-center gap-1.5 shadow-xs"
+                data-testid="next-step-btn"
+                onClick={() => setStep((s) => s + 1)}
+                className="px-5 py-2.5 text-xs font-semibold bg-[#0b1c30] text-white rounded hover:bg-[#131b2e] flex items-center gap-1.5 shadow-xs cursor-pointer"
               >
                 <span>Suivant</span>
                 <ArrowRight className="w-3.5 h-3.5 text-[#ffddb8]" />
@@ -359,7 +355,7 @@ export default function SetupPage() {
               <button
                 type="button"
                 onClick={handleFinishSetup}
-                className="px-6 py-2.5 text-xs font-bold bg-[#0b1c30] text-[#ffddb8] rounded hover:bg-[#131b2e] flex items-center gap-2 shadow-sm"
+                className="px-6 py-2.5 text-xs font-bold bg-[#0b1c30] text-[#ffddb8] rounded hover:bg-[#131b2e] flex items-center gap-2 shadow-sm cursor-pointer"
               >
                 <Check className="w-4 h-4 text-[#ffddb8]" />
                 <span>Ouvrir l'Atelier de Rédaction</span>

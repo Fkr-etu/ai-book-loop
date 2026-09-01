@@ -26,10 +26,10 @@ test.describe("Manuscript Studio - Complete Page Coverage Suite", () => {
 
     await page.getByPlaceholder("Ex: La Porte d'Obsidienne").fill("Mon Livre de Test");
 
-    await page.getByRole("button", { name: "Suivant" }).click();
+    await page.getByTestId("next-step-btn").click();
     await expect(page.getByText("Règles, Reliques et Lieux Canoniques")).toBeVisible();
 
-    await page.getByRole("button", { name: "Suivant" }).click();
+    await page.getByTestId("next-step-btn").click();
     await expect(page.getByText("Ton, Voix Narrative & Verrouillage Canon")).toBeVisible();
 
     await page.screenshot({ path: "tests/screenshots/03_setup.png" });
