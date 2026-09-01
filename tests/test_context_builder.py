@@ -18,7 +18,7 @@ def test_context_contains_author_intent_and_canonical_history() -> None:
         ],
     )
 
-    context = ContextBuilder().for_chapter(book, 2)
+    context = ContextBuilder().for_chapter(book, 2).render()
 
     assert "A hidden heir discovers the truth." in context
     assert "The kingdom forbids magic." in context
@@ -38,7 +38,7 @@ def test_context_excludes_current_and_future_chapter_summaries() -> None:
         ],
     )
 
-    context = ContextBuilder().for_chapter(book, 2)
+    context = ContextBuilder().for_chapter(book, 2).render()
 
     assert "Past" in context
     assert "Current" not in context
