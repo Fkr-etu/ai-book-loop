@@ -14,7 +14,7 @@ from book_loop.application.use_cases.generate_outline import GenerateOutline
 from book_loop.infrastructure.config import Settings
 from book_loop.infrastructure.database.repository import SQLiteBookRepository
 from book_loop.infrastructure.llm.factory import create_llm
-from book_loop.workflow.chapter_graph import ChapterWorkflow
+from book_loop.workflow.chapter import ChapterWorkflow
 
 
 class Container:
