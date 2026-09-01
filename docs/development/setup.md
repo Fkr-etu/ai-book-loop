@@ -2,23 +2,66 @@
 
 ## Prerequisites
 
-- Python version required by the project's packaging configuration.
+- Python version required by the project's packaging configuration (3.12+).
+- Node.js 20+ and npm for frontend development.
 - Git.
-- A Gemini API key only when exercising the real provider.
+- A Gemini API key only when exercising the real backend provider.
 
 ## Install
 
+### Python Backend
+
 Use the project's declared Python packaging/development workflow from `pyproject.toml`.
 
-The normal test suite should not require a Gemini key.
+```bash
+uv sync --extra dev
+```
+
+The normal test suite does not require a Gemini key.
+
+### Frontend (Manuscript Studio)
+
+Navigate to `web/` and install dependencies:
+
+```bash
+cd web
+npm install
+npx playwright install chromium
+```
 
 ## Run tests
 
-Run the test suite with the project's configured pytest command. CI executes the same test suite as the merge gate.
+Run the Python backend test suite with the project's configured pytest command:
 
-## CLI
+```bash
+uv run --extra dev pytest
+```
 
-The CLI is the primary MVP entry point. Use `python -m book_loop.cli.main --help` to inspect the commands supported by the current implementation.
+Run the Playwright E2E frontend test suite:
+
+```bash
+cd web
+npm run test:e2e
+```
+
+CI executes the same test suites as the merge gate.
+
+## CLI & Web Studio
+
+### CLI
+
+The CLI is the primary MVP CLI entry point. Use `python -m book_loop.cli.main --help` to inspect the commands supported by the current implementation.
+
+### Web Studio
+
+Start the Next.js development server:
+
+```bash
+cd web
+npm run dev
+```
+
+Open `http://localhost:3000` in your browser.
 
 ## Configuration
 

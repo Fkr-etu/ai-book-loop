@@ -1,4 +1,4 @@
-# MVP Scope
+# Scope
 
 ## In scope
 
@@ -13,14 +13,23 @@
 - Persist chapter versions and reviews.
 - Produce a canonical chapter summary for continuity.
 - Provide a minimal CLI.
-- Persist data in SQLite.
-- Run automated tests in CI.
+- Provide a modern Web UI ("Manuscript Studio" in `web/`):
+  - Author Dashboard & Multi-book Catalog (`/dashboard`)
+  - Authentication views (`/login`, `/register`)
+  - 3-step Project Setup Wizard (`/setup`)
+  - Parchment Manuscript Writing Desk & AI Wing Assistant (`/studio`)
+  - Outline & Narrative Structure Editor (`/studio/outline`)
+  - Character Deep Editor with psychological traits & secrets (`/studio/characters`)
+  - World Bible & Lore Codex (`/studio/lore`)
+  - Interactive Lore Relationship Graph (`/studio/lore-graph`)
+  - Creative Intention Lab & Linter Rule Manager (`/studio/intention-lab`)
+  - Validation Loop & Critique Simulator (`/studio/validation-loop`)
+  - Studio d'Exportation with Markdown, EPUB, PDF, DOCX formats (`/studio/export`)
+  - Pricing & Subscriptions (`/pricing`)
+- Persist data in SQLite (backend) and `localStorage` mock API (frontend).
+- Run automated tests in CI (pytest & Playwright).
 
-## Explicitly out of scope for the MVP
+## Out of scope
 
-- Web UI.
-- Authentication and multi-user collaboration.
-- Production deployment infrastructure.
-- Advanced long-term memory/vector databases.
-- Provider-specific application logic.
-- Complex agent orchestration where plain Python is sufficient.
+- Production cloud multi-region deployment.
+- Vector database long-term memory orchestration.
