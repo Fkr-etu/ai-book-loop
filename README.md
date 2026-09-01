@@ -2,7 +2,7 @@
 
 AI Book Loop assists an author in producing a coherent book chapter by chapter while preserving author intent and canonical continuity.
 
-> **Status:** Web UI (Manuscript Studio) and Python CLI MVP active.
+> **Status:** Web UI (Manuscript Studio) and Python CLI under active development.
 
 ## How it works
 
@@ -28,9 +28,9 @@ Retry    Accept
 
 The author remains the source of creative intent. Generated content is proposed by the LLM, while application code controls approvals, sequencing, validation, and retry limits.
 
-## Project Structure
+## Project Architecture & Structure
 
-- **Backend / Core Engine (`book_loop/`):** Python layered architecture, LangGraph workflow orchestration, SQLite persistence, and CLI.
+- **Backend Core Engine (`book_loop/`):** Layered/hexagonal Python architecture, LangGraph workflow orchestration, SQLite persistence, and CLI interface.
 - **Frontend Studio (`web/`):** Next.js App Router application ("Manuscript Studio") built with TypeScript, Tailwind CSS v4, React Flow (`@xyflow/react`), mock API service layer (`web/src/services/api.ts`), and Playwright E2E testing suite.
 
 ## Quick start
@@ -45,11 +45,13 @@ Inspect the CLI with:
 python -m book_loop.cli.main --help
 ```
 
-Run Python tests:
+The normal test suite does not require a live LLM provider:
 
 ```bash
-uv run --extra dev pytest
+pytest
 ```
+
+A Gemini API key is only required when using the real Gemini provider.
 
 ### Manuscript Studio Frontend (`web/`)
 
@@ -61,7 +63,7 @@ npm install
 npm run dev
 ```
 
-Run Playwright E2E tests:
+Run Playwright E2E test suite:
 
 ```bash
 cd web
@@ -73,9 +75,9 @@ npm run test:e2e
 The project uses a lightweight layered/hexagonal architecture:
 
 ```text
-Web UI (Next.js) / CLI
+Web UI (Next.js) / CLI / adapters
       ↓
-Application use cases / Service Layer
+Application use cases
       ↓
 Domain + ports
       ↑
@@ -84,14 +86,20 @@ Infrastructure adapters
       └── LLM provider / Mock API
 ```
 
-`book_loop.infrastructure.container` is the Python composition root. `web/src/services/api.ts` provides the frontend mock API service layer decoupled from React context UI state.
+`book_loop.infrastructure.container` is the composition root. It wires infrastructure implementations, agents, workflow, and application use cases. Provider-specific details must not leak into the domain or use cases.
+
+The chapter workflow is isolated from the rest of the application. Plain Python is preferred when sufficient; LangGraph is an implementation detail rather than an application dependency.
 
 ## Documentation
+
+### For contributors and AI agents
+
+Start with [`AGENTS.md`](AGENTS.md). It contains the rules that must be followed when modifying the repository.
 
 ### Product
 
 - [`docs/product/vision.md`](docs/product/vision.md) — product mission and principles
-- [`docs/product/scope.md`](docs/product/scope.md) — product scope & features
+- [`docs/product/scope.md`](docs/product/scope.md) — project scope & features
 
 ### Architecture
 
@@ -109,3 +117,16 @@ Infrastructure adapters
 - [`docs/development/configuration.md`](docs/development/configuration.md) — runtime configuration
 - [`docs/development/contributing.md`](docs/development/contributing.md) — contribution workflow
 - [`docs/glossary.md`](docs/glossary.md) — project terminology
+
+## Development principles
+
+1. Business actions belong in explicit use cases.
+2. Deterministic rules stay in Python.
+3. LLM providers are replaceable infrastructure.
+4. Author intent and canonical continuity are first-class concerns.
+5. Preserve generated history rather than silently overwriting it.
+6. Avoid unnecessary LLM calls and bound retries.
+7. Tests must run without external LLM services.
+8. Architecture and documentation evolve together.
+
+See `AGENTS.md` and the architecture documentation for the complete rules.
