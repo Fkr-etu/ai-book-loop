@@ -49,14 +49,14 @@ class ChapterWorkflow:
         self.review_threshold = review_threshold
 
     def _write(self, state: ChapterWorkflowState) -> dict:
-        context = self.context_builder.for_chapter(state.book, state.chapter_number)
+        context = self.context_builder.for_chapter(state.book, state.chapter_number).render()
         draft = self.writer.write(context=context)
         attempt = state.attempt + 1
         self.repository.save_chapter_version(state.book.id, state.chapter_number, attempt, draft)
         return {"draft": draft, "attempt": attempt}
 
     def _review(self, state: ChapterWorkflowState) -> dict:
-        context = self.context_builder.for_chapter(state.book, state.chapter_number)
+        context = self.context_builder.for_chapter(state.book, state.chapter_number).render()
         lint = self.linter.lint(state.draft)
         if not lint.valid:
             decision = ReviewDecision.RETRY if state.attempt < self.max_retries else ReviewDecision.NEEDS_REVIEW
@@ -73,7 +73,7 @@ class ChapterWorkflow:
         return {"decision": decision.value, "review_score": review.score}
 
     def _summarize(self, state: ChapterWorkflowState) -> dict:
-        context = self.context_builder.for_chapter(state.book, state.chapter_number)
+        context = self.context_builder.for_chapter(state.book, state.chapter_number).render()
         summary = self.summarizer.summarize(context=context, chapter=state.draft)
         book = self.repository.get(state.book.id)
         chapter = next(c for c in book.chapters if c.number == state.chapter_number)
