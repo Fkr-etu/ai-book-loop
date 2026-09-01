@@ -1,4 +1,4 @@
-from book_loop.application.services.context import ChapterSummary
+from book_loop.domain.value_objects import ChapterSummary
 
 
 def test_chapter_summary_keeps_identity_and_text() -> None:
