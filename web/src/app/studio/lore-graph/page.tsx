@@ -19,11 +19,14 @@ import { GitFork, Sparkles, Compass, Users } from "lucide-react";
 export default function LoreGraphPage() {
   const { project } = useProjectStore();
 
+  const graphNodesList = project.graphNodes || [];
+  const graphEdgesList = project.graphEdges || [];
+
   // Convert project graphNodes & graphEdges to React Flow format
   const initialNodes: Node[] = useMemo(() => {
-    return project.graphNodes.map((n, idx) => {
+    return graphNodesList.map((n, idx) => {
       // Calculate layout positions
-      const angle = (idx / project.graphNodes.length) * 2 * Math.PI;
+      const angle = (idx / (graphNodesList.length || 1)) * 2 * Math.PI;
       const radius = 200;
       const x = 350 + Math.cos(angle) * radius;
       const y = 250 + Math.sin(angle) * radius;
@@ -52,7 +55,7 @@ export default function LoreGraphPage() {
   }, [project.graphNodes]);
 
   const initialEdges: Edge[] = useMemo(() => {
-    return project.graphEdges.map((e) => ({
+    return graphEdgesList.map((e) => ({
       id: e.id,
       source: e.source,
       target: e.target,
@@ -62,7 +65,7 @@ export default function LoreGraphPage() {
       labelStyle: { fill: "#2a1700", fontWeight: 600, fontSize: 10 },
       labelBgStyle: { fill: "#ffddb8", fillOpacity: 0.9, rx: 4 }
     }));
-  }, [project.graphEdges]);
+  }, [graphEdgesList]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);

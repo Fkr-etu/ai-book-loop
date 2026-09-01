@@ -1,3 +1,13 @@
+export type CanonicalStatus =
+  | "draft"
+  | "proposed"
+  | "approved"
+  | "rejected"
+  | "canonical"
+  | "needs_review"
+  | "in_progress"
+  | "pending";
+
 export type RoleType = "Protagoniste" | "Antagoniste" | "Allié Majeur" | "Secondaire";
 
 export interface Character {
@@ -8,7 +18,11 @@ export interface Character {
   psychology: string;
   goal: string;
   secret: string;
-  status: "active" | "draft" | "archived";
+  status: "active" | "draft" | "archived" | CanonicalStatus;
+  traits?: string[];
+  motivations?: string;
+  canonicalFacts?: string[];
+  source?: string;
 }
 
 export type LoreCategory = "faction" | "location" | "artifact" | "rule";
@@ -19,7 +33,8 @@ export interface LoreItem {
   category: LoreCategory;
   description: string;
   importance: "high" | "medium" | "low";
-  canonStatus: "canonical" | "proposed" | "deprecated";
+  canonStatus: "canonical" | "proposed" | "rejected" | "deprecated";
+  source?: string;
 }
 
 export interface GraphNode {
@@ -49,15 +64,28 @@ export interface Scene {
   scoreCoherence?: number;
 }
 
-export type ChapterStatus = "approved" | "in_progress" | "pending";
+export type ChapterStatus = CanonicalStatus;
+
+export interface ChapterVersion {
+  id: string;
+  versionNumber: number;
+  content: string;
+  createdAt: string;
+  source: "author" | "ai" | "edited" | "retry";
+  status: CanonicalStatus;
+  review?: SceneReview;
+}
 
 export interface Chapter {
   id: string;
   number: number;
   title: string;
-  summary: string;
+  objective: string;
   status: ChapterStatus;
-  scenes: Scene[];
+  currentVersion: number;
+  summary?: string;
+  versions?: ChapterVersion[];
+  scenes?: Scene[];
 }
 
 export type ConstraintType = "forbidden_word" | "pacing" | "tone" | "pov";
@@ -70,35 +98,55 @@ export interface CreativeConstraint {
 }
 
 export interface SceneReview {
-  id: string;
-  sceneId: string;
-  scoreStyle: number;
-  scoreCoherence: number;
-  forbiddenPatternsFound: string[];
-  critique: string;
+  id?: string;
+  sceneId?: string;
+  score: number;
   approved: boolean;
-  timestamp: string;
+  issues: string[];
+  suggestions: string[];
+  scoreStyle?: number;
+  scoreCoherence?: number;
+  forbiddenPatternsFound?: string[];
+  critique?: string;
+  timestamp?: string;
 }
 
-export interface ProjectState {
+export interface AuthorIntent {
+  originalIdea: string;
+  theme: string;
+  constraints: string[];
+  styleTone: string;
+}
+
+export interface BookState {
   id: string;
   title: string;
-  subtitle: string;
-  genre: string;
-  targetAudience: string;
   theme: string;
-  loreSummary: string;
-  styleTone: string;
-  wordCountTarget: number;
-  currentWordCount: number;
-  characters: Character[];
-  loreItems: LoreItem[];
-  graphNodes: GraphNode[];
-  graphEdges: GraphEdge[];
+  authorIdea: string;
+  lore: string;
+  constraints: string[];
+  outline?: string;
+  outlineApproved: boolean;
   chapters: Chapter[];
-  constraints: CreativeConstraint[];
-  reviews: SceneReview[];
+
+  // UI / Extended properties
+  subtitle?: string;
+  genre?: string;
+  targetAudience?: string;
+  styleTone?: string;
+  loreSummary?: string;
+  wordCountTarget?: number;
+  currentWordCount?: number;
+  characters?: Character[];
+  loreItems?: LoreItem[];
+  graphNodes?: GraphNode[];
+  graphEdges?: GraphEdge[];
+  creativeConstraints?: CreativeConstraint[];
+  reviews?: SceneReview[];
+  authorIntent?: AuthorIntent;
 }
+
+export type ProjectState = BookState;
 
 export interface UserProfile {
   id: string;
@@ -112,4 +160,15 @@ export interface ApiResponse<T> {
   success: boolean;
   data?: T;
   error?: string;
+}
+
+export interface CanonicalContextResponse {
+  authorIdea: string;
+  theme: string;
+  lore: string;
+  globalOutline: string;
+  constraints: string[];
+  previousSummaries: string;
+  currentObjective: string;
+  formattedContext: string;
 }

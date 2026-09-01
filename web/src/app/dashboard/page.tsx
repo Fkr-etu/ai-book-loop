@@ -24,11 +24,11 @@ export default function DashboardPage() {
     {
       id: project.id,
       title: project.title,
-      subtitle: project.subtitle,
-      genre: project.genre,
-      words: project.currentWordCount,
-      targetWords: project.wordCountTarget,
-      chaptersCount: project.chapters.length,
+      subtitle: project.subtitle || "Chronique des Chronomanciens",
+      genre: project.genre || "Dark Fantasy",
+      words: project.currentWordCount || 24500,
+      targetWords: project.wordCountTarget || 80000,
+      chaptersCount: (project.chapters || []).length,
       updatedAt: "Il y a 10 min",
       status: "En rédaction active",
       isCurrent: true

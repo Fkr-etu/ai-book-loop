@@ -11,37 +11,56 @@ import {
   Bookmark,
   Sparkles,
   Trash2,
-  CheckCircle
+  CheckCircle2,
+  XCircle,
+  Clock,
+  Check,
+  X
 } from "lucide-react";
 
 export default function LorePage() {
-  const { project, addLoreItem, deleteLoreItem } = useProjectStore();
+  const store = useProjectStore();
+  const project = store.project;
 
   const [filterCategory, setFilterCategory] = useState<string>("all");
+  const [filterStatus, setFilterStatus] = useState<string>("all");
+
   const [isAdding, setIsAdding] = useState(false);
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState<"faction" | "location" | "artifact" | "rule">("artifact");
   const [description, setDescription] = useState("");
 
-  const handleAdd = (e: React.FormEvent) => {
+  const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
-    addLoreItem({
+    await store.addLoreItem({
       title,
       category,
       description,
       importance: "high",
-      canonStatus: "canonical"
+      canonStatus: "proposed",
+      source: "Auteur"
     });
     setTitle("");
     setDescription("");
     setIsAdding(false);
   };
 
-  const filteredItems =
-    filterCategory === "all"
-      ? project.loreItems
-      : project.loreItems.filter((i) => i.category === filterCategory);
+  const handleApproveLore = async (id: string) => {
+    await store.updateLoreItem(id, { canonStatus: "canonical" });
+  };
+
+  const handleRejectLore = async (id: string) => {
+    await store.updateLoreItem(id, { canonStatus: "rejected" });
+  };
+
+  const loreItemsList = project.loreItems || [];
+
+  const filteredItems = loreItemsList.filter((item) => {
+    const matchCat = filterCategory === "all" || item.category === filterCategory;
+    const matchStat = filterStatus === "all" || item.canonStatus === filterStatus;
+    return matchCat && matchStat;
+  });
 
   return (
     <StudioLayout>
@@ -56,16 +75,16 @@ export default function LorePage() {
               Ancrage du Lore & Codex
             </h1>
             <p className="text-xs text-[#45464d] mt-1">
-              La base de connaissances canoniques utilisées par les agents LLM pour prévenir les fausses notes et contradictions.
+              Seuls les éléments approuvés deviennent canoniques et servent de contexte aux générations suivantes.
             </p>
           </div>
 
           <button
             onClick={() => setIsAdding(!isAdding)}
-            className="px-4 py-2 bg-[#0b1c30] text-[#ffddb8] text-xs font-bold rounded hover:bg-[#131b2e] transition-colors flex items-center gap-2 shadow-xs shrink-0"
+            className="px-4 py-2 bg-[#0b1c30] text-[#ffddb8] text-xs font-bold rounded hover:bg-[#131b2e] transition-colors flex items-center gap-2 shadow-xs shrink-0 cursor-pointer"
           >
             <Plus className="w-4 h-4" />
-            <span>Ajouter une Entrée Canon</span>
+            <span>Ajouter une Entrée Lore</span>
           </button>
         </div>
 
@@ -76,7 +95,7 @@ export default function LorePage() {
             className="p-6 bg-white rounded-xl border border-[#b87500]/40 shadow-sm space-y-4 animate-fadeIn"
           >
             <h2 className="text-sm font-mono font-bold text-[#0b1c30] uppercase">
-              Nouvelle Fiche Lore Canonique
+              Proposer une Nouvelle Fiche Lore (Proposé par Défaut)
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <input
@@ -115,73 +134,146 @@ export default function LorePage() {
               </button>
               <button
                 type="submit"
-                className="px-4 py-1.5 text-xs font-bold bg-[#0b1c30] text-white rounded"
+                className="px-4 py-1.5 text-xs font-bold bg-[#0b1c30] text-white rounded cursor-pointer"
               >
-                Verrouiller dans le Codex
+                Proposer au Codex
               </button>
             </div>
           </form>
         )}
 
-        {/* Category Filters */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-[#c6c6cd]/20">
-          {[
-            { id: "all", label: "Toutes les entrées" },
-            { id: "artifact", label: "Artefacts & Reliques" },
-            { id: "location", label: "Lieux & Cités" },
-            { id: "faction", label: "Factions & Ordres" },
-            { id: "rule", label: "Lois & Rituels" }
-          ].map((f) => (
-            <button
-              key={f.id}
-              onClick={() => setFilterCategory(f.id)}
-              className={`px-3 py-1.5 rounded text-xs font-semibold whitespace-nowrap transition-colors ${
-                filterCategory === f.id
-                  ? "bg-[#0b1c30] text-white shadow-xs"
-                  : "bg-white text-[#45464d] border border-[#c6c6cd]/40 hover:bg-[#eff4ff]"
-              }`}
-            >
-              {f.label}
-            </button>
-          ))}
+        {/* Status & Category Filters */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#c6c6cd]/20 pb-3">
+          <div className="flex items-center gap-2 overflow-x-auto">
+            {[
+              { id: "all", label: "Toutes les catégories" },
+              { id: "artifact", label: "Artefacts & Reliques" },
+              { id: "location", label: "Lieux & Cités" },
+              { id: "faction", label: "Factions & Ordres" },
+              { id: "rule", label: "Lois & Rituels" }
+            ].map((f) => (
+              <button
+                key={f.id}
+                onClick={() => setFilterCategory(f.id)}
+                className={`px-3 py-1.5 rounded text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
+                  filterCategory === f.id
+                    ? "bg-[#0b1c30] text-white shadow-xs"
+                    : "bg-white text-[#45464d] border border-[#c6c6cd]/40 hover:bg-[#eff4ff]"
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-2 font-mono text-xs">
+            <span className="text-[#76777d] uppercase font-bold">Statut Canon:</span>
+            {[
+              { id: "all", label: "Tous" },
+              { id: "canonical", label: "Canonique" },
+              { id: "proposed", label: "Proposé" },
+              { id: "rejected", label: "Rejeté" }
+            ].map((s) => (
+              <button
+                key={s.id}
+                onClick={() => setFilterStatus(s.id)}
+                className={`px-2.5 py-1 rounded text-[11px] font-bold cursor-pointer ${
+                  filterStatus === s.id
+                    ? "bg-[#b87500] text-white"
+                    : "bg-white text-[#45464d] border border-[#c6c6cd]/40"
+                }`}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Grid of Lore Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {filteredItems.map((item) => (
-            <div
-              key={item.id}
-              className="p-5 bg-white rounded-xl border border-[#c6c6cd]/40 shadow-xs space-y-3 flex flex-col justify-between"
-            >
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-[#ffddb8] text-[#2a1700] font-bold">
-                    {item.category}
-                  </span>
-                  <span className="text-[10px] font-mono text-[#b87500] font-bold flex items-center gap-1">
-                    <CheckCircle className="w-3 h-3" /> Canon
-                  </span>
+          {filteredItems.map((item) => {
+            const isCanon = item.canonStatus === "canonical";
+            const isProposed = item.canonStatus === "proposed";
+            const isRejected = item.canonStatus === "rejected";
+
+            return (
+              <div
+                key={item.id}
+                className="p-5 bg-white rounded-xl border border-[#c6c6cd]/40 shadow-xs space-y-3 flex flex-col justify-between"
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-[#ffddb8] text-[#2a1700] font-bold">
+                      {item.category}
+                    </span>
+                    <span
+                      className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full flex items-center gap-1 ${
+                        isCanon
+                          ? "bg-[#d3e4fe] text-[#0b1c30]"
+                          : isRejected
+                          ? "bg-[#ffdad6] text-[#ba1a1a]"
+                          : "bg-[#fff8f0] text-[#b87500] border border-[#b87500]/30"
+                      }`}
+                    >
+                      {isCanon ? (
+                        <>
+                          <CheckCircle2 className="w-3 h-3" /> Canonique
+                        </>
+                      ) : isRejected ? (
+                        <>
+                          <XCircle className="w-3 h-3" /> Rejeté
+                        </>
+                      ) : (
+                        <>
+                          <Clock className="w-3 h-3" /> Proposé — Approbation requise
+                        </>
+                      )}
+                    </span>
+                  </div>
+
+                  <h3 className="font-playfair text-lg font-bold text-[#0b1c30]">
+                    {item.title}
+                  </h3>
+                  <p className="text-xs text-[#45464d] font-merriweather leading-relaxed mt-2">
+                    {item.description}
+                  </p>
+
+                  <div className="mt-3 text-[11px] font-mono text-[#76777d]">
+                    Source: <strong className="text-[#0b1c30]">{item.source || "Auteur"}</strong>
+                  </div>
                 </div>
 
-                <h3 className="font-playfair text-lg font-bold text-[#0b1c30]">
-                  {item.title}
-                </h3>
-                <p className="text-xs text-[#45464d] font-merriweather leading-relaxed mt-2">
-                  {item.description}
-                </p>
+                <div className="pt-3 border-t border-[#c6c6cd]/20 flex items-center justify-between text-[11px] font-mono">
+                  {isProposed ? (
+                    <div className="flex items-center gap-2 w-full justify-between">
+                      <button
+                        onClick={() => handleApproveLore(item.id)}
+                        className="px-2.5 py-1 bg-[#b87500] text-white font-bold rounded flex items-center gap-1 cursor-pointer"
+                      >
+                        <Check className="w-3 h-3" /> Approuver
+                      </button>
+                      <button
+                        onClick={() => handleRejectLore(item.id)}
+                        className="px-2.5 py-1 bg-[#ffdad6] text-[#ba1a1a] font-bold rounded flex items-center gap-1 cursor-pointer"
+                      >
+                        <X className="w-3 h-3" /> Rejeter
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between w-full">
+                      <span className="text-[#5f5e5b]">Inclus dans le contexte: {isCanon ? "Oui" : "Non"}</span>
+                      <button
+                        onClick={() => store.deleteLoreItem(item.id)}
+                        className="text-[#ba1a1a] hover:underline text-[10px] cursor-pointer"
+                      >
+                        Supprimer
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
-
-              <div className="pt-3 border-t border-[#c6c6cd]/20 flex items-center justify-between text-[11px] font-mono text-[#76777d]">
-                <span>Niveau d'impact: Élevé</span>
-                <button
-                  onClick={() => deleteLoreItem(item.id)}
-                  className="text-[#ba1a1a] hover:underline text-[10px]"
-                >
-                  Supprimer
-                </button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </StudioLayout>

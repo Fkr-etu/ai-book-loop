@@ -16,7 +16,17 @@ import {
 } from "lucide-react";
 
 export default function IntentionLabPage() {
-  const { project, toggleConstraint, addConstraint } = useProjectStore();
+  const store = useProjectStore();
+  const project = store.project;
+
+  const creativeConstraints = project.creativeConstraints || (
+    (project.constraints || []).map((c, i) => ({
+      id: `c-${i}`,
+      type: "tone" as const,
+      description: typeof c === "string" ? c : (c as any).description,
+      active: true
+    }))
+  );
 
   const [newConstraintType, setNewConstraintType] = useState<"forbidden_word" | "pacing" | "tone" | "pov">("forbidden_word");
   const [newConstraintDesc, setNewConstraintDesc] = useState("");
@@ -24,7 +34,9 @@ export default function IntentionLabPage() {
   const handleAdd = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newConstraintDesc.trim()) return;
-    addConstraint(newConstraintType, newConstraintDesc);
+    if (store.addConstraint) {
+      store.addConstraint(newConstraintType, newConstraintDesc);
+    }
     setNewConstraintDesc("");
   };
 
@@ -87,11 +99,11 @@ export default function IntentionLabPage() {
         {/* Active Constraints List */}
         <div className="space-y-4">
           <h2 className="text-xs font-mono font-bold text-[#76777d] uppercase tracking-wider">
-            Directives Actives ({project.constraints.length})
+            Directives Actives ({creativeConstraints.length})
           </h2>
 
           <div className="space-y-3">
-            {project.constraints.map((c) => (
+            {creativeConstraints.map((c) => (
               <div
                 key={c.id}
                 className={`p-4 rounded-xl border transition-all flex items-center justify-between gap-4 ${
@@ -131,7 +143,7 @@ export default function IntentionLabPage() {
 
                 <button
                   type="button"
-                  onClick={() => toggleConstraint(c.id)}
+                  onClick={() => store.toggleConstraint && store.toggleConstraint(c.id)}
                   className="p-1.5 text-[#0b1c30] hover:bg-[#eff4ff] rounded transition-colors shrink-0"
                   title="Activer/Désactiver"
                 >

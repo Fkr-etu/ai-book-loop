@@ -38,32 +38,32 @@ export function Sidebar() {
       href: "/studio/characters",
       icon: Users,
       description: "Psychologie & Fiches",
-      badge: project.characters.length
+      badge: (project.characters || []).length
     },
     {
-      name: "Bible du Monde",
+      name: "Canon & Bible du Monde",
       href: "/studio/lore",
       icon: Compass,
-      description: "Lore, Factions, Reliques",
-      badge: project.loreItems.length
+      description: "Lore canonique & Reliques",
+      badge: (project.loreItems || []).length
     },
     {
       name: "Graphe de Relations",
       href: "/studio/lore-graph",
       icon: GitFork,
-      description: "Cartographie interactive"
+      description: "Cartographie interactive du Canon"
     },
     {
-      name: "Laboratoire d'Intention",
+      name: "Intention Auteur & Directives",
       href: "/studio/intention-lab",
       icon: Sliders,
-      description: "Pilotage IA & Contraintes"
+      description: "Intention Auteur & Contraintes"
     },
     {
       name: "Boucle de Validation",
       href: "/studio/validation-loop",
       icon: CheckCircle2,
-      description: "Linter & Feedback IA"
+      description: "Linter Déterministe & Review IA"
     },
     {
       name: "Studio d'Exportation",
@@ -89,9 +89,9 @@ export function Sidebar() {
             {project.genre}
           </p>
           <div className="mt-2 pt-2 border-t border-[#c6c6cd]/20 flex items-center justify-between text-[11px] font-mono text-[#45464d]">
-            <span>Mots: {project.currentWordCount.toLocaleString()}</span>
+            <span>Mots: {(project.currentWordCount || 0).toLocaleString()}</span>
             <span className="text-[#b87500] font-semibold">
-              {Math.round((project.currentWordCount / project.wordCountTarget) * 100)}%
+              {Math.round(((project.currentWordCount || 0) / (project.wordCountTarget || 80000)) * 100)}%
             </span>
           </div>
         </div>

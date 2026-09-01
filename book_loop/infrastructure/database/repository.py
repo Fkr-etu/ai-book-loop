@@ -9,7 +9,7 @@ from book_loop.domain.models import BookState, SceneReview
 class SQLiteBookRepository:
     def __init__(self, database_url: str) -> None:
         self._path = database_url.removeprefix("sqlite:///")
-        self._connection = sqlite3.connect(self._path)
+        self._connection = sqlite3.connect(self._path, check_same_thread=False)
         self._connection.row_factory = sqlite3.Row
         self._connection.executescript(
             """
