@@ -35,7 +35,7 @@ class ChapterWorkflow:
     def run(self, book: BookState, chapter_number: int) -> ChapterRunResult:
         if not book.outline_approved:
             raise ValueError("The global outline must be approved before generating chapters")
-        context = self.context_builder.for_chapter(book, chapter_number)
+        context = self.context_builder.for_chapter(book, chapter_number).render()
         draft = ""
         for attempt in range(1, self.max_retries + 1):
             draft = self.writer.write(context=context)
