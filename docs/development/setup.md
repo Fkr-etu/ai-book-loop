@@ -2,24 +2,42 @@
 
 ## Prerequisites
 
-- Python version required by the project's packaging configuration.
+- Python 3.12+ for backend.
+- Node.js 20+ and npm for frontend.
 - Git.
-- A Gemini API key only when exercising the real provider.
+- A Gemini API key only when exercising the real backend LLM provider.
 
 ## Install
 
-Use the project's declared Python packaging/development workflow from `pyproject.toml`.
+### Backend (Python)
 
-The normal test suite should not require a Gemini key.
+Install dependencies using `uv`:
 
-## Run tests
+```bash
+uv sync --extra dev
+```
 
-Run the test suite with the project's configured pytest command. CI executes the same test suite as the merge gate.
+### Frontend (Next.js / Manuscript Studio)
 
-## CLI
+Navigate to `web/` and install dependencies:
 
-The CLI is the primary MVP entry point. Use `python -m book_loop.cli.main --help` to inspect the commands supported by the current implementation.
+```bash
+cd web
+npm install
+npx playwright install chromium
+```
 
-## Configuration
+## Run Applications
 
-Runtime configuration is handled by `book_loop.infrastructure.config.Settings` and assembled by the composition root. Do not add provider or database configuration directly to CLI/use-case code.
+### CLI
+
+`python -m book_loop.cli.main --help`
+
+### Web Studio
+
+```bash
+cd web
+npm run dev
+```
+
+Open `http://localhost:3000` in your browser.

@@ -1,8 +1,8 @@
-# AI Book Loop
+# AI Book Loop / Manuscript Studio
 
 AI Book Loop assists an author in producing a coherent book chapter by chapter while preserving author intent and canonical continuity.
 
-> **Status:** MVP under active development.
+> **Status:** Web UI (Manuscript Studio) and Python CLI MVP active.
 
 ## How it works
 
@@ -28,21 +28,14 @@ Retry    Accept
 
 The author remains the source of creative intent. Generated content is proposed by the LLM, while application code controls approvals, sequencing, validation, and retry limits.
 
-## MVP
+## Project Structure
 
-- Minimal CLI
-- SQLite persistence
-- Configurable LLM provider, with Gemini as the initial provider
-- Author theme, idea, lore, and constraints
-- Outline generation and explicit approval
-- Sequential, chapter-scoped generation
-- Linting, review, and bounded retry
-- Chapter history and canonical summaries
-- Automated tests and GitHub Actions CI
-
-Out of scope for the MVP: web UI, authentication/multi-user collaboration, production deployment infrastructure, vector databases, and unnecessary framework-heavy orchestration.
+- **Backend / Core Engine (`book_loop/`):** Python layered architecture, LangGraph workflow orchestration, SQLite persistence, and CLI.
+- **Frontend Studio (`web/`):** Next.js App Router application ("Manuscript Studio") built with TypeScript, Tailwind CSS v4, React Flow (`@xyflow/react`), mock API service layer (`web/src/services/api.ts`), and Playwright E2E testing suite.
 
 ## Quick start
+
+### Python Backend & CLI
 
 Install the project using the Python packaging workflow declared in `pyproject.toml`.
 
@@ -52,44 +45,53 @@ Inspect the CLI with:
 python -m book_loop.cli.main --help
 ```
 
-The normal test suite does not require a live LLM provider:
+Run Python tests:
 
 ```bash
-pytest
+uv run --extra dev pytest
 ```
 
-A Gemini API key is only required when using the real Gemini provider.
+### Manuscript Studio Frontend (`web/`)
+
+Start the Next.js development server:
+
+```bash
+cd web
+npm install
+npm run dev
+```
+
+Run Playwright E2E tests:
+
+```bash
+cd web
+npm run test:e2e
+```
 
 ## Architecture
 
 The project uses a lightweight layered/hexagonal architecture:
 
 ```text
-CLI / adapters
+Web UI (Next.js) / CLI
       ↓
-Application use cases
+Application use cases / Service Layer
       ↓
 Domain + ports
       ↑
 Infrastructure adapters
-      ├── SQLite
-      └── LLM provider
+      ├── SQLite / localStorage
+      └── LLM provider / Mock API
 ```
 
-`book_loop.infrastructure.container` is the composition root. It wires infrastructure implementations, agents, workflow, and application use cases. Provider-specific details must not leak into the domain or use cases.
-
-The chapter workflow is isolated from the rest of the application. Plain Python is preferred when sufficient; LangGraph is an implementation detail rather than an application dependency.
+`book_loop.infrastructure.container` is the Python composition root. `web/src/services/api.ts` provides the frontend mock API service layer decoupled from React context UI state.
 
 ## Documentation
-
-### For contributors and AI agents
-
-Start with [`AGENTS.md`](AGENTS.md). It contains the rules that must be followed when modifying the repository.
 
 ### Product
 
 - [`docs/product/vision.md`](docs/product/vision.md) — product mission and principles
-- [`docs/product/scope.md`](docs/product/scope.md) — MVP scope and explicit non-goals
+- [`docs/product/scope.md`](docs/product/scope.md) — product scope & features
 
 ### Architecture
 
@@ -98,7 +100,7 @@ Start with [`AGENTS.md`](AGENTS.md). It contains the rules that must be followed
 - [`docs/architecture/boundaries.md`](docs/architecture/boundaries.md) — dependency boundaries
 - [`docs/architecture/workflows.md`](docs/architecture/workflows.md) — book and chapter workflows
 - [`docs/architecture/data-model.md`](docs/architecture/data-model.md) — persisted domain concepts
-- [`docs/architecture/decisions/`](docs/architecture/decisions/) — ADRs and architectural history
+- [`docs/architecture/decisions/`](docs/architecture/decisions/) — ADRs and architectural decisions
 
 ### Development
 
@@ -107,16 +109,3 @@ Start with [`AGENTS.md`](AGENTS.md). It contains the rules that must be followed
 - [`docs/development/configuration.md`](docs/development/configuration.md) — runtime configuration
 - [`docs/development/contributing.md`](docs/development/contributing.md) — contribution workflow
 - [`docs/glossary.md`](docs/glossary.md) — project terminology
-
-## Development principles
-
-1. Business actions belong in explicit use cases.
-2. Deterministic rules stay in Python.
-3. LLM providers are replaceable infrastructure.
-4. Author intent and canonical continuity are first-class concerns.
-5. Preserve generated history rather than silently overwriting it.
-6. Avoid unnecessary LLM calls and bound retries.
-7. Tests must run without external LLM services.
-8. Architecture and documentation evolve together.
-
-See `AGENTS.md` and the architecture documentation for the complete rules.
