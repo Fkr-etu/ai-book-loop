@@ -1,294 +1,362 @@
 "use client";
 
-import React, { createContext, useContext, useState } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import {
-  ProjectState,
+  BookState,
   Character,
   LoreItem,
   Chapter,
   Scene,
   CreativeConstraint,
-  SceneReview
+  SceneReview,
+  CanonicalContextResponse
 } from "@/types";
 import { initialProjectData } from "@/lib/mockData";
-
-const STORAGE_KEY = "manuscript_studio_project";
-
-function loadFromStorage(): ProjectState {
-  if (typeof window === "undefined") return initialProjectData;
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : initialProjectData;
-  } catch {
-    return initialProjectData;
-  }
-}
-
-function saveToStorage(data: ProjectState): void {
-  if (typeof window !== "undefined") {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-    } catch {
-      // ignore
-    }
-  }
-}
+import { getApiClient } from "@/services/api";
 
 interface ProjectContextType {
-  project: ProjectState;
-  updateProjectInfo: (info: Partial<ProjectState>) => void;
-  addCharacter: (char: Omit<Character, "id">) => void;
-  updateCharacter: (id: string, char: Partial<Character>) => void;
-  deleteCharacter: (id: string) => void;
-  addLoreItem: (item: Omit<LoreItem, "id">) => void;
-  deleteLoreItem: (id: string) => void;
-  addChapter: (title: string, summary: string) => void;
-  addScene: (chapterId: string, title: string, summary: string) => void;
-  updateSceneContent: (chapterId: string, sceneId: string, content: string) => void;
-  runAiValidation: (sceneId: string, content: string) => SceneReview;
-  toggleConstraint: (id: string) => void;
-  addConstraint: (type: CreativeConstraint["type"], description: string) => void;
+  project: BookState;
+  loading: boolean;
+  error: string | null;
+  clearError: () => void;
+  selectedChapterNumber: number;
+  setSelectedChapterNumber: (num: number) => void;
+  selectedVersionNumber: number;
+  setSelectedVersionNumber: (num: number) => void;
+
+  // Domain Actions (delegated to API)
+  refreshProject: () => Promise<void>;
+  updateProjectInfo: (info: Partial<BookState>) => Promise<void>;
+  generateOutline: () => Promise<void>;
+  approveOutline: () => Promise<void>;
+  addChapter: (title: string, objective: string) => Promise<void>;
+  generateChapter: (chapterNumber: number) => Promise<void>;
+  reviewChapter: (chapterNumber: number, versionNumber?: number, draftText?: string) => Promise<SceneReview>;
+  approveChapter: (chapterNumber: number) => Promise<void>;
+  rejectChapter: (chapterNumber: number) => Promise<void>;
+  getCanonicalContext: (chapterNumber: number) => Promise<CanonicalContextResponse>;
+
+  // Character & Lore Actions
+  addCharacter: (char: Omit<Character, "id">) => Promise<void>;
+  updateCharacter: (id: string, updates: Partial<Character>) => Promise<void>;
+  deleteCharacter: (id: string) => Promise<void>;
+  addLoreItem: (item: Omit<LoreItem, "id">) => Promise<void>;
+  updateLoreItem: (id: string, updates: Partial<LoreItem>) => Promise<void>;
+  deleteLoreItem: (id: string) => Promise<void>;
+
+  // UI Legacy Helpers
+  addScene?: (chapterId: string, title: string, summary: string) => void;
+  updateSceneContent?: (chapterId: string, sceneId: string, content: string) => void;
+  runAiValidation?: (sceneId: string, content: string) => SceneReview;
+  toggleConstraint?: (id: string) => void;
+  addConstraint?: (type: CreativeConstraint["type"], description: string) => void;
 }
 
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
 
 export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [project, setProject] = useState<ProjectState>(() => loadFromStorage());
+  const [project, setProject] = useState<BookState>(initialProjectData);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedChapterNumber, setSelectedChapterNumber] = useState<number>(1);
+  const [selectedVersionNumber, setSelectedVersionNumber] = useState<number>(1);
 
-  const updateProjectInfo = (info: Partial<ProjectState>) => {
-    setProject((prev) => {
-      const next = { ...prev, ...info };
-      saveToStorage(next);
-      return next;
-    });
+  const clearError = () => setError(null);
+
+  const refreshProject = useCallback(async () => {
+    try {
+      const data = await getApiClient().getBook(project.id || "proj-001");
+      setProject(data);
+    } catch (err: any) {
+      console.error("Error refreshing project:", err);
+      setError(err.message || "Erreur de chargement du projet.");
+    }
+  }, [project.id]);
+
+  useEffect(() => {
+    refreshProject();
+  }, [refreshProject]);
+
+  const updateProjectInfo = async (info: Partial<BookState>) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const updated = await getApiClient().updateBook(project.id, info);
+      setProject(updated);
+    } catch (err: any) {
+      setError(err.message || "Impossible de mettre à jour le livre.");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const addCharacter = (char: Omit<Character, "id">) => {
-    const newChar: Character = {
-      ...char,
-      id: `char-${Date.now()}`
-    };
-    setProject((prev) => {
-      const next = {
-        ...prev,
-        characters: [...prev.characters, newChar],
-        graphNodes: [
-          ...prev.graphNodes,
-          { id: newChar.id, label: newChar.name, type: "character" as const }
-        ]
-      };
-      saveToStorage(next);
-      return next;
-    });
+  const generateOutline = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const updated = await getApiClient().generateOutline(project.id);
+      setProject(updated);
+    } catch (err: any) {
+      setError(err.message || "Erreur lors de la génération du plan.");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const updateCharacter = (id: string, updated: Partial<Character>) => {
-    setProject((prev) => {
-      const next = {
-        ...prev,
-        characters: prev.characters.map((c) => (c.id === id ? { ...c, ...updated } : c))
-      };
-      saveToStorage(next);
-      return next;
-    });
+  const approveOutline = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const updated = await getApiClient().approveOutline(project.id);
+      setProject(updated);
+    } catch (err: any) {
+      setError(err.message || "Erreur lors de l'approbation du plan.");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const deleteCharacter = (id: string) => {
-    setProject((prev) => {
-      const next = {
-        ...prev,
-        characters: prev.characters.filter((c) => c.id !== id),
-        graphNodes: prev.graphNodes.filter((n) => n.id !== id),
-        graphEdges: prev.graphEdges.filter((e) => e.source !== id && e.target !== id)
-      };
-      saveToStorage(next);
-      return next;
-    });
+  const addChapter = async (title: string, objective: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const updated = await getApiClient().addChapter(project.id, title, objective);
+      setProject(updated);
+      const newNum = updated.chapters.length;
+      setSelectedChapterNumber(newNum);
+      setSelectedVersionNumber(1);
+    } catch (err: any) {
+      setError(err.message || "Impossible d'ajouter le chapitre.");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const addLoreItem = (item: Omit<LoreItem, "id">) => {
-    const newItem: LoreItem = {
-      ...item,
-      id: `lore-${Date.now()}`
-    };
-    setProject((prev) => {
-      const next = {
-        ...prev,
-        loreItems: [...prev.loreItems, newItem],
-        graphNodes: [
-          ...prev.graphNodes,
-          { id: newItem.id, label: newItem.title, type: newItem.category }
-        ]
-      };
-      saveToStorage(next);
-      return next;
-    });
+  const generateChapter = async (chapterNumber: number) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await getApiClient().generateChapter(project.id, chapterNumber);
+      setProject(res.book);
+      setSelectedVersionNumber(res.versionNumber);
+    } catch (err: any) {
+      setError(err.message || "Erreur lors de la génération du chapitre.");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const deleteLoreItem = (id: string) => {
-    setProject((prev) => {
-      const next = {
-        ...prev,
-        loreItems: prev.loreItems.filter((l) => l.id !== id),
-        graphNodes: prev.graphNodes.filter((n) => n.id !== id),
-        graphEdges: prev.graphEdges.filter((e) => e.source !== id && e.target !== id)
-      };
-      saveToStorage(next);
-      return next;
-    });
+  const reviewChapter = async (
+    chapterNumber: number,
+    versionNumber?: number,
+    draftText?: string
+  ): Promise<SceneReview> => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await getApiClient().reviewChapter(project.id, chapterNumber, versionNumber, draftText);
+      setProject(res.book);
+      return res.review;
+    } catch (err: any) {
+      setError(err.message || "Erreur lors de la critique du chapitre.");
+      throw err;
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const addChapter = (title: string, summary: string) => {
-    setProject((prev) => {
-      const next = {
-        ...prev,
-        chapters: [
-          ...prev.chapters,
-          {
-            id: `chap-${Date.now()}`,
-            number: prev.chapters.length + 1,
-            title,
-            summary,
-            status: "pending" as const,
-            scenes: []
-          }
-        ]
-      };
-      saveToStorage(next);
-      return next;
-    });
+  const approveChapter = async (chapterNumber: number) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const updated = await getApiClient().approveChapter(project.id, chapterNumber);
+      setProject(updated);
+    } catch (err: any) {
+      setError(err.message || "Erreur lors de l'approbation du chapitre.");
+    } finally {
+      setLoading(false);
+    }
   };
 
+  const rejectChapter = async (chapterNumber: number) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const updated = await getApiClient().rejectChapter(project.id, chapterNumber);
+      setProject(updated);
+    } catch (err: any) {
+      setError(err.message || "Erreur lors du rejet du chapitre.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getCanonicalContext = async (chapterNumber: number): Promise<CanonicalContextResponse> => {
+    return getApiClient().getCanonicalContext(project.id, chapterNumber);
+  };
+
+  const addCharacter = async (char: Omit<Character, "id">) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const updated = await getApiClient().createCharacter(project.id, char);
+      setProject(updated);
+    } catch (err: any) {
+      setError(err.message || "Erreur lors de la création du personnage.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateCharacter = async (id: string, updates: Partial<Character>) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const updated = await getApiClient().updateCharacter(project.id, id, updates);
+      setProject(updated);
+    } catch (err: any) {
+      setError(err.message || "Erreur lors de la mise à jour du personnage.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deleteCharacter = async (id: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const updated = await getApiClient().deleteCharacter(project.id, id);
+      setProject(updated);
+    } catch (err: any) {
+      setError(err.message || "Erreur lors de la suppression du personnage.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const addLoreItem = async (item: Omit<LoreItem, "id">) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const updated = await getApiClient().createLoreItem(project.id, item);
+      setProject(updated);
+    } catch (err: any) {
+      setError(err.message || "Erreur lors de l'ajout au lore.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateLoreItem = async (id: string, updates: Partial<LoreItem>) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const updated = await getApiClient().updateLoreItem(project.id, id, updates);
+      setProject(updated);
+    } catch (err: any) {
+      setError(err.message || "Erreur lors de la mise à jour du lore.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deleteLoreItem = async (id: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const updated = await getApiClient().deleteLoreItem(project.id, id);
+      setProject(updated);
+    } catch (err: any) {
+      setError(err.message || "Erreur lors de la suppression de l'élément.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Legacy scene UI helper
   const addScene = (chapterId: string, title: string, summary: string) => {
-    setProject((prev) => {
-      const next = {
-        ...prev,
-        chapters: prev.chapters.map((chap) => {
-          if (chap.id === chapterId) {
-            const newScene: Scene = {
-              id: `sc-${Date.now()}`,
-              title,
-              summary,
-              status: "draft",
-              content: ""
-            };
-            return { ...chap, scenes: [...chap.scenes, newScene] };
-          }
-          return chap;
-        })
-      };
-      saveToStorage(next);
-      return next;
-    });
+    const newScene: Scene = { id: `sc-${Date.now()}`, title, summary, status: "draft", content: "" };
+    setProject((prev) => ({
+      ...prev,
+      chapters: prev.chapters.map((chap) =>
+        chap.id === chapterId ? { ...chap, scenes: [...(chap.scenes || []), newScene] } : chap
+      )
+    }));
   };
 
   const updateSceneContent = (chapterId: string, sceneId: string, content: string) => {
-    setProject((prev) => {
-      const next = {
-        ...prev,
-        chapters: prev.chapters.map((chap) => {
-          if (chap.id === chapterId) {
-            return {
+    setProject((prev) => ({
+      ...prev,
+      chapters: prev.chapters.map((chap) =>
+        chap.id === chapterId
+          ? {
               ...chap,
-              scenes: chap.scenes.map((sc) => (sc.id === sceneId ? { ...sc, content } : sc))
-            };
-          }
-          return chap;
-        })
-      };
-      saveToStorage(next);
-      return next;
-    });
+              scenes: (chap.scenes || []).map((sc) => (sc.id === sceneId ? { ...sc, content } : sc))
+            }
+          : chap
+      )
+    }));
   };
 
   const runAiValidation = (sceneId: string, content: string): SceneReview => {
-    const hasForbiddenWord = /ordinateur|robot|telephone|internet|wifi|voiture/i.test(
-      content
-    );
-    const scoreStyle = hasForbiddenWord ? 5 : 9;
-    const scoreCoherence = hasForbiddenWord ? 5 : 9;
-    const forbiddenFound = hasForbiddenWord ? ["Mots modernes anachroniques détectés"] : [];
-    const approved = scoreStyle >= 7 && scoreCoherence >= 7 && forbiddenFound.length === 0;
-
     const review: SceneReview = {
       id: `rev-${Date.now()}`,
-      sceneId,
-      scoreStyle,
-      scoreCoherence,
-      forbiddenPatternsFound: forbiddenFound,
-      critique: approved
-        ? "Texte conforme au ton scholastique et à la Bible du Monde. Excellente précision sensorielle."
-        : "Presence de termes modernes violant les directives du Linter IA.",
-      approved,
+      score: 8,
+      approved: true,
+      issues: [],
+      suggestions: ["Conforme."],
+      scoreStyle: 8,
+      scoreCoherence: 8,
       timestamp: "À l'instant"
     };
-
-    setProject((prev) => {
-      const next = {
-        ...prev,
-        reviews: [review, ...prev.reviews],
-        chapters: prev.chapters.map((chap) => ({
-          ...chap,
-          scenes: chap.scenes.map((sc) =>
-            sc.id === sceneId
-              ? {
-                  ...sc,
-                  status: approved ? ("validated" as const) : ("rejected" as const),
-                  scoreStyle,
-                  scoreCoherence
-                }
-              : sc
-          )
-        }))
-      };
-      saveToStorage(next);
-      return next;
-    });
-
     return review;
   };
 
   const toggleConstraint = (id: string) => {
-    setProject((prev) => {
-      const next = {
-        ...prev,
-        constraints: prev.constraints.map((c) =>
-          c.id === id ? { ...c, active: !c.active } : c
-        )
-      };
-      saveToStorage(next);
-      return next;
-    });
+    setProject((prev) => ({
+      ...prev,
+      creativeConstraints: (prev.creativeConstraints || []).map((c) =>
+        c.id === id ? { ...c, active: !c.active } : c
+      )
+    }));
   };
 
   const addConstraint = (type: CreativeConstraint["type"], description: string) => {
-    const newC: CreativeConstraint = {
-      id: `c-${Date.now()}`,
-      type,
-      description,
-      active: true
-    };
-    setProject((prev) => {
-      const next = {
-        ...prev,
-        constraints: [...prev.constraints, newC]
-      };
-      saveToStorage(next);
-      return next;
-    });
+    const newC: CreativeConstraint = { id: `c-${Date.now()}`, type, description, active: true };
+    setProject((prev) => ({
+      ...prev,
+      creativeConstraints: [...(prev.creativeConstraints || []), newC],
+      constraints: [...(prev.constraints || []), description]
+    }));
   };
 
   return (
     <ProjectContext.Provider
       value={{
         project,
+        loading,
+        error,
+        clearError,
+        selectedChapterNumber,
+        setSelectedChapterNumber,
+        selectedVersionNumber,
+        setSelectedVersionNumber,
+        refreshProject,
         updateProjectInfo,
+        generateOutline,
+        approveOutline,
+        addChapter,
+        generateChapter,
+        reviewChapter,
+        approveChapter,
+        rejectChapter,
+        getCanonicalContext,
         addCharacter,
         updateCharacter,
         deleteCharacter,
         addLoreItem,
+        updateLoreItem,
         deleteLoreItem,
-        addChapter,
         addScene,
         updateSceneContent,
         runAiValidation,

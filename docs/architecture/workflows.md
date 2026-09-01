@@ -19,8 +19,6 @@ The application owns state transitions and approval rules. The LLM proposes cont
 
 A chapter generation run is scoped to one chapter. The workflow receives the persisted book state and chapter number, builds the relevant canonical context, and coordinates the generation/review loop.
 
-Chapters are generated sequentially: chapter N cannot be generated until chapter N-1 is approved. Chapter 1 has no previous-chapter prerequisite. This rule is enforced by the `GenerateChapter` use case, before the LLM workflow is invoked.
-
 Conceptually:
 
 ```text
@@ -55,8 +53,6 @@ The exact orchestration implementation is an implementation detail. LangGraph ma
 ## Author approval gates
 
 The outline must be explicitly approved before a chapter can be added or generated. This is a deterministic application rule and must remain outside the LLM.
-
-A chapter also requires its immediate predecessor to be approved before generation. This ensures the canonical summary used for continuity comes from an accepted chapter.
 
 ## Retry behavior
 

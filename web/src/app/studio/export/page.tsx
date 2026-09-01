@@ -24,8 +24,11 @@ export default function ExportPage() {
   const [includeSummaries, setIncludeSummaries] = useState(false);
   const [downloading, setDownloading] = useState(false);
 
-  const totalValidatedScenes = project.chapters.reduce(
-    (acc, chap) => acc + chap.scenes.filter((s) => s.status === "validated").length,
+  const chaptersList = project.chapters || [];
+  const loreList = project.loreItems || [];
+
+  const totalValidatedScenes = chaptersList.reduce(
+    (acc, chap) => acc + (chap.scenes || []).filter((s) => s.status === "validated").length,
     0
   );
 
@@ -34,15 +37,15 @@ export default function ExportPage() {
 
     setTimeout(() => {
       // Create downloadable manuscript blob
-      let compiledText = `# ${project.title}\n## ${project.subtitle}\n\n`;
-      compiledText += `**Genre:** ${project.genre}\n`;
+      let compiledText = `# ${project.title}\n## ${project.subtitle || ""}\n\n`;
+      compiledText += `**Genre:** ${project.genre || ""}\n`;
       compiledText += `**Thème:** ${project.theme}\n\n`;
       compiledText += `---\n\n`;
 
-      project.chapters.forEach((chap) => {
+      chaptersList.forEach((chap) => {
         compiledText += `# Chapitre ${chap.number}: ${chap.title}\n\n`;
-        compiledText += `> *${chap.summary}*\n\n`;
-        chap.scenes.forEach((sc) => {
+        compiledText += `> *${chap.summary || ""}*\n\n`;
+        (chap.scenes || []).forEach((sc) => {
           compiledText += `### ${sc.title}\n\n`;
           compiledText += `${sc.content || "(Brouillon non rédigé)"}\n\n`;
         });
@@ -50,7 +53,7 @@ export default function ExportPage() {
 
       if (includeLoreAppendix) {
         compiledText += `\n---\n# Annexe: Bible du Monde & Lore\n\n`;
-        project.loreItems.forEach((item) => {
+        loreList.forEach((item) => {
           compiledText += `## ${item.title} (${item.category})\n${item.description}\n\n`;
         });
       }
@@ -106,7 +109,7 @@ export default function ExportPage() {
           <div className="p-3 bg-[#f8f5f0] rounded border border-[#c6c6cd]/20">
             <div className="text-[10px] font-mono text-[#76777d] uppercase">Nombre de Mots</div>
             <div className="text-xl font-bold text-[#0b1c30] font-mono mt-1">
-              {project.currentWordCount.toLocaleString()} / {project.wordCountTarget.toLocaleString()}
+              {(project.currentWordCount || 0).toLocaleString()} / {(project.wordCountTarget || 80000).toLocaleString()}
             </div>
           </div>
           <div className="p-3 bg-[#f8f5f0] rounded border border-[#c6c6cd]/20">
@@ -118,7 +121,7 @@ export default function ExportPage() {
           <div className="p-3 bg-[#f8f5f0] rounded border border-[#c6c6cd]/20">
             <div className="text-[10px] font-mono text-[#76777d] uppercase">Fiches Lore Incluses</div>
             <div className="text-xl font-bold text-[#0b1c30] font-mono mt-1">
-              {project.loreItems.length} entrées
+              {loreList.length} entrées
             </div>
           </div>
         </div>
@@ -215,22 +218,22 @@ export default function ExportPage() {
                   Table des Matières
                 </span>
                 <ol className="list-decimal list-inside space-y-1 text-[#45464d]">
-                  {project.chapters.map((chap) => (
+                  {chaptersList.map((chap) => (
                     <li key={chap.id} className="truncate">
-                      Chapitre {chap.number}: {chap.title} ({chap.scenes.length} scènes)
+                      Chapitre {chap.number}: {chap.title} ({(chap.scenes || []).length} scènes)
                     </li>
                   ))}
                 </ol>
               </div>
 
               {/* First chapter snippet */}
-              {project.chapters[0] && (
+              {chaptersList[0] && (
                 <div className="space-y-3">
                   <h2 className="font-playfair text-xl font-bold text-[#0b1c30]">
-                    Chapitre {project.chapters[0].number}: {project.chapters[0].title}
+                    Chapitre {chaptersList[0].number}: {chaptersList[0].title}
                   </h2>
                   <p className="text-sm leading-relaxed font-merriweather text-[#0f172a]">
-                    {project.chapters[0].scenes[0]?.content || "Extrait de la première scène..."}
+                    {(chaptersList[0].scenes || [])[0]?.content || (chaptersList[0].versions || [])[0]?.content || "Extrait de la première scène..."}
                   </p>
                 </div>
               )}

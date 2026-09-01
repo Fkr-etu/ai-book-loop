@@ -53,20 +53,6 @@ pytest
 
 A Gemini API key is only required when using the real Gemini provider.
 
-## CLI workflow
-
-A typical first chapter flow is:
-
-```bash
-python -m book_loop.cli.main create --title "My Book" --theme "Fantasy" --idea "A hidden city"
-python -m book_loop.cli.main outline <book-id>
-python -m book_loop.cli.main approve-outline <book-id>
-python -m book_loop.cli.main chapter-add <book-id> --title "Beginning" --objective "Start conflict"
-python -m book_loop.cli.main chapter-generate <book-id> 1
-```
-
-`chapter-generate` generates one chapter through the application use case and reports the resulting draft, canonical summary when accepted, and review decision.
-
 ### Manuscript Studio Frontend (`web/`)
 
 Start the Next.js development server:

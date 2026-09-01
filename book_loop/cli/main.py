@@ -5,7 +5,6 @@ import argparse
 from book_loop.application.use_cases.add_chapter import AddChapter
 from book_loop.application.use_cases.approve_outline import ApproveOutline
 from book_loop.application.use_cases.create_book import CreateBook
-from book_loop.application.use_cases.generate_chapter import GenerateChapter
 from book_loop.application.use_cases.generate_outline import GenerateOutline
 from book_loop.infrastructure.config import Settings
 from book_loop.infrastructure.container import Container
@@ -32,10 +31,6 @@ def build_parser() -> argparse.ArgumentParser:
     chapter.add_argument("--title", required=True)
     chapter.add_argument("--objective", required=True)
 
-    generate = subparsers.add_parser("chapter-generate", help="Generate a chapter")
-    generate.add_argument("book_id")
-    generate.add_argument("chapter_number", type=int)
-
     return parser
 
 
@@ -61,13 +56,6 @@ def main() -> None:
     elif args.command == "chapter-add":
         book = container.add_chapter().execute(book, title=args.title, objective=args.objective)
         print(f"Chapter added: {book.chapters[-1].number}")
-    elif args.command == "chapter-generate":
-        result = container.generate_chapter().execute(book, chapter_number=args.chapter_number)
-        print(result.draft)
-        if result.summary:
-            print(f"\nCanonical summary:\n{result.summary}")
-        if result.decision:
-            print(f"\nDecision: {result.decision}")
 
 
 if __name__ == "__main__":

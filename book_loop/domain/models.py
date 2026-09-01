@@ -6,7 +6,10 @@ from pydantic import BaseModel, Field
 
 class ChapterStatus(StrEnum):
     DRAFT = "draft"
+    PROPOSED = "proposed"
     APPROVED = "approved"
+    REJECTED = "rejected"
+    CANONICAL = "canonical"
     NEEDS_REVIEW = "needs_review"
 
 

@@ -8,17 +8,17 @@ import {
   Plus,
   CheckCircle2,
   Clock,
-  ChevronDown,
-  ChevronRight,
   Sparkles,
   FileText,
-  Edit2,
-  Trash2,
+  AlertTriangle,
+  Lock,
+  Unlock,
   Check
 } from "lucide-react";
 
 export default function OutlinePage() {
-  const { project, addChapter, addScene } = useProjectStore();
+  const store = useProjectStore();
+  const project = store.project;
 
   const [newChapterTitle, setNewChapterTitle] = useState("");
   const [newChapterSummary, setNewChapterSummary] = useState("");
@@ -31,7 +31,7 @@ export default function OutlinePage() {
   const handleCreateChapter = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newChapterTitle.trim()) return;
-    addChapter(newChapterTitle, newChapterSummary);
+    store.addChapter(newChapterTitle, newChapterSummary);
     setNewChapterTitle("");
     setNewChapterSummary("");
     setIsAddingChapter(false);
@@ -39,11 +39,15 @@ export default function OutlinePage() {
 
   const handleCreateScene = (chapterId: string) => {
     if (!newSceneTitle.trim()) return;
-    addScene(chapterId, newSceneTitle, newSceneSummary);
+    if (store.addScene) {
+      store.addScene(chapterId, newSceneTitle, newSceneSummary);
+    }
     setNewSceneTitle("");
     setNewSceneSummary("");
     setActiveChapterForScene(null);
   };
+
+  const chaptersList = project.chapters || [];
 
   return (
     <StudioLayout>
@@ -58,21 +62,101 @@ export default function OutlinePage() {
               Éditeur de Plan Global
             </h1>
             <p className="text-xs text-[#45464d] mt-1">
-              Organisez les chapitres et les scènes de votre livre. Chaque chapitre doit être approuvé avant la génération IA.
+              L'IA propose le plan. Vous devez l'approuver avant de commencer la génération des chapitres.
             </p>
           </div>
 
-          <button
-            onClick={() => setIsAddingChapter(!isAddingChapter)}
-            className="px-4 py-2 bg-[#0b1c30] text-[#ffddb8] text-xs font-bold rounded hover:bg-[#131b2e] transition-colors flex items-center gap-2 shadow-xs shrink-0"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Nouveau Chapitre</span>
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => store.generateOutline()}
+              disabled={store.loading}
+              className="px-3.5 py-2 bg-[#eff4ff] text-[#0b1c30] text-xs font-semibold rounded border border-[#c6c6cd]/40 hover:bg-[#e5eeff] flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-[#b87500]" />
+              <span>{store.loading ? "Génération..." : "Générer le plan IA"}</span>
+            </button>
+
+            {!project.outlineApproved ? (
+              <button
+                onClick={() => store.approveOutline()}
+                disabled={store.loading || !project.outline}
+                data-testid="approve-outline-btn"
+                className="px-4 py-2 bg-[#b87500] text-white text-xs font-bold rounded hover:bg-[#9a6200] transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer disabled:opacity-50"
+              >
+                <Check className="w-4 h-4" />
+                <span>Approuver le plan</span>
+              </button>
+            ) : (
+              <div className="px-3.5 py-2 bg-[#d3e4fe] text-[#0b1c30] text-xs font-bold rounded flex items-center gap-1.5 border border-[#0b1c30]/20">
+                <CheckCircle2 className="w-4 h-4 text-[#0b1c30]" />
+                <span>Plan Approuvé par l'Auteur</span>
+              </div>
+            )}
+
+            <button
+              onClick={() => setIsAddingChapter(!isAddingChapter)}
+              disabled={!project.outlineApproved}
+              title={
+                !project.outlineApproved
+                  ? "L'outline doit être approuvé avant d'ajouter des chapitres"
+                  : ""
+              }
+              data-testid="add-chapter-btn"
+              className="px-4 py-2 bg-[#0b1c30] text-[#ffddb8] text-xs font-bold rounded hover:bg-[#131b2e] transition-colors flex items-center gap-2 shadow-xs cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Nouveau Chapitre</span>
+            </button>
+          </div>
         </div>
 
+        {/* Outline Approval Gate Warning Banner */}
+        {!project.outlineApproved ? (
+          <div
+            data-testid="outline-gate-banner"
+            className="p-4 bg-[#fff8f0] border-l-4 border-[#b87500] border border-[#c6c6cd]/30 rounded-r-lg flex items-start gap-3"
+          >
+            <Lock className="w-5 h-5 text-[#b87500] shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <h3 className="text-xs font-bold text-[#2a1700]">
+                Outline proposé — Approbation requise
+              </h3>
+              <p className="text-xs text-[#5f5e5b]">
+                L'IA propose le plan ci-dessous. Vous devez l'approuver avant de commencer la génération des chapitres. La création et la génération de chapitres restent verrouillées jusqu'à votre approbation explicite.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="p-4 bg-[#eff4ff] border-l-4 border-[#0b1c30] border border-[#c6c6cd]/30 rounded-r-lg flex items-start gap-3">
+            <Unlock className="w-5 h-5 text-[#0b1c30] shrink-0 mt-0.5" />
+            <div>
+              <h3 className="text-xs font-bold text-[#0b1c30]">
+                Plan Canonique Approuvé
+              </h3>
+              <p className="text-xs text-[#45464d]">
+                Le plan a été validé par l'auteur. Les chapitres et scènes peuvent être librement ajoutés et générés par l'IA.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Outline Raw Text Preview */}
+        {project.outline && (
+          <div className="p-5 bg-white rounded-xl border border-[#c6c6cd]/40 shadow-xs space-y-2">
+            <div className="text-xs font-mono font-bold text-[#0b1c30] uppercase flex items-center justify-between">
+              <span>Aperçu du Plan Global Proposé</span>
+              <span className="text-[10px] text-[#b87500]">
+                {project.outlineApproved ? "Statut: Approuvé" : "Statut: En Attente d'Approbation"}
+              </span>
+            </div>
+            <pre className="text-xs font-merriweather text-[#0f172a] whitespace-pre-wrap leading-relaxed bg-[#f8f5f0] p-4 rounded border border-[#c6c6cd]/20">
+              {project.outline}
+            </pre>
+          </div>
+        )}
+
         {/* Add Chapter Form */}
-        {isAddingChapter && (
+        {isAddingChapter && project.outlineApproved && (
           <form
             onSubmit={handleCreateChapter}
             className="p-5 bg-white rounded-xl border border-[#b87500]/40 shadow-sm space-y-4 animate-fadeIn"
@@ -91,7 +175,7 @@ export default function OutlinePage() {
               />
               <input
                 type="text"
-                placeholder="Résumé ou enjeu dramatique du chapitre..."
+                placeholder="Objectif dramatique du chapitre..."
                 value={newChapterSummary}
                 onChange={(e) => setNewChapterSummary(e.target.value)}
                 className="px-3 py-2 text-xs border border-[#c6c6cd] rounded bg-[#f8f9ff]"
@@ -117,7 +201,7 @@ export default function OutlinePage() {
 
         {/* CHAPTERS LIST */}
         <div className="space-y-6">
-          {project.chapters.map((chapter) => (
+          {chaptersList.map((chapter) => (
             <div
               key={chapter.id}
               className="bg-white rounded-xl border border-[#c6c6cd]/40 shadow-xs overflow-hidden"
@@ -140,23 +224,33 @@ export default function OutlinePage() {
                             : "bg-[#ffddb8] text-[#2a1700]"
                         }`}
                       >
-                        {chapter.status === "approved" ? "Approuvé pour Génération" : "En cours de structure"}
+                        {chapter.status === "approved" ? "Approuvé pour Génération" : chapter.status}
                       </span>
                     </div>
                     <p className="text-xs text-[#45464d] mt-1 font-merriweather">
-                      {chapter.summary}
+                      Objectif: {chapter.objective || chapter.summary || "Non défini"}
                     </p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
                   <button
+                    onClick={() => store.generateChapter(chapter.number)}
+                    disabled={!project.outlineApproved || store.loading}
+                    className="px-3 py-1.5 text-xs font-semibold bg-[#0b1c30] text-white rounded hover:bg-[#131b2e] flex items-center gap-1 disabled:opacity-40"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-[#ffddb8]" />
+                    <span>Générer V{(chapter.currentVersion || 0) + 1}</span>
+                  </button>
+
+                  <button
                     onClick={() =>
                       setActiveChapterForScene(
                         activeChapterForScene === chapter.id ? null : chapter.id
                       )
                     }
-                    className="px-3 py-1.5 text-xs font-semibold bg-[#eff4ff] text-[#0b1c30] rounded border border-[#c6c6cd]/30 hover:bg-[#e5eeff] flex items-center gap-1"
+                    disabled={!project.outlineApproved}
+                    className="px-3 py-1.5 text-xs font-semibold bg-[#eff4ff] text-[#0b1c30] rounded border border-[#c6c6cd]/30 hover:bg-[#e5eeff] flex items-center gap-1 disabled:opacity-40"
                   >
                     <Plus className="w-3.5 h-3.5" />
                     <span>Ajouter une Scène</span>
@@ -165,7 +259,7 @@ export default function OutlinePage() {
               </div>
 
               {/* Form to add scene under this chapter */}
-              {activeChapterForScene === chapter.id && (
+              {activeChapterForScene === chapter.id && project.outlineApproved && (
                 <div className="p-4 bg-[#f8f5f0] border-b border-[#c6c6cd]/30 space-y-3">
                   <div className="text-xs font-mono font-bold text-[#0b1c30]">
                     Nouvelle Scène pour le Chapitre {chapter.number}
@@ -207,12 +301,14 @@ export default function OutlinePage() {
 
               {/* Scenes Cards Inside Chapter */}
               <div className="p-4 divide-y divide-[#c6c6cd]/20">
-                {chapter.scenes.length === 0 ? (
+                {(chapter.scenes || []).length === 0 ? (
                   <div className="text-center py-6 text-xs text-[#76777d]">
-                    Aucune scène créée pour ce chapitre. Cliquez sur "Ajouter une Scène".
+                    {(chapter.versions || []).length > 0
+                      ? `${(chapter.versions || []).length} version(s) générée(s) par l'IA pour ce chapitre.`
+                      : 'Aucune scène créée pour ce chapitre. Cliquez sur "Ajouter une Scène".'}
                   </div>
                 ) : (
-                  chapter.scenes.map((scene, idx) => (
+                  (chapter.scenes || []).map((scene, idx) => (
                     <div
                       key={scene.id}
                       className="py-3 flex items-start justify-between gap-4 first:pt-0 last:pb-0"

@@ -20,14 +20,14 @@ export default function SetupPage() {
 
   const [step, setStep] = useState(1);
 
-  const [title, setTitle] = useState(project.title);
-  const [subtitle, setSubtitle] = useState(project.subtitle);
-  const [genre, setGenre] = useState(project.genre);
-  const [targetAudience, setTargetAudience] = useState(project.targetAudience);
-  const [theme, setTheme] = useState(project.theme);
-  const [loreSummary, setLoreSummary] = useState(project.loreSummary);
-  const [styleTone, setStyleTone] = useState(project.styleTone);
-  const [wordCountTarget, setWordCountTarget] = useState(project.wordCountTarget);
+  const [title, setTitle] = useState(project.title || "");
+  const [subtitle, setSubtitle] = useState(project.subtitle || "");
+  const [genre, setGenre] = useState(project.genre || "");
+  const [targetAudience, setTargetAudience] = useState(project.targetAudience || "");
+  const [theme, setTheme] = useState(project.theme || "");
+  const [loreSummary, setLoreSummary] = useState(project.loreSummary || "");
+  const [styleTone, setStyleTone] = useState(project.styleTone || "");
+  const [wordCountTarget, setWordCountTarget] = useState(project.wordCountTarget || 80000);
 
   const [newLoreTitle, setNewLoreTitle] = useState("");
   const [newLoreDesc, setNewLoreDesc] = useState("");
@@ -244,10 +244,10 @@ export default function SetupPage() {
               {/* Added Lore Preview */}
               <div>
                 <h3 className="text-xs font-mono font-bold text-[#76777d] uppercase tracking-wider mb-2">
-                  Éléments Enregistrés ({project.loreItems.length})
+                  Éléments Enregistrés ({(project.loreItems || []).length})
                 </h3>
                 <div className="space-y-2">
-                  {project.loreItems.map((item) => (
+                  {(project.loreItems || []).map((item) => (
                     <div
                       key={item.id}
                       className="p-3 bg-white rounded border border-[#c6c6cd]/40 flex items-start justify-between"
@@ -306,12 +306,14 @@ export default function SetupPage() {
                   Contraintes Automatiques du Linter IA Actives
                 </div>
                 <div className="space-y-2">
-                  {project.constraints.map((c) => (
+                  {(project.constraints || []).map((c, idx) => (
                     <div
-                      key={c.id}
+                      key={typeof c === "string" ? `c-${idx}` : (c as any).id || `c-${idx}`}
                       className="flex items-center justify-between text-xs bg-white p-2.5 rounded border border-[#c6c6cd]/30"
                     >
-                      <span className="text-[#0b1c30]">{c.description}</span>
+                      <span className="text-[#0b1c30]">
+                        {typeof c === "string" ? c : (c as any).description}
+                      </span>
                       <span className="text-[10px] font-mono text-[#b87500] font-bold">
                         VERROUILLÉ
                       </span>
