@@ -37,7 +37,6 @@ test.describe("Manuscript Studio - Complete Page Coverage Suite", () => {
 
   test("4. Atelier de Rédaction / Main Studio Desk (/studio)", async ({ page }) => {
     await page.goto("/studio");
-    await expect(page.getByText("Atelier de Conception")).toBeVisible();
     await expect(page.getByRole("button", { name: /Critique & Validation IA/ })).toBeVisible();
     await expect(page.getByText("Manuscript Studio — Parchment Canvas")).toBeVisible();
 
@@ -118,13 +117,29 @@ test.describe("Manuscript Studio - Complete Page Coverage Suite", () => {
     await page.screenshot({ path: "tests/screenshots/10_validation_loop.png" });
   });
 
-  test("11. Pricing Page (/pricing)", async ({ page }) => {
+  test("11. Export Studio (/studio/export)", async ({ page }) => {
+    await page.goto("/studio/export");
+    await expect(page.getByRole("heading", { name: "Studio d'Exportation" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Exporter le Manuscrit" })).toBeVisible();
+
+    await page.screenshot({ path: "tests/screenshots/11_export.png" });
+  });
+
+  test("12. Dashboard & Book Hub (/dashboard)", async ({ page }) => {
+    await page.goto("/dashboard");
+    await expect(page.getByRole("heading", { name: "Bibliothèque & Tableau de Bord" })).toBeVisible();
+    await expect(page.getByText("Les Ombres d'Aethelgard")).toBeVisible();
+
+    await page.screenshot({ path: "tests/screenshots/12_dashboard.png" });
+  });
+
+  test("13. Pricing Page (/pricing)", async ({ page }) => {
     await page.goto("/pricing");
     await expect(page.getByRole("heading", { name: "Investissez dans la clarté de vos récits" })).toBeVisible();
     await expect(page.getByText("Auteur Indépendant")).toBeVisible();
     await expect(page.getByText("Architecte Littéraire")).toBeVisible();
     await expect(page.getByText("Maison d'Édition")).toBeVisible();
 
-    await page.screenshot({ path: "tests/screenshots/11_pricing.png" });
+    await page.screenshot({ path: "tests/screenshots/13_pricing.png" });
   });
 });

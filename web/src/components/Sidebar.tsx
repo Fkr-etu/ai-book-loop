@@ -10,7 +10,9 @@ import {
   GitFork,
   Sliders,
   CheckCircle2,
-  Bookmark
+  Bookmark,
+  Download,
+  LayoutDashboard
 } from "lucide-react";
 import { useProjectStore } from "@/lib/useProjectStore";
 
@@ -62,6 +64,12 @@ export function Sidebar() {
       href: "/studio/validation-loop",
       icon: CheckCircle2,
       description: "Linter & Feedback IA"
+    },
+    {
+      name: "Studio d'Exportation",
+      href: "/studio/export",
+      icon: Download,
+      description: "Compilation & Formats"
     }
   ];
 
@@ -90,8 +98,11 @@ export function Sidebar() {
 
         {/* Navigation Section */}
         <div>
-          <div className="text-[10px] font-mono uppercase tracking-wider text-[#76777d] px-2 mb-2">
-            Espaces de Travail
+          <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-wider text-[#76777d] px-2 mb-2">
+            <span>Espaces de Travail</span>
+            <Link href="/dashboard" className="text-[#0b1c30] hover:underline flex items-center gap-0.5">
+              <LayoutDashboard className="w-3 h-3" /> Mes livres
+            </Link>
           </div>
           <nav className="space-y-1">
             {navItems.map((item) => {

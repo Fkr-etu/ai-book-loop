@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpen, Sparkles, User, CreditCard, Feather } from "lucide-react";
+import { BookOpen, Sparkles, User, CreditCard, Feather, LayoutDashboard, Download } from "lucide-react";
 
 export function Navbar() {
   const pathname = usePathname();
@@ -10,7 +10,7 @@ export function Navbar() {
   return (
     <header className="sticky top-0 z-50 bg-[#f8f9ff]/90 backdrop-blur-md border-b border-[#c6c6cd]/30 px-6 py-3 flex items-center justify-between">
       {/* Brand */}
-      <Link href="/studio" className="flex items-center gap-3 group">
+      <Link href="/dashboard" className="flex items-center gap-3 group">
         <div className="w-9 h-9 rounded bg-[#0b1c30] text-[#f8f5f0] flex items-center justify-center shadow-sm group-hover:bg-[#131b2e] transition-colors">
           <Feather className="w-5 h-5 text-[#ffddb8]" />
         </div>
@@ -27,26 +27,37 @@ export function Navbar() {
       {/* Main Navigation Tabs */}
       <nav className="flex items-center gap-1 bg-[#eff4ff] p-1 rounded-md border border-[#c6c6cd]/20">
         <Link
+          href="/dashboard"
+          className={`px-3 py-1.5 rounded text-xs font-semibold flex items-center gap-2 transition-all ${
+            pathname === "/dashboard"
+              ? "bg-[#0b1c30] text-[#ffffff] shadow-sm"
+              : "text-[#45464d] hover:text-[#0b1c30] hover:bg-[#e5eeff]"
+          }`}
+        >
+          <LayoutDashboard className="w-3.5 h-3.5" />
+          Mes Livres
+        </Link>
+        <Link
           href="/studio"
           className={`px-3 py-1.5 rounded text-xs font-semibold flex items-center gap-2 transition-all ${
-            pathname === "/studio"
+            pathname.startsWith("/studio") && pathname !== "/studio/export"
               ? "bg-[#0b1c30] text-[#ffffff] shadow-sm"
               : "text-[#45464d] hover:text-[#0b1c30] hover:bg-[#e5eeff]"
           }`}
         >
           <BookOpen className="w-3.5 h-3.5" />
-          Atelier de Conception
+          Atelier
         </Link>
         <Link
-          href="/setup"
+          href="/studio/export"
           className={`px-3 py-1.5 rounded text-xs font-semibold flex items-center gap-2 transition-all ${
-            pathname === "/setup"
+            pathname === "/studio/export"
               ? "bg-[#0b1c30] text-[#ffffff] shadow-sm"
               : "text-[#45464d] hover:text-[#0b1c30] hover:bg-[#e5eeff]"
           }`}
         >
-          <Sparkles className="w-3.5 h-3.5 text-[#b87500]" />
-          Nouveau Projet
+          <Download className="w-3.5 h-3.5 text-[#b87500]" />
+          Exportation
         </Link>
         <Link
           href="/pricing"
