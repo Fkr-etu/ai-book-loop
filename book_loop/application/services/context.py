@@ -1,25 +1,57 @@
 from __future__ import annotations
 
-from book_loop.domain.models import BookState
+from dataclasses import dataclass
+
+from book_loop.domain.models import BookState, Chapter
+
+
+@dataclass(frozen=True)
+class CanonicalContext:
+    """Focused, structured context for generating one chapter."""
+
+    author_idea: str
+    theme: str
+    lore: str
+    outline: str
+    constraints: tuple[str, ...]
+    previous_summaries: tuple[str, ...]
+    chapter_title: str
+    chapter_objective: str
+
+    def render(self) -> str:
+        sections = (
+            ("AUTHOR IDEA", self.author_idea),
+            ("THEME", self.theme),
+            ("LORE", self.lore),
+            ("GLOBAL OUTLINE", self.outline),
+            ("CONSTRAINTS", "\n".join(f"- {item}" for item in self.constraints)),
+            ("PREVIOUS CHAPTER SUMMARIES", "\n".join(self.previous_summaries)),
+            ("CURRENT CHAPTER", self.chapter_title),
+            ("CURRENT CHAPTER OBJECTIVE", self.chapter_objective),
+        )
+        return "\n\n".join(f"{name}:\n{value}" for name, value in sections if value)
 
 
 class ContextBuilder:
-    """Build bounded prompt context from canonical domain state."""
+    """Build canonical chapter context without invoking an LLM."""
 
-    def for_chapter(self, book: BookState, chapter_number: int) -> str:
+    def for_chapter(self, book: BookState, chapter_number: int) -> CanonicalContext:
         chapter = next(c for c in book.chapters if c.number == chapter_number)
-        summaries = "\n".join(
-            f"Chapter {c.number} ({c.title}): {c.summary}"
-            for c in book.chapters
-            if c.number < chapter_number and c.summary
+        return CanonicalContext(
+            author_idea=book.author_idea,
+            theme=book.theme,
+            lore=book.lore,
+            outline=book.outline or "",
+            constraints=tuple(book.constraints),
+            previous_summaries=tuple(
+                self._summary(c)
+                for c in book.chapters
+                if c.number < chapter_number and c.summary
+            ),
+            chapter_title=chapter.title,
+            chapter_objective=chapter.objective,
         )
-        constraints = "\n".join(f"- {item}" for item in book.constraints)
-        return "\n\n".join([
-            f"AUTHOR IDEA:\n{book.author_idea}",
-            f"THEME:\n{book.theme}",
-            f"LORE:\n{book.lore}",
-            f"GLOBAL OUTLINE:\n{book.outline or ''}",
-            f"CONSTRAINTS:\n{constraints}",
-            f"PREVIOUS CHAPTER SUMMARIES:\n{summaries}",
-            f"CURRENT CHAPTER OBJECTIVE:\n{chapter.objective}",
-        ])
+
+    @staticmethod
+    def _summary(chapter: Chapter) -> str:
+        return f"Chapter {chapter.number} ({chapter.title}): {chapter.summary}"
