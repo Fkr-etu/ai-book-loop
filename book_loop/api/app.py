@@ -236,7 +236,23 @@ def create_app(container: Container | None = None) -> FastAPI:
             raise HTTPException(status_code=404, detail=f"Chapitre {chapter_number} introuvable.")
 
         formatted = context_builder.for_chapter(book, chapter_number)
-        if isinstance(formatted, dict):
+        if isinstance(formatted, str):
+            formatted_text = formatted
+        elif hasattr(formatted, "formatted"):
+            formatted_text = str(formatted.formatted)
+        elif hasattr(formatted, "author_idea"):
+            constraints = getattr(formatted, "constraints", [])
+            constraints_str = "\n".join(f"- {c}" for c in constraints) if isinstance(constraints, list) else str(constraints)
+            formatted_text = (
+                f"AUTHOR IDEA:\n{getattr(formatted, 'author_idea', '')}\n\n"
+                f"THEME:\n{getattr(formatted, 'theme', '')}\n\n"
+                f"LORE:\n{getattr(formatted, 'lore', '')}\n\n"
+                f"GLOBAL OUTLINE:\n{getattr(formatted, 'outline', '')}\n\n"
+                f"CONSTRAINTS:\n{constraints_str}\n\n"
+                f"PREVIOUS CHAPTER SUMMARIES:\n{getattr(formatted, 'previous_summaries', '')}\n\n"
+                f"CURRENT CHAPTER OBJECTIVE:\n{getattr(formatted, 'chapter_objective', '')}"
+            )
+        elif isinstance(formatted, dict):
             formatted_text = "\n\n".join(
                 f"{k.upper().replace('_', ' ')}:\n{v}" for k, v in formatted.items()
             )

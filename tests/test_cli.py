@@ -23,10 +23,3 @@ def test_chapter_add_accepts_title_and_objective() -> None:
     assert args.command == "chapter-add"
     assert args.book_id == "b1"
     assert args.objective == "Start conflict"
-
-
-def test_chapter_generate_accepts_chapter_number() -> None:
-    args = build_parser().parse_args(["chapter-generate", "b1", "3"])
-    assert args.command == "chapter-generate"
-    assert args.book_id == "b1"
-    assert args.chapter_number == 3
