@@ -1,4 +1,4 @@
-from book_loop.application.services.context import ContextBuilder
+from book_loop.application.services.context import CanonicalContext, ContextBuilder
 from book_loop.domain.models import BookState, Chapter
 
 
@@ -18,13 +18,17 @@ def test_context_contains_author_intent_and_canonical_history() -> None:
         ],
     )
 
-    context = ContextBuilder().for_chapter(book, 2).render()
+    context = ContextBuilder().for_chapter(book, 2)
 
-    assert "A hidden heir discovers the truth." in context
-    assert "The kingdom forbids magic." in context
-    assert "First person" in context
-    assert "The heir learns the truth." in context
-    assert "Face the ruler" in context
+    assert isinstance(context, CanonicalContext)
+    assert context.author_idea == "A hidden heir discovers the truth."
+    assert context.lore == "The kingdom forbids magic."
+    assert context.constraints == ("First person",)
+    assert context.previous_summaries == ("Chapter 1 (Discovery): The heir learns the truth.",)
+    assert context.chapter_objective == "Face the ruler"
+    rendered = context.render()
+    assert "A hidden heir discovers the truth." in rendered
+    assert "The heir learns the truth." in rendered
 
 
 def test_context_excludes_current_and_future_chapter_summaries() -> None:
@@ -38,8 +42,6 @@ def test_context_excludes_current_and_future_chapter_summaries() -> None:
         ],
     )
 
-    context = ContextBuilder().for_chapter(book, 2).render()
+    context = ContextBuilder().for_chapter(book, 2)
 
-    assert "Past" in context
-    assert "Current" not in context
-    assert "Future" not in context
+    assert context.previous_summaries == ("Chapter 1 (One): Past",)
