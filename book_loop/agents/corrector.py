@@ -21,7 +21,7 @@ class CorrectorAgent:
         )
         return self.llm.generate(
             system_prompt=(
-                "You are the book's editor. Correct the supplied chapter using the review feedback. "
+                "You are the book's writer and editor. Correct the supplied chapter using the editorial feedback. "
                 "Preserve valid material, author intent, continuity and canonical facts. "
                 "Return only the corrected chapter."
             ),
