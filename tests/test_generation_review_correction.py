@@ -17,11 +17,11 @@ class SequenceLLM:
         prompt = system_prompt.casefold()
         if "review" in prompt:
             return next(self.reviews)
+        if "summar" in prompt:
+            return "Final summary."
         if "editor" in prompt:
             self.correct_calls += 1
             return f"Corrected draft {self.correct_calls}."
-        if "summar" in prompt:
-            return "Final summary."
         return "Initial draft."
 
 
