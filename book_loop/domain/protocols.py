@@ -7,6 +7,7 @@ from book_loop.domain.models import (
     BookState,
     DocumentChunk,
     Evidence,
+    ExtractedAssertion,
     SceneReview,
     SourceDocument,
 )
@@ -40,7 +41,7 @@ class BookRepository(Protocol):
 
 
 class AssertionExtractor(Protocol):
-    def extract(self, *, chunk: DocumentChunk) -> list[object]: ...
+    def extract(self, *, chunk: DocumentChunk) -> list[ExtractedAssertion]: ...
 
 
 class KnowledgeRepository(Protocol):
