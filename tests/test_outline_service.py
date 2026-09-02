@@ -1,11 +1,15 @@
 from book_loop.application.use_cases.approve_outline import ApproveOutline
 from book_loop.application.use_cases.generate_outline import GenerateOutline
-from book_loop.domain.models import BookState
+from book_loop.domain.models import BookState, Outline
 
 
 class FakeOutlineAgent:
-    def generate(self, **kwargs) -> str:
-        return "Chapter 1 — The Beginning\nObjective: establish the conflict."
+    def generate(self, **kwargs) -> Outline:
+        return Outline(
+            chapters=[
+                {"number": 1, "title": "The Beginning", "objective": "Establish the conflict"}
+            ]
+        )
 
 
 class InMemoryRepository:
@@ -25,7 +29,8 @@ def test_generated_outline_requires_explicit_approval() -> None:
     book = BookState(id="b1", title="Book", theme="Fantasy", author_idea="Idea")
 
     GenerateOutline(repository, agent).execute(book)
-    assert book.outline
+    assert book.outline is not None
+    assert book.outline.chapters[0].title == "The Beginning"
     assert book.outline_approved is False
 
     ApproveOutline(repository).execute(book)

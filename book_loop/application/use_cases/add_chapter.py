@@ -8,12 +8,29 @@ class AddChapter:
     def __init__(self, repository: BookRepository) -> None:
         self.repository = repository
 
-    def execute(self, book: BookState, *, title: str, objective: str) -> BookState:
-        if not book.outline_approved:
+    def execute(self, book: BookState, *, chapter_number: int) -> BookState:
+        if not book.outline_approved or book.outline is None:
             raise ValueError("The author must approve the outline before adding chapters")
-        number = len(book.chapters) + 1
+        expected_number = len(book.chapters) + 1
+        if chapter_number != expected_number:
+            if any(chapter.number == chapter_number for chapter in book.chapters):
+                raise ValueError(f"Chapter {chapter_number} already exists")
+            raise ValueError(f"Chapter {chapter_number} cannot be added; expected chapter {expected_number}")
+
+        outline_chapter = next(
+            (chapter for chapter in book.outline.chapters if chapter.number == chapter_number),
+            None,
+        )
+        if outline_chapter is None:
+            raise ValueError(f"Unknown chapter {chapter_number} in outline")
+
         book.chapters.append(
-            Chapter(id=f"{book.id}:chapter:{number}", number=number, title=title, objective=objective)
+            Chapter(
+                id=f"{book.id}:chapter:{chapter_number}",
+                number=chapter_number,
+                title=outline_chapter.title,
+                objective=outline_chapter.objective,
+            )
         )
         self.repository.save(book)
         return book
