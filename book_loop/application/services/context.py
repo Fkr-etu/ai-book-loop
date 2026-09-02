@@ -1,14 +1,20 @@
 from __future__ import annotations
 
+from book_loop.application.services.retrieval import CanonicalRetriever
 from book_loop.domain.models import BookState
 from book_loop.domain.protocols import KnowledgeRepository
 
 
 class ContextBuilder:
-    """Build bounded prompt context from book state and active Canon."""
+    """Build bounded prompt context from book state and relevant active Canon."""
 
-    def __init__(self, knowledge_repository: KnowledgeRepository | None = None) -> None:
+    def __init__(
+        self,
+        knowledge_repository: KnowledgeRepository | None = None,
+        retriever: CanonicalRetriever | None = None,
+    ) -> None:
         self.knowledge_repository = knowledge_repository
+        self.retriever = retriever or CanonicalRetriever()
 
     def for_chapter(self, book: BookState, chapter_number: int) -> str:
         chapter = next(c for c in book.chapters if c.number == chapter_number)
@@ -19,7 +25,8 @@ class ContextBuilder:
         )
         constraints = "\n".join(f"- {item}" for item in book.constraints)
         outline = book.outline.render() if book.outline else ""
-        canonical = self._canonical_context(book.id)
+        query = " ".join((chapter.title, chapter.objective, summaries))
+        canonical = self._canonical_context(book.id, query=query)
         return "\n\n".join([
             f"AUTHOR IDEA:\n{book.author_idea}",
             f"THEME:\n{book.theme}",
@@ -31,13 +38,14 @@ class ContextBuilder:
             f"CURRENT CHAPTER OBJECTIVE:\n{chapter.objective}",
         ])
 
-    def _canonical_context(self, book_id: str) -> str:
+    def _canonical_context(self, book_id: str, *, query: str) -> str:
         if self.knowledge_repository is None:
             return "No canonical facts available."
         facts = self.knowledge_repository.list_active_canonical_facts(book_id=book_id)
-        if not facts:
-            return "No canonical facts available."
+        relevant = self.retriever.retrieve(facts, query=query)
+        if not relevant:
+            return "No relevant canonical facts available."
         return "\n".join(
             f"- {fact.statement} [canonical v{fact.version}; fact_id={fact.id}; assertion_id={fact.assertion_id}]"
-            for fact in facts
+            for fact in relevant
         )
