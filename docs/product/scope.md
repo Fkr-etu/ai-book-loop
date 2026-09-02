@@ -1,54 +1,104 @@
 # Scope
 
-This scope describes the product direction after the Narrative Content QA & Canon Engine pivot. Existing authoring features are retained only where they support canon management, continuity QA, or assisted resolution.
+This scope keeps the **agentic book loop** as the first product. The goal is to make the loop excellent and commercially useful before generalizing its underlying knowledge/continuity logic to company documentation.
 
-## MVP — commercial wedge
+## Phase 1 — Agentic book loop (first product)
 
-The MVP must prove one workflow:
+- Create a book project.
+- Capture author intent and project constraints.
+- Build and approve an outline.
+- Maintain characters, lore, relationships, timeline, and other canonical context.
+- Draft chapters through bounded AI proposals.
+- Run AI review / critique on proposed or edited chapters.
+- Run continuity and quality validation against canonical state.
+- Present findings with supporting evidence.
+- Let the author approve, reject, or request a revision.
+- Update canonical state only after approval.
+- Preserve chapter versions, review decisions, and canonical history.
+- Repeat the loop for the next chapter or revision.
 
-> **Import an existing project, then check new or edited content against its approved canon.**
+### Core loop
 
-### Source ingestion
+```text
+Intent
+  ↓
+Context / research
+  ↓
+Outline
+  ↓
+Draft
+  ↓
+AI review
+  ↓
+Validation
+  ↓
+Human approval
+  ↓
+Canonical state
+  ↓
+Next iteration
+```
 
-- Create a narrative project.
-- Import a small set of source documents.
-- Support simple source formats first; avoid requiring migration from an existing narrative stack.
-- Extract canonical entities and assertions: characters, locations, events, relationships, facts, rules, and timeline assertions.
-- Show provenance and confidence for extracted assertions.
-- Require explicit human approval before assertions become canonical.
+The agent should be able to operate repeatedly inside this loop, but bounded workflows and explicit approval gates remain mandatory.
 
-### Narrative QA
+## Phase 2 — Generalized canon / knowledge engine
 
-- Submit new or edited narrative content for a continuity check.
-- Detect and classify contradictions, stale information, structural risks, and uncertain findings.
-- Explain each finding using the conflicting canonical assertions and source material.
-- Identify affected entities and content where possible.
-- Keep deterministic checks separate from probabilistic LLM findings.
-- Provide a project-level continuity / regression report.
-- Preserve the evidence needed to reproduce a finding.
+Extract reusable domain primitives from the book workflow:
 
-### First UX
+- canonical entities;
+- claims / facts;
+- relationships;
+- events and temporal assertions;
+- rules / constraints;
+- source documents;
+- versions;
+- provenance;
+- confidence;
+- review decisions;
+- dependencies between claims and content.
 
-- Project dashboard.
-- Canon browser.
-- Source/content import flow.
-- Continuity report.
-- Issue detail with evidence.
-- Human review / approval flow.
+The abstraction must support both book concepts and future business documentation concepts without forcing the book UI to become generic prematurely.
 
-## Post-MVP — canon graph and change impact
+## Phase 3 — Change impact and regression analysis
 
-- Canonical entity graph.
-- Dependencies between assertions and content.
 - `What breaks if I change this?` impact analysis.
-- Timeline consistency checks.
-- Character state / knowledge checks.
-- Stale-content detection.
-- Change requests and approval workflow.
-- Full provenance and audit history.
-- Canon health metrics.
+- Detect stale claims and content.
+- Identify downstream documents affected by a changed claim.
+- Timeline / temporal consistency checks.
+- Entity state and knowledge checks.
+- Compare proposed content against the approved knowledge state.
+- Produce evidence-backed regression reports.
 
-## Team SaaS
+For books, this means continuity across chapters. For documentation, it can mean identifying outdated product/API/support information after a change.
+
+## Phase 4 — Documentation / company knowledge pilot
+
+Only after the book loop has demonstrated repeated value:
+
+- Import documentation corpora.
+- Extract canonical claims from technical/product/internal documentation.
+- Check new or edited documentation against approved knowledge.
+- Detect contradictions and stale references.
+- Review and approve canonical updates.
+- Measure avoided or reduced documentation regressions.
+
+Initial target: software / B2B SaaS companies with frequently changing documentation and multiple contributors.
+
+## Phase 5 — Existing-stack integrations
+
+The documentation product should sit above existing systems rather than require migration.
+
+Prioritize according to design-partner demand:
+
+- Git repositories;
+- Markdown / JSON / CSV;
+- Notion / Confluence or equivalent wiki sources;
+- Google Docs / document sources;
+- help-center / support content;
+- API and webhooks;
+- CI checks on documentation changes.
+
+## Phase 6 — Knowledge QA SaaS
 
 - Multi-user projects.
 - Roles and permissions.
@@ -56,69 +106,71 @@ The MVP must prove one workflow:
 - Issue assignment.
 - Comments and decisions.
 - Notifications.
-- Project usage and QA metrics.
-- Team-level audit history.
+- Knowledge-health metrics.
+- Audit logs.
+- Change requests.
+- Scheduled or event-driven regression checks.
 
-## Integrations
+Potential commercial proposition:
 
-Prioritize integrations only after the core workflow is validated with target customers. The product should integrate with existing systems rather than require migration.
+> **Documentation QA: check every meaningful content change against the company's current knowledge state.**
 
-Potential integrations:
+## Phase 7 — Assisted resolution
 
-- Markdown / JSON / CSV import and export.
-- Git-based narrative repositories.
-- Articy or equivalent narrative data exports.
-- Game dialogue / quest data.
-- Wiki / documentation sources.
-- API and webhooks.
-- CI continuity checks.
-- Issue trackers / team notifications.
+The same agentic loop used for books becomes a general resolution workflow:
 
-## Assisted resolution
+```text
+Issue
+  ↓
+Agent analysis
+  ↓
+Proposed fix
+  ↓
+Validation
+  ↓
+Human review
+  ↓
+Approved change
+  ↓
+Canonical state
+```
 
-AI authoring remains a supporting capability:
+Capabilities may include:
 
-- suggest minimal edits to resolve contradictions;
+- suggest minimal edits;
 - generate alternative resolutions;
-- summarize proposed changes and trade-offs;
-- re-run continuity checks automatically.
-
-All canonical changes require human approval.
-
-## Existing capabilities to preserve or repurpose
-
-The current repository already contains useful concepts that should be generalized rather than discarded:
-
-- sequential chapter workflow;
-- outline approval;
-- chapter versions;
-- review and linting;
-- canonical summaries;
-- character and lore editors;
-- lore relationship graph;
-- validation loop;
-- bounded retries;
-- replaceable LLM infrastructure.
-
-These become implementation components of the broader canon and QA workflow.
+- explain trade-offs;
+- update affected content proposals;
+- re-run regression checks;
+- summarize the approved change.
 
 ## Explicitly out of scope for now
 
-- Generic AI novel / chapter generation as the primary product.
-- Full authoring-suite feature parity with established writing assistants.
-- Replacing Articy, Twine, Ink, Yarn, Notion, or other production tools.
-- Full worldbuilding database parity with established products.
-- Broad enterprise knowledge management.
-- Transmedia production management.
-- Multi-region production infrastructure before commercial validation.
-- Long-term vector-memory orchestration unless a measured retrieval problem requires it.
+- Generic AI writing assistant without a review/validation loop.
+- Replacing established authoring or documentation systems.
+- Building a complete Notion/Confluence competitor.
+- Broad enterprise knowledge management before documentation QA is validated.
+- Large transmedia/game-specific feature expansion before the core loop proves value.
+- Enterprise infrastructure before commercial evidence exists.
 
-## Product validation is part of scope
+## Product validation gates
 
-Before major engineering expansion:
+### Book gate
 
-- interview at least 10 target teams;
-- onboard at least 3 design partners using real content;
+Before broadening the product:
+
+- real users complete repeated book-review/drafting cycles;
+- users report that agentic review catches useful issues;
+- approval gates prevent unwanted canonical mutations;
+- canonical context remains trustworthy as the manuscript grows;
+- users return because the loop is materially better than a one-shot LLM workflow.
+
+### Documentation gate
+
+Before broadening into company knowledge:
+
+- interview at least 10 documentation-heavy teams;
+- identify recurring, costly documentation regressions;
+- onboard at least 3 design partners with real corpora;
 - obtain at least 1 paid pilot or equivalent buying signal;
-- measure time spent finding and resolving narrative regressions before and after the product;
-- verify that integration with an existing workflow is possible without a full migration.
+- measure time saved or regressions avoided.
