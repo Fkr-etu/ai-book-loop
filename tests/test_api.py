@@ -68,8 +68,13 @@ def test_outline_workflow(test_client):
     assert res.status_code == 200
     assert res.json()["outline_approved"] is True
 
-    res = test_client.post("/api/books/proj-001/chapters", json={"chapter_number": 3})
-    assert res.status_code == 200
+    for chapter_number in (1, 2, 3):
+        res = test_client.post(
+            "/api/books/proj-001/chapters",
+            json={"chapter_number": chapter_number},
+        )
+        assert res.status_code == 200
+
     book = res.json()
     assert book["chapters"][-1]["number"] == 3
     assert book["chapters"][-1]["title"] == "Chapitre 3"
