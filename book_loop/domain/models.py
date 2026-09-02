@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from enum import StrEnum
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class ChapterStatus(StrEnum):
@@ -29,6 +29,22 @@ class OutlineChapter(BaseModel):
 
 class Outline(BaseModel):
     chapters: list[OutlineChapter] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def validate_chapter_numbers(self) -> "Outline":
+        numbers = [chapter.number for chapter in self.chapters]
+        if numbers != list(range(1, len(numbers) + 1)):
+            raise ValueError("Outline chapter numbers must be consecutive starting at 1")
+        return self
+
+    def render(self) -> str:
+        lines = []
+        for chapter in self.chapters:
+            lines.append(f"Chapter {chapter.number}: {chapter.title}")
+            lines.append(f"Objective: {chapter.objective}")
+            if chapter.synopsis:
+                lines.append(f"Synopsis: {chapter.synopsis}")
+        return "\n".join(lines)
 
 
 class Chapter(BaseModel):
