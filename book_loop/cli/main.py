@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 
+from book_loop.domain.models import Outline
 from book_loop.infrastructure.config import Settings
 from book_loop.infrastructure.container import Container
 
@@ -24,16 +26,15 @@ def build_parser() -> argparse.ArgumentParser:
     edit_outline = subparsers.add_parser("outline-edit", help="Replace the editable outline")
     edit_outline.add_argument("book_id")
     source = edit_outline.add_mutually_exclusive_group(required=True)
-    source.add_argument("--text", help="New outline text")
-    source.add_argument("--file", type=Path, help="Read the new outline from a UTF-8 file")
+    source.add_argument("--json", dest="outline_json", help="Structured outline as JSON")
+    source.add_argument("--file", type=Path, help="Read structured outline JSON from a UTF-8 file")
 
     approve = subparsers.add_parser("approve-outline", help="Approve the outline")
     approve.add_argument("book_id")
 
-    chapter = subparsers.add_parser("chapter-add", help="Add a chapter")
+    chapter = subparsers.add_parser("chapter-add", help="Add a chapter from the approved outline")
     chapter.add_argument("book_id")
-    chapter.add_argument("--title", required=True)
-    chapter.add_argument("--objective", required=True)
+    chapter.add_argument("chapter_number", type=int)
 
     return parser
 
@@ -56,16 +57,17 @@ def main() -> None:
     book = container.repository.get(args.book_id)
     if args.command == "outline":
         book = container.generate_outline().execute(book)
-        print(book.outline)
+        print(json.dumps(book.outline.model_dump(mode="json"), indent=2, ensure_ascii=False))
     elif args.command == "outline-edit":
-        outline = args.text if args.text is not None else args.file.read_text(encoding="utf-8")
-        book = container.update_outline().execute(book, outline=outline)
+        raw = args.outline_json if args.outline_json is not None else args.file.read_text(encoding="utf-8")
+        outline = Outline.model_validate(json.loads(raw))
+        container.update_outline().execute(book, outline=outline)
         print("Outline updated; approval reset")
     elif args.command == "approve-outline":
         container.approve_outline().execute(book)
         print("Outline approved")
     elif args.command == "chapter-add":
-        book = container.add_chapter().execute(book, title=args.title, objective=args.objective)
+        book = container.add_chapter().execute(book, chapter_number=args.chapter_number)
         print(f"Chapter added: {book.chapters[-1].number}")
 
 
