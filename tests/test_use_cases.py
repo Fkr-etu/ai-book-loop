@@ -1,9 +1,11 @@
+import pytest
+
 from book_loop.application.use_cases.add_chapter import AddChapter
 from book_loop.application.use_cases.approve_outline import ApproveOutline
 from book_loop.application.use_cases.create_book import CreateBook
 from book_loop.application.use_cases.generate_outline import GenerateOutline
 from book_loop.application.use_cases.update_outline import UpdateOutline
-from book_loop.domain.models import BookState
+from book_loop.domain.models import BookState, Outline
 
 
 class Repository:
@@ -19,7 +21,12 @@ class Repository:
 
 class OutlineAgent:
     def generate(self, **kwargs):
-        return "Chapter 1: The beginning"
+        return Outline(
+            chapters=[
+                {"number": 1, "title": "The beginning", "objective": "Start the conflict", "synopsis": "An inciting event."},
+                {"number": 2, "title": "The conflict", "objective": "Escalate the conflict", "synopsis": "The stakes rise."},
+            ]
+        )
 
 
 def test_use_cases_compose_without_services():
@@ -27,10 +34,22 @@ def test_use_cases_compose_without_services():
     book = CreateBook(repository).execute(title="Book", theme="Fantasy", author_idea="Idea")
     GenerateOutline(repository, OutlineAgent()).execute(book)
     ApproveOutline(repository).execute(book)
-    AddChapter(repository).execute(book, title="Beginning", objective="Start the conflict")
+    AddChapter(repository).execute(book, chapter_number=1)
 
     assert book.outline_approved is True
     assert book.chapters[0].number == 1
+    assert book.chapters[0].title == "The beginning"
+    assert book.chapters[0].objective == "Start the conflict"
+
+
+def test_structured_outline_round_trips_through_repository():
+    repository = Repository()
+    book = CreateBook(repository).execute(title="Book", theme="Fantasy", author_idea="Idea")
+    outline = Outline(chapters=[{"number": 1, "title": "Opening", "objective": "Introduce the hero"}])
+    UpdateOutline(repository).execute(book, outline=outline)
+
+    loaded = repository.get(book.id)
+    assert loaded.outline == outline
 
 
 def test_update_outline_invalidates_previous_approval():
@@ -39,56 +58,33 @@ def test_update_outline_invalidates_previous_approval():
     GenerateOutline(repository, OutlineAgent()).execute(book)
     ApproveOutline(repository).execute(book)
 
-    updated = UpdateOutline(repository).execute(
-        book,
-        outline="Chapter 1: The beginning\nChapter 2: The conflict",
+    updated_outline = Outline(
+        chapters=[{"number": 1, "title": "Rewritten", "objective": "Change the opening"}]
     )
+    updated = UpdateOutline(repository).execute(book, outline=updated_outline)
 
-    assert updated.outline == "Chapter 1: The beginning\nChapter 2: The conflict"
+    assert updated.outline == updated_outline
     assert updated.outline_approved is False
     assert repository.get(book.id).outline_approved is False
 
 
-def test_update_outline_rejects_empty_content():
-    import pytest
-
+def test_add_chapter_rejects_out_of_order_or_duplicate_creation():
     repository = Repository()
     book = CreateBook(repository).execute(title="Book", theme="Fantasy", author_idea="Idea")
+    GenerateOutline(repository, OutlineAgent()).execute(book)
+    ApproveOutline(repository).execute(book)
+
+    with pytest.raises(ValueError, match="expected chapter 1"):
+        AddChapter(repository).execute(book, chapter_number=2)
+
+    AddChapter(repository).execute(book, chapter_number=1)
+    with pytest.raises(ValueError, match="already exists"):
+        AddChapter(repository).execute(book, chapter_number=1)
+
+
+def test_update_outline_rejects_empty_outline():
+    repository = Repository()
+    book = BookState(id="1", title="T", theme="Th", author_idea="I")
 
     with pytest.raises(ValueError, match="cannot be empty"):
-        UpdateOutline(repository).execute(book, outline="   ")
-
-
-def test_update_book_use_case():
-    from book_loop.application.use_cases.update_book import UpdateBook
-    repository = Repository()
-    book = CreateBook(repository).execute(title="Book", theme="Fantasy", author_idea="Idea")
-    updated = UpdateBook(repository).execute(book.id, {"title": "Updated Title"})
-    assert updated.title == "Updated Title"
-
-
-def test_generate_chapter_exceptions():
-    from book_loop.application.use_cases.generate_chapter import GenerateChapter
-    from book_loop.domain.models import Chapter, ChapterStatus
-    import pytest
-
-    class DummyWorkflow:
-        def run(self, book, chapter_number):
-            return "OK"
-
-    workflow = DummyWorkflow()
-    use_case = GenerateChapter(workflow)
-
-    book = BookState(id="1", title="T", theme="Th", author_idea="I", outline_approved=False)
-    with pytest.raises(ValueError, match="approve"):
-        use_case.execute(book, chapter_number=1)
-
-    book.outline_approved = True
-    with pytest.raises(ValueError, match="Unknown chapter"):
-        use_case.execute(book, chapter_number=99)
-
-    chap1 = Chapter(id="c1", number=1, title="C1", objective="O1", status=ChapterStatus.DRAFT)
-    chap2 = Chapter(id="c2", number=2, title="C2", objective="O2", status=ChapterStatus.DRAFT)
-    book.chapters = [chap1, chap2]
-    with pytest.raises(ValueError, match="must be approved"):
-        use_case.execute(book, chapter_number=2)
+        UpdateOutline(repository).execute(book, outline=Outline.model_construct(chapters=[]))

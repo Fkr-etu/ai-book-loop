@@ -16,13 +16,19 @@ def test_outline_commands_accept_book_id() -> None:
     assert build_parser().parse_args(["approve-outline", "b1"]).command == "approve-outline"
 
 
-def test_chapter_add_accepts_title_and_objective() -> None:
-    args = build_parser().parse_args([
-        "chapter-add", "b1", "--title", "Beginning", "--objective", "Start conflict"
-    ])
+def test_outline_edit_accepts_json_or_file() -> None:
+    args = build_parser().parse_args(["outline-edit", "b1", "--json", '{"chapters": []}'])
+    assert args.outline_json == '{"chapters": []}'
+
+    args = build_parser().parse_args(["outline-edit", "b1", "--file", "outline.json"])
+    assert str(args.file) == "outline.json"
+
+
+def test_chapter_add_accepts_outline_chapter_number() -> None:
+    args = build_parser().parse_args(["chapter-add", "b1", "2"])
     assert args.command == "chapter-add"
     assert args.book_id == "b1"
-    assert args.objective == "Start conflict"
+    assert args.chapter_number == 2
 
 
 def test_cli_main_execution(monkeypatch, capsys):
