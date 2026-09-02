@@ -135,7 +135,7 @@ def test_generate_chapter_api_runs_complete_loop(test_client):
     assert data["content"]
     assert data["book"]["chapters"][0]["status"] == "approved"
     assert data["book"]["chapters"][0]["current_version"] == 1
-    assert data["book"]["chapters"][0]["summary"]
+    assert data["book"]["chapters"][0]["summary"] == "Résumé canonique du chapitre."
 
     context = test_client.get(f"/api/books/{book_id}/chapters/1/context")
     assert context.status_code == 200
@@ -160,7 +160,7 @@ def test_generate_chapter_api_runs_complete_loop(test_client):
 
     context = test_client.get(f"/api/books/{book_id}/chapters/2/context")
     assert context.status_code == 200
-    assert "Le Fragment" in context.json()["previousSummaries"]
+    assert "Résumé canonique du chapitre." in context.json()["previousSummaries"]
 
 
 def test_generate_and_review_chapter(test_client):
