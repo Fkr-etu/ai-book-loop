@@ -1,3 +1,5 @@
+import json
+
 from book_loop.agents.reviewer import ReviewerAgent
 from book_loop.agents.summarizer import SummarizerAgent
 from book_loop.agents.writer import WriterAgent
@@ -27,10 +29,13 @@ class RecordingLLM:
             return next(self.drafts)
         if "review" in prompt:
             score = next(self.review_scores)
-            approved = score >= 7
-            return (
-                f'{{"score": {score}, "approved": {str(approved).lower()}, '
-                '"issues": [], "suggestions": []}}'
+            return json.dumps(
+                {
+                    "score": score,
+                    "approved": score >= 7,
+                    "issues": [],
+                    "suggestions": [],
+                }
             )
         if "summarize" in prompt:
             return "Canonical chapter summary."
