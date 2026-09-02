@@ -8,7 +8,7 @@ from book_loop.domain.models import User, UserPublic
 
 _ph = argon2.PasswordHasher()
 ALGORITHM = "HS256"
-COOKIE_NAME = "__Host-session_token"
+COOKIE_NAME = "session_token"
 ACCESS_TOKEN_EXPIRE_DAYS = 7
 
 
@@ -38,11 +38,7 @@ def create_access_token(
     expire = datetime.now(timezone.utc) + (
         expires_delta or timedelta(days=ACCESS_TOKEN_EXPIRE_DAYS)
     )
-    payload = {
-        "sub": user.id,
-        "exp": expire,
-    }
-    return jwt.encode(payload, _key(secret_key), algorithm=ALGORITHM)
+    return jwt.encode({"sub": user.id, "exp": expire}, _key(secret_key), algorithm=ALGORITHM)
 
 
 def decode_access_token(token: str, *, secret_key: str) -> dict | None:
