@@ -19,6 +19,7 @@ def build_parser() -> argparse.ArgumentParser:
     create.add_argument("--idea", required=True)
     create.add_argument("--lore", default="")
     create.add_argument("--constraint", action="append", default=[])
+    create.add_argument("--owner-id", default="cli-user", help="Owner id for the local CLI book")
 
     outline = subparsers.add_parser("outline", help="Generate an outline")
     outline.add_argument("book_id")
@@ -45,6 +46,7 @@ def main() -> None:
 
     if args.command == "create":
         book = container.create_book().execute(
+            owner_id=args.owner_id,
             title=args.title,
             theme=args.theme,
             author_idea=args.idea,
