@@ -8,9 +8,9 @@ This document defines a **starting pricing hypothesis** for Book. It is not a fi
 
 The current AI writing market already supports meaningful recurring subscriptions:
 
-- Sudowrite: $10/month annual for Hobby & Student, $22/month annual for Professional, and $44/month annual for Max. The plans primarily differentiate by monthly AI credits. citeturn0search0turn0search1
-- NovelAI: $10, $15 and $25/month tiers, with the higher tiers increasing capabilities/context. citeturn0search3turn0search7
-- Novelcrafter positions itself as a broader novel-writing workspace with Codex, planning, review and access to multiple external AI providers; its site currently advertises plans starting at $4/month. citeturn1search0
+- Sudowrite: $10/month annual for Hobby & Student, $22/month annual for Professional, and $44/month annual for Max. The plans primarily differentiate by monthly AI credits.
+- NovelAI: $10, $15 and $25/month tiers, with the higher tiers increasing capabilities/context.
+- Novelcrafter positions itself as a broader novel-writing workspace with Codex, planning, review and access to multiple external AI providers; its site currently advertises plans starting at $4/month.
 
 The implication is that Book should not try to win by being the cheapest AI writing interface. The defensible value proposition is the **persistent agentic loop + continuity + review + canonical knowledge**, rather than raw generation volume.
 
@@ -90,7 +90,7 @@ This tier exists to capture high willingness-to-pay without forcing the core Pro
 
 ## Why €24/month is the current anchor
 
-The current competitive range for serious AI-assisted writing is broadly around $10–$60/month depending on usage and positioning. Sudowrite's Professional plan is $22/month on annual billing and $29/month monthly, while its Max plan reaches $44/$59. citeturn0search1
+The current competitive range for serious AI-assisted writing is broadly around $10–$60/month depending on usage and positioning. Sudowrite's Professional plan is $22/month on annual billing and $29/month monthly, while its Max plan reaches $44/$59.
 
 Book should therefore initially sit around **€24/month** rather than attempting either extreme:
 
@@ -100,11 +100,49 @@ Book should therefore initially sit around **€24/month** rather than attemptin
 
 The price should be validated by willingness-to-pay interviews and, more importantly, paid conversion rather than competitor imitation.
 
+## Unit economics model
+
+Until production telemetry exists, use a transparent planning model rather than pretending to know exact per-user costs.
+
+### Planning assumptions
+
+A useful planning unit is a completed book workflow, not a raw LLM call:
+
+- 50k words ≈ 25 chapters at 2k words/chapter;
+- 80k words ≈ 40 chapters;
+- 120k words ≈ 60 chapters;
+- each chapter can involve writing, linting, review, retry/revision, summary and canonical extraction;
+- context grows over the life of a book, so later chapters can cost more than early chapters;
+- retries and premium-model escalation must be included in the budget.
+
+For a routing scenario using a majority low-cost model, some general-purpose model usage and a small premium-model share, an illustrative chapter envelope is approximately **$0.06 of LLM inference cost**, including a planning retry provision. This is an internal planning assumption, not a production measurement.
+
+| Book size | Approx. chapters | Illustrative LLM cost / book | Conservative 2× planning envelope |
+|---|---:|---:|---:|
+| 50k words | 25 | ~$1.50 | ~$3 |
+| 80k words | 40 | ~$2.40 | ~$5 |
+| 120k words | 60 | ~$3.60 | ~$7 |
+
+The 2× column exists to absorb uncertainty around context growth, retries, provider mix and usage patterns. It should be replaced by measured telemetry as soon as the product is used at scale.
+
+### What this means for subscriptions
+
+The important conclusion is that **LLM inference alone is unlikely to determine Book's price**. Product value, retention, infrastructure, support and extreme usage are more important commercial constraints.
+
+A practical initial usage envelope is therefore:
+
+| Plan | Public price hypothesis | Intended usage | Internal LLM cost target |
+|---|---:|---|---:|
+| Free | €0 | Product discovery | Strictly capped |
+| Creator | €12/mo | Light / regular writing | <~€4 normal usage |
+| Pro | €24/mo | Serious book / series workflow | ~€4–€10 normal usage |
+| Power / Studio | €49/mo | Heavy / prolific usage | ~€10–€20+ with stronger controls |
+
+These are **guardrails, not promises**. A user who generates several complete books every month should not receive unlimited premium-model inference inside the €12–€24 plans.
+
 ## LLM economics and gross-margin guardrail
 
-The current internal cost model uses Gemini 2.5 Flash as an example: 100k input tokens + 20k output tokens is approximately $0.08 for one generation pass under the documented pricing assumptions.
-
-However, Book is not a single LLM call. A chapter may trigger:
+Book is not a single LLM call. A chapter may trigger:
 
 ```text
 Writer
