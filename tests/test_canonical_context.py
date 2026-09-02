@@ -23,8 +23,8 @@ def test_context_includes_active_canonical_knowledge():
             Chapter(
                 id="chapter-1",
                 number=1,
-                title="First",
-                objective="Write it",
+                title="Alice's age",
+                objective="Write about Alice's age",
             )
         ],
     )
