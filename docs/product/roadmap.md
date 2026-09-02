@@ -8,6 +8,72 @@ Build an AI agentic workflow that can repeatedly **review → propose → valida
 
 The strategic asset is not a generic writing assistant. It is the reusable engine that understands a long-lived corpus, its claims and dependencies, and the effect of changes on that corpus.
 
+## LLM strategy
+
+The LLM layer is an enabling capability, not the product moat. Model quality and pricing will continue to converge and change, so Book must preserve provider replaceability and avoid business logic tied to one vendor.
+
+### Competitive position
+
+Current major options have different strengths:
+
+- **Gemini:** strong cost/context economics and a good default for high-volume Book workflows.
+- **OpenAI:** strong general reasoning, tool use and agentic workflows; useful as a premium or fallback provider.
+- **Anthropic Claude:** strong long-form reasoning and writing quality; useful for premium writing/review tasks when quality justifies cost.
+- **Mistral:** attractive European/open-weight option for cost, sovereignty and future private deployment scenarios.
+- **Open-weight models generally:** potentially valuable later for controlled enterprise inference, but not an MVP priority because infrastructure and evaluation costs can dominate.
+
+The product should therefore compete **above the model layer**. A better model can improve a proposal; it does not replace the Canon, provenance, evidence, approval history or regression logic.
+
+### Architecture rule
+
+Keep a provider abstraction such as:
+
+```text
+LLMProvider
+├── GeminiProvider
+├── OpenAIProvider
+├── AnthropicProvider
+└── MistralProvider
+```
+
+Business workflows should depend on capabilities/tasks rather than vendor-specific APIs:
+
+```text
+Task
+├── WRITING
+├── REVIEW
+├── EXTRACTION
+├── CLASSIFICATION
+├── CANONICALIZATION
+└── CONFLICT_ANALYSIS
+```
+
+### Model routing strategy
+
+Do not use the most expensive model for every operation. The target architecture is quality × cost × latency optimization:
+
+```text
+Task Router
+   ├── low-cost model → extraction / lint / classification
+   ├── general model  → summaries / routine drafting
+   └── premium model  → difficult writing / review / conflict analysis
+```
+
+Routing should only become a real product/infrastructure layer after benchmarks show that different models materially improve economics or quality.
+
+### LLM roadmap
+
+- [ ] Keep Gemini as the initial default provider.
+- [ ] Measure token cost, latency, retry rate and task quality by workflow.
+- [ ] Maintain provider isolation in application/domain code.
+- [ ] Build a reproducible Book benchmark set before adding several providers.
+- [ ] Compare Gemini, OpenAI, Anthropic and Mistral on representative Book tasks.
+- [ ] Add additional providers only where benchmarks demonstrate value.
+- [ ] Introduce task-level model routing when economics or quality justify it.
+- [ ] Consider open-weight/private inference for enterprise requirements only after commercial evidence.
+
+**Strategic rule:** LLMs generate proposals; the Canon determines what is accepted as canonical knowledge through evidence and human approval.
+
 ## Phase 0 — Book product validation
 
 **Goal:** prove that the agentic loop is genuinely useful for real book creation/revision.
@@ -45,7 +111,7 @@ The strategic asset is not a generic writing assistant. It is the reusable engin
 - [ ] Characters.
 - [ ] Lore / world rules.
 - [ ] Relationships.
-- [Timeline and events.
+- [ ] Timeline and events.
 - [ ] Chapter versions.
 - [ ] Provenance and review history.
 - [ ] Canonical summaries.
@@ -263,5 +329,6 @@ Every expansion must answer:
 3. **Frequency:** does the workflow recur often enough to support SaaS retention?
 4. **Integration:** can it fit the existing source-of-truth workflow?
 5. **Willingness to pay:** does the outcome justify payment independently of token consumption?
+6. **LLM economics:** does the selected model/routing deliver acceptable quality, latency and gross margin?
 
 If a gate fails, revisit the problem/ICP before adding platform complexity.

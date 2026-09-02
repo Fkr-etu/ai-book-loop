@@ -30,7 +30,7 @@ The author remains the source of creative intent. Generated content is proposed 
 
 ## Project Architecture & Structure
 
-- **Backend Core Engine (`book_loop/`):** Layered/hexagonal Python architecture, LangGraph workflow orchestration, SQLite persistence, and CLI interface.
+- **Backend Core Engine (`book_loop/`):** Layered/hexagonal Python architecture, isolated chapter workflow orchestration, SQLite persistence, and CLI interface.
 - **Frontend Studio (`web/`):** Next.js App Router application ("Manuscript Studio") built with TypeScript, Tailwind CSS v4, React Flow (`@xyflow/react`), mock API service layer (`web/src/services/api.ts`), and Playwright E2E testing suite.
 
 ## Quick start
@@ -45,7 +45,7 @@ Inspect the CLI with:
 python -m book_loop.cli.main --help
 ```
 
-The normal test suite does not require a live LLM provider:
+Run the backend tests with:
 
 ```bash
 pytest
@@ -63,7 +63,7 @@ npm install
 npm run dev
 ```
 
-Run Playwright E2E test suite:
+Run the Playwright E2E suite locally with:
 
 ```bash
 cd web
@@ -75,18 +75,16 @@ npm run test:e2e
 The project uses a lightweight layered/hexagonal architecture:
 
 ```text
-Web UI (Next.js) / CLI / adapters
+Web UI (Next.js) / CLI
       ↓
-Application use cases
+Application use cases + policies
       ↓
 Domain + ports
       ↑
 Infrastructure adapters
-      ├── SQLite / localStorage
-      └── LLM provider / Mock API
+      ├── SQLite
+      └── Configurable LLM provider
 ```
-
-`book_loop.infrastructure.container` is the composition root. It wires infrastructure implementations, agents, workflow, and application use cases. Provider-specific details must not leak into the domain or use cases.
 
 The chapter workflow is isolated from the rest of the application. Plain Python is preferred when sufficient; LangGraph is an implementation detail rather than an application dependency.
 
@@ -94,27 +92,33 @@ The chapter workflow is isolated from the rest of the application. Plain Python 
 
 ### For contributors and AI agents
 
-Start with [`AGENTS.md`](AGENTS.md). It contains the rules that must be followed when modifying the repository.
+Start with [`AGENTS.md`](AGENTS.md). It contains the repository rules and points to the canonical documentation.
 
 ### Product
 
-- [`docs/product/vision.md`](docs/product/vision.md) — product mission and principles
-- [`docs/product/scope.md`](docs/product/scope.md) — project scope & features
+- [`docs/product/vision.md`](docs/product/vision.md) — why the product exists and the long-term thesis
+- [`docs/product/strategy.md`](docs/product/strategy.md) — strategic choices, moat, and sequencing logic
+- [`docs/product/scope.md`](docs/product/scope.md) — current MVP boundary
+- [`docs/product/roadmap.md`](docs/product/roadmap.md) — future product sequence and decision gates
+- [`docs/product/pricing-strategy.md`](docs/product/pricing-strategy.md) — pricing and unit-economics hypotheses
+- [`docs/product/infrastructure-costs.md`](docs/product/infrastructure-costs.md) — infrastructure planning scenarios
 
 ### Architecture
 
 - [`docs/architecture/overview.md`](docs/architecture/overview.md) — current architecture
 - [`docs/architecture/principles.md`](docs/architecture/principles.md) — architectural invariants
 - [`docs/architecture/boundaries.md`](docs/architecture/boundaries.md) — dependency boundaries
-- [`docs/architecture/workflows.md`](docs/architecture/workflows.md) — book and chapter workflows
+- [`docs/architecture/workflows.md`](docs/architecture/workflows.md) — current book and chapter workflows
 - [`docs/architecture/data-model.md`](docs/architecture/data-model.md) — persisted domain concepts
-- [`docs/architecture/decisions/`](docs/architecture/decisions/) — ADRs and architectural decisions
+- [`docs/architecture/canonical-review.md`](docs/architecture/canonical-review.md) — current Canon review semantics
+- [`docs/architecture/document-ingestion.md`](docs/architecture/document-ingestion.md) — document-ingestion design
+- [`docs/architecture/decisions/`](docs/architecture/decisions/) — historical architecture decisions
 
 ### Development
 
-- [`docs/development/setup.md`](docs/development/setup.md) — development setup
+- [`docs/development/setup.md`](docs/development/setup.md) — local setup
 - [`docs/development/testing.md`](docs/development/testing.md) — testing strategy
-- [`docs/development/configuration.md`](docs/development/configuration.md) — runtime configuration
+- [`docs/development/configuration.md`](docs/development/configuration.md) — configuration rules
 - [`docs/development/contributing.md`](docs/development/contributing.md) — contribution workflow
 - [`docs/glossary.md`](docs/glossary.md) — project terminology
 
@@ -129,4 +133,4 @@ Start with [`AGENTS.md`](AGENTS.md). It contains the rules that must be followed
 7. Tests must run without external LLM services.
 8. Architecture and documentation evolve together.
 
-See `AGENTS.md` and the architecture documentation for the complete rules.
+See `AGENTS.md` and the documentation index for the complete rules.

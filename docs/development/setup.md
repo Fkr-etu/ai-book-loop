@@ -17,7 +17,7 @@ Use the project's declared Python packaging/development workflow from `pyproject
 uv sync --extra dev
 ```
 
-The normal test suite does not require a Gemini key.
+The normal backend test suite does not require a Gemini key.
 
 ### Frontend (Manuscript Studio)
 
@@ -31,26 +31,32 @@ npx playwright install chromium
 
 ## Run tests
 
-Run the Python backend test suite with the project's configured pytest command:
+Run the Python backend test suite:
 
 ```bash
 uv run --extra dev pytest
 ```
 
-Run the Playwright E2E frontend test suite:
+Run the Playwright E2E frontend test suite locally:
 
 ```bash
 cd web
 npm run test:e2e
 ```
 
-CI executes the same test suites as the merge gate.
+**CI currently runs the Python `pytest` suite only.** Frontend build/lint/E2E checks are local development checks until they are explicitly added to the CI workflow.
 
 ## CLI & Web Studio
 
 ### CLI
 
-The CLI is the primary MVP CLI entry point. Use `python -m book_loop.cli.main --help` to inspect the commands supported by the current implementation.
+The CLI is the primary backend MVP entry point. Use:
+
+```bash
+python -m book_loop.cli.main --help
+```
+
+to inspect the commands supported by the current implementation.
 
 ### Web Studio
 
