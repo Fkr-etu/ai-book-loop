@@ -2,15 +2,9 @@ from __future__ import annotations
 
 import math
 from collections.abc import Iterable, Sequence
-from typing import Protocol
 
 from book_loop.domain.models import CanonicalFact
-
-
-class EmbeddingProvider(Protocol):
-    """Provide embeddings for arbitrary text without coupling retrieval to a vendor."""
-
-    def embed(self, *, text: str) -> Sequence[float]: ...
+from book_loop.domain.protocols import EmbeddingProvider
 
 
 class EmbeddingCanonicalRetriever:
