@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from typing import Protocol
 
 from book_loop.domain.models import (
@@ -20,6 +20,10 @@ from book_loop.domain.models import (
 
 class LLMProvider(Protocol):
     def generate(self, *, system_prompt: str, user_prompt: str) -> str: ...
+
+
+class EmbeddingProvider(Protocol):
+    def embed(self, *, text: str) -> Sequence[float]: ...
 
 
 class Writer(Protocol):
