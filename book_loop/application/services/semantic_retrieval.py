@@ -2,19 +2,15 @@ from __future__ import annotations
 
 import math
 from collections.abc import Iterable, Sequence
+from typing import Protocol
 
 from book_loop.domain.models import CanonicalFact
 
 
-class EmbeddingProvider:
-    """Protocol-like base contract for text embedding providers.
+class EmbeddingProvider(Protocol):
+    """Provide embeddings for arbitrary text without coupling retrieval to a vendor."""
 
-    Concrete providers may call a local model or an external embedding API.
-    The retrieval layer remains independent of that implementation.
-    """
-
-    def embed(self, *, text: str) -> Sequence[float]:
-        raise NotImplementedError
+    def embed(self, *, text: str) -> Sequence[float]: ...
 
 
 class EmbeddingCanonicalRetriever:
