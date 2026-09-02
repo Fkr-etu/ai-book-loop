@@ -9,19 +9,30 @@ from book_loop.workflow.chapter_graph import ChapterWorkflow, ChapterWorkflowSta
 
 
 class RecordingLLM:
-    def __init__(self, drafts: list[str] | None = None) -> None:
+    def __init__(
+        self,
+        drafts: list[str] | None = None,
+        review_scores: list[int] | None = None,
+    ) -> None:
         self.drafts = iter(drafts or ["A complete chapter draft."])
+        self.review_scores = iter(review_scores or [9])
         self.writer_contexts: list[str] = []
         self.calls: list[tuple[str, str]] = []
 
     def generate(self, *, system_prompt: str, user_prompt: str) -> str:
         self.calls.append((system_prompt, user_prompt))
-        if "writer" in system_prompt.lower():
+        prompt = system_prompt.lower()
+        if "writer" in prompt:
             self.writer_contexts.append(user_prompt)
             return next(self.drafts)
-        if "review" in system_prompt.lower():
-            return '{"score": 9, "approved": true, "issues": [], "suggestions": []}'
-        if "summarize" in system_prompt.lower():
+        if "review" in prompt:
+            score = next(self.review_scores)
+            approved = score >= 7
+            return (
+                f'{{"score": {score}, "approved": {str(approved).lower()}, '
+                '"issues": [], "suggestions": []}}'
+            )
+        if "summarize" in prompt:
             return "Canonical chapter summary."
         raise AssertionError(f"Unexpected system prompt: {system_prompt}")
 
@@ -47,7 +58,9 @@ class InMemoryRepository:
         self.reviews.append((book_id, chapter_number, version, review))
 
 
-def make_workflow(book: BookState, repository: InMemoryRepository, llm: RecordingLLM) -> ChapterWorkflow:
+def make_workflow(
+    book: BookState, repository: InMemoryRepository, llm: RecordingLLM
+) -> ChapterWorkflow:
     return ChapterWorkflow(
         repository=repository,
         writer=WriterAgent(llm),
@@ -133,3 +146,30 @@ def test_generate_chapter_retries_after_linter_failure_and_preserves_history() -
     ]
     assert len(repository.reviews) == 1
     assert repository.reviews[0][2] == 2
+
+
+def test_generate_chapter_retries_after_low_review_and_preserves_reviews() -> None:
+    book = BookState(
+        id="b1",
+        title="Book",
+        theme="Fantasy",
+        author_idea="Idea",
+        outline="Chapter 1",
+        outline_approved=True,
+        chapters=[Chapter(id="c1", number=1, title="One", objective="Start")],
+    )
+    repository = InMemoryRepository(book)
+    llm = RecordingLLM(
+        drafts=["First draft.", "Improved draft."],
+        review_scores=[5, 9],
+    )
+    use_case = GenerateChapter(make_workflow(book, repository, llm))
+
+    result = use_case.execute(book, chapter_number=1)
+
+    assert result.decision == "accept"
+    assert result.attempt == 2
+    assert len(repository.versions) == 2
+    assert [review[2] for review in repository.reviews] == [1, 2]
+    assert [review[3].score for review in repository.reviews] == [5, 9]
+    assert result.summary == "Canonical chapter summary."
