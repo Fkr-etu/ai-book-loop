@@ -88,7 +88,7 @@ class SQLiteBookRepository:
             );
             CREATE TABLE IF NOT EXISTS evidence (
                 id TEXT PRIMARY KEY,
-                assertion_id TEXT PRIMARY KEY,
+                assertion_id TEXT NOT NULL,
                 source_document_id TEXT NOT NULL,
                 chunk_id TEXT NOT NULL,
                 start_offset INTEGER NOT NULL,
@@ -163,9 +163,7 @@ class SQLiteBookRepository:
             "SELECT * FROM source_documents WHERE book_id = ? AND content_hash = ?",
             (book_id, content_hash),
         ).fetchone()
-        if row is None:
-            return None
-        return self._source_from_row(row)
+        return self._source_from_row(row) if row is not None else None
 
     def save_source(self, source: SourceDocument) -> None:
         self._connection.execute(
@@ -197,11 +195,7 @@ class SQLiteBookRepository:
 
     def list_assertions(self, *, book_id: str) -> list[Assertion]:
         rows = self._connection.execute(
-            """
-            SELECT a.* FROM assertions a
-            JOIN source_documents s ON s.id = a.source_document_id
-            WHERE s.book_id = ? ORDER BY a.rowid
-            """,
+            "SELECT a.* FROM assertions a JOIN source_documents s ON s.id = a.source_document_id WHERE s.book_id = ? ORDER BY a.rowid",
             (book_id,),
         ).fetchall()
         return [self._assertion_from_row(row) for row in rows]
@@ -219,10 +213,32 @@ class SQLiteBookRepository:
         )
         self._connection.commit()
 
+    def resolve_conflict(self, left_assertion_id: str, right_assertion_id: str, resolution_assertion_id: str) -> None:
+        left, right = sorted((left_assertion_id, right_assertion_id))
+        self._connection.execute(
+            "UPDATE conflicts SET status = 'resolved', resolution_assertion_id = ? WHERE left_assertion_id = ? AND right_assertion_id = ?",
+            (resolution_assertion_id, left, right),
+        )
+        self._connection.commit()
+
     def save_review_decision(self, decision: ReviewDecision) -> None:
         self._connection.execute(
             "INSERT INTO review_decisions(id, assertion_id, decision, reviewer_id, rationale) VALUES(?, ?, ?, ?, ?)",
             (decision.id, decision.assertion_id, decision.decision.value, decision.reviewer_id, decision.rationale),
+        )
+        self._connection.commit()
+
+    def next_canonical_version(self, *, book_id: str, subject: str, predicate: str) -> int:
+        row = self._connection.execute(
+            "SELECT COALESCE(MAX(version), 0) + 1 AS next_version FROM canonical_facts WHERE book_id = ? AND subject = ? AND predicate = ?",
+            (book_id, subject, predicate),
+        ).fetchone()
+        return int(row["next_version"])
+
+    def deactivate_canonical_facts(self, *, book_id: str, subject: str, predicate: str) -> None:
+        self._connection.execute(
+            "UPDATE canonical_facts SET active = 0 WHERE book_id = ? AND subject = ? AND predicate = ? AND active = 1",
+            (book_id, subject, predicate),
         )
         self._connection.commit()
 
@@ -234,10 +250,7 @@ class SQLiteBookRepository:
         self._connection.commit()
 
     def set_assertion_status(self, assertion_id: str, status: AssertionStatus) -> None:
-        cursor = self._connection.execute(
-            "UPDATE assertions SET status = ? WHERE id = ?",
-            (status.value, assertion_id),
-        )
+        cursor = self._connection.execute("UPDATE assertions SET status = ? WHERE id = ?", (status.value, assertion_id))
         if cursor.rowcount != 1:
             raise KeyError(f"Unknown assertion: {assertion_id}")
         self._connection.commit()
@@ -246,16 +259,15 @@ class SQLiteBookRepository:
     def _source_from_row(row: sqlite3.Row) -> SourceDocument:
         return SourceDocument(
             id=row["id"], book_id=row["book_id"], name=row["name"], source_type=row["source_type"],
-            content=row["content"], content_hash=row["content_hash"], metadata=json.loads(row["metadata"]),
-            version=row["version"],
+            content=row["content"], content_hash=row["content_hash"], metadata=json.loads(row["metadata"]), version=row["version"],
         )
 
     @staticmethod
     def _assertion_from_row(row: sqlite3.Row) -> Assertion:
         return Assertion(
             id=row["id"], source_document_id=row["source_document_id"], chunk_id=row["chunk_id"],
-            statement=row["statement"], subject=row["subject"], predicate=row["predicate"],
-            object=row["object"], confidence=row["confidence"], status=row["status"], evidence_id=row["evidence_id"],
+            statement=row["statement"], subject=row["subject"], predicate=row["predicate"], object=row["object"],
+            confidence=row["confidence"], status=row["status"], evidence_id=row["evidence_id"],
         )
 
     def create_user(self, user: User) -> User:
