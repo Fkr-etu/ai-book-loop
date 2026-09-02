@@ -68,17 +68,30 @@ def test_update_outline_invalidates_previous_approval():
     assert repository.get(book.id).outline_approved is False
 
 
-def test_add_chapter_rejects_unknown_or_duplicate_outline_chapter():
+def test_add_chapter_rejects_out_of_order_or_duplicate_creation():
     repository = Repository()
     book = CreateBook(repository).execute(title="Book", theme="Fantasy", author_idea="Idea")
     GenerateOutline(repository, OutlineAgent()).execute(book)
     ApproveOutline(repository).execute(book)
 
-    with pytest.raises(ValueError, match="Unknown chapter"):
-        AddChapter(repository).execute(book, chapter_number=3)
+    with pytest.raises(ValueError, match="expected chapter 1"):
+        AddChapter(repository).execute(book, chapter_number=2)
 
     AddChapter(repository).execute(book, chapter_number=1)
     with pytest.raises(ValueError, match="already exists"):
+        AddChapter(repository).execute(book, chapter_number=1)
+
+
+def test_add_chapter_rejects_chapter_missing_from_outline():
+    repository = Repository()
+    book = CreateBook(repository).execute(title="Book", theme="Fantasy", author_idea="Idea")
+    UpdateOutline(repository).execute(
+        book,
+        Outline(chapters=[{"number": 1, "title": "Opening", "objective": "Start"}]),
+    )
+    ApproveOutline(repository).execute(book)
+
+    with pytest.raises(ValueError, match="Unknown chapter"):
         AddChapter(repository).execute(book, chapter_number=1)
 
 
