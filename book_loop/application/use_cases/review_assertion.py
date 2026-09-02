@@ -2,13 +2,7 @@ from __future__ import annotations
 
 from uuid import uuid4
 
-from book_loop.domain.models import (
-    AssertionStatus,
-    CanonicalFact,
-    ConflictStatus,
-    ReviewDecision,
-    ReviewDecisionType,
-)
+from book_loop.domain.models import AssertionStatus, CanonicalFact, ReviewDecision, ReviewDecisionType
 from book_loop.domain.protocols import KnowledgeRepository
 
 
@@ -50,9 +44,6 @@ class ReviewAssertion:
             self.repository.set_assertion_status(assertion_id, AssertionStatus.DEFERRED)
             return review
 
-        # Accepting a claim makes it canonical. Competing claims are explicitly
-        # rejected and the conflict is marked resolved so Canon cannot contain
-        # two incompatible active values for the same subject/predicate pair.
         self.repository.set_assertion_status(assertion_id, AssertionStatus.ACCEPTED)
         for candidate in assertions.values():
             if not self._conflicts(assertion, candidate):
@@ -67,7 +58,13 @@ class ReviewAssertion:
                 )
                 self.repository.save_review_decision(competing_review)
                 self.repository.set_assertion_status(candidate.id, AssertionStatus.REJECTED)
+            self.repository.resolve_conflict(candidate.id, assertion_id, assertion_id)
 
+        self.repository.deactivate_canonical_facts(
+            book_id=book_id,
+            subject=assertion.subject,
+            predicate=assertion.predicate,
+        )
         fact = CanonicalFact(
             id=str(uuid4()),
             book_id=book_id,
@@ -77,6 +74,11 @@ class ReviewAssertion:
             predicate=assertion.predicate,
             object=assertion.object,
             decision_id=review.id,
+            version=self.repository.next_canonical_version(
+                book_id=book_id,
+                subject=assertion.subject,
+                predicate=assertion.predicate,
+            ),
         )
         self.repository.save_canonical_fact(fact)
         return review
