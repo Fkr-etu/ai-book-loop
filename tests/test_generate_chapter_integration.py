@@ -22,7 +22,7 @@ class RecordingLLM:
     def generate(self, *, system_prompt: str, user_prompt: str) -> str:
         self.calls.append((system_prompt, user_prompt))
         prompt = system_prompt.lower()
-        if "writer" in prompt:
+        if prompt.startswith("you are the book's writer"):
             self.writer_contexts.append(user_prompt)
             return next(self.drafts)
         if "review" in prompt:
