@@ -89,6 +89,80 @@ def test_outline_workflow(test_client):
     assert book["chapters"][-1]["title"] == "Chapitre 3"
 
 
+def test_generate_chapter_api_runs_complete_loop(test_client):
+    """The API must execute Writer -> Reviewer -> Summary and persist the result."""
+    create = test_client.post("/api/books", json={
+        "title": "Chapter Loop Test",
+        "theme": "Fantasy",
+        "author_idea": "Une archiviste suit une piste ancienne",
+        "lore": "Les archives conservent les souvenirs sous forme de fragments.",
+        "constraints": ["Pas d'anachronismes"],
+    })
+    assert create.status_code == 200
+    book_id = create.json()["id"]
+
+    outline = {
+        "outline": {
+            "chapters": [
+                {
+                    "number": 1,
+                    "title": "Le Fragment",
+                    "objective": "Découvrir le premier fragment mémoire",
+                },
+                {
+                    "number": 2,
+                    "title": "La Trace",
+                    "objective": "Suivre la piste laissée par le fragment",
+                },
+            ]
+        }
+    }
+    res = test_client.put(f"/api/books/{book_id}/outline", json=outline)
+    assert res.status_code == 200
+    res = test_client.post(f"/api/books/{book_id}/outline/approve")
+    assert res.status_code == 200
+
+    res = test_client.post(
+        f"/api/books/{book_id}/chapters",
+        json={"chapter_number": 1},
+    )
+    assert res.status_code == 200
+
+    res = test_client.post(f"/api/books/{book_id}/chapters/1/generate")
+    assert res.status_code == 200
+    data = res.json()
+    assert data["versionNumber"] == 1
+    assert data["content"]
+    assert data["book"]["chapters"][0]["status"] == "approved"
+    assert data["book"]["chapters"][0]["current_version"] == 1
+    assert data["book"]["chapters"][0]["summary"] == "Résumé canonique du chapitre."
+
+    context = test_client.get(f"/api/books/{book_id}/chapters/1/context")
+    assert context.status_code == 200
+    context_data = context.json()
+    assert context_data["currentObjective"] == "Découvrir le premier fragment mémoire"
+    assert "AUTHOR IDEA:" in context_data["formattedContext"]
+    assert "CURRENT CHAPTER OBJECTIVE:" in context_data["formattedContext"]
+
+    # The next chapter cannot be generated before it exists.
+    res = test_client.post(f"/api/books/{book_id}/chapters/2/generate")
+    assert res.status_code == 400
+
+    # Once created, chapter 2 can use chapter 1's canonical summary.
+    res = test_client.post(
+        f"/api/books/{book_id}/chapters",
+        json={"chapter_number": 2},
+    )
+    assert res.status_code == 200
+    res = test_client.post(f"/api/books/{book_id}/chapters/2/generate")
+    assert res.status_code == 200
+    assert res.json()["book"]["chapters"][1]["status"] == "approved"
+
+    context = test_client.get(f"/api/books/{book_id}/chapters/2/context")
+    assert context.status_code == 200
+    assert "Résumé canonique du chapitre." in context.json()["previousSummaries"]
+
+
 def test_generate_and_review_chapter(test_client):
     test_client.post("/api/books/proj-001/outline/approve")
 
