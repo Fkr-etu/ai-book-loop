@@ -27,6 +27,8 @@ class RecordingLLM:
         if prompt.startswith("you are the book's writer"):
             self.writer_contexts.append(user_prompt)
             return next(self.drafts)
+        if "editor" in prompt:
+            return next(self.drafts)
         if "review" in prompt:
             score = next(self.review_scores)
             return json.dumps(
