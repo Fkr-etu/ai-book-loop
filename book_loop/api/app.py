@@ -1,13 +1,32 @@
 from __future__ import annotations
 
+import uuid
 from typing import Any
-from fastapi import FastAPI, HTTPException, Body
+from fastapi import FastAPI, HTTPException, Body, Request, Response, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, EmailStr
 
-from book_loop.domain.models import BookState, Chapter, ChapterStatus
+from book_loop.domain.models import BookState, Chapter, ChapterStatus, User, UserPublic
 from book_loop.infrastructure.container import Container
+from book_loop.infrastructure.auth import (
+    hash_password,
+    verify_password,
+    create_access_token,
+    decode_access_token,
+    COOKIE_NAME,
+)
 from book_loop.application.services.context import ContextBuilder
+
+
+class RegisterPayload(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=8)
+    name: str = ""
+
+
+class LoginPayload(BaseModel):
+    email: str
+    password: str
 
 
 class CreateBookPayload(BaseModel):
@@ -43,6 +62,83 @@ def create_app(container: Container | None = None) -> FastAPI:
     )
 
     context_builder = ContextBuilder()
+
+    def get_current_user(request: Request) -> UserPublic:
+        token = request.cookies.get(COOKIE_NAME)
+        if not token:
+            auth_header = request.headers.get("Authorization")
+            if auth_header and auth_header.startswith("Bearer "):
+                token = auth_header.removeprefix("Bearer ")
+
+        if not token:
+            raise HTTPException(status_code=401, detail="Non authentifié.")
+
+        payload = decode_access_token(token)
+        if not payload or "sub" not in payload:
+            raise HTTPException(status_code=401, detail="Session invalide ou expirée.")
+
+        user = container.repository.get_user_by_id(payload["sub"])
+        if not user:
+            raise HTTPException(status_code=401, detail="Utilisateur introuvable.")
+
+        return UserPublic(id=user.id, email=user.email, name=user.name)
+
+    @app.post("/api/auth/register", status_code=201)
+    def register(payload: RegisterPayload, response: Response) -> dict[str, Any]:
+        existing_user = container.repository.get_user_by_email(payload.email)
+        if existing_user:
+            raise HTTPException(status_code=400, detail="Un compte existe déjà avec cette adresse e-mail.")
+
+        user_id = f"usr-{uuid.uuid4().hex[:8]}"
+        hashed = hash_password(payload.password)
+        new_user = User(
+            id=user_id,
+            email=payload.email,
+            password_hash=hashed,
+            name=payload.name,
+        )
+        created = container.repository.create_user(new_user)
+        user_public = UserPublic(id=created.id, email=created.email, name=created.name)
+
+        token = create_access_token(user_public)
+        response.set_cookie(
+            key=COOKIE_NAME,
+            value=token,
+            httponly=True,
+            secure=False,  # Set to True in HTTPS production environments
+            samesite="lax",
+            path="/",
+            max_age=7 * 24 * 3600,
+        )
+        return {"user": user_public.model_dump(mode="json")}
+
+    @app.post("/api/auth/login")
+    def login(payload: LoginPayload, response: Response) -> dict[str, Any]:
+        user = container.repository.get_user_by_email(payload.email)
+        if not user or not verify_password(payload.password, user.password_hash):
+            raise HTTPException(status_code=401, detail="Adresse e-mail ou mot de passe incorrect.")
+
+        user_public = UserPublic(id=user.id, email=user.email, name=user.name)
+        token = create_access_token(user_public)
+        response.set_cookie(
+            key=COOKIE_NAME,
+            value=token,
+            httponly=True,
+            secure=False,
+            samesite="lax",
+            path="/",
+            max_age=7 * 24 * 3600,
+        )
+        return {"user": user_public.model_dump(mode="json")}
+
+    @app.post("/api/auth/logout")
+    def logout(response: Response) -> dict[str, Any]:
+        response.delete_cookie(key=COOKIE_NAME, path="/", samesite="lax")
+        return {"message": "Déconnexion réussie."}
+
+    @app.get("/api/auth/me")
+    def me(current_user: UserPublic = Depends(get_current_user)) -> dict[str, Any]:
+        return {"user": current_user.model_dump(mode="json")}
 
     def _get_or_seed_book(book_id: str) -> BookState:
         try:

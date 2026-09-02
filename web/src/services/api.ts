@@ -49,7 +49,10 @@ export interface BookApi {
   createLoreItem(id: string, item: Omit<LoreItem, "id">): Promise<BookState>;
   updateLoreItem(id: string, loreId: string, updates: Partial<LoreItem>): Promise<BookState>;
   deleteLoreItem(id: string, loreId: string): Promise<BookState>;
+  registerUser(email: string, pass: string, name?: string): Promise<UserProfile>;
   loginUser(email: string, pass: string): Promise<UserProfile>;
+  logoutUser(): Promise<void>;
+  getCurrentUser(): Promise<UserProfile | null>;
 }
 
 export class MockBookApi implements BookApi {
@@ -319,10 +322,30 @@ export class MockBookApi implements BookApi {
     return book;
   }
 
+  async registerUser(email: string, pass: string, name?: string): Promise<UserProfile> {
+    return {
+      id: "usr-001",
+      email,
+      name: name || "Auteur MS",
+      plan: "pro"
+    };
+  }
+
   async loginUser(email: string, pass: string): Promise<UserProfile> {
     return {
       id: "usr-001",
       email,
+      name: "Valerius de Cendres",
+      plan: "pro"
+    };
+  }
+
+  async logoutUser(): Promise<void> {}
+
+  async getCurrentUser(): Promise<UserProfile | null> {
+    return {
+      id: "usr-001",
+      email: "auteur@manuscript.studio",
       name: "Valerius de Cendres",
       plan: "pro"
     };
@@ -338,6 +361,7 @@ export class RealBookApi implements BookApi {
 
   private async request<T>(endpoint: string, options?: RequestInit): Promise<T> {
     const res = await fetch(`${this.baseUrl}${endpoint}`, {
+      credentials: "include",
       headers: {
         "Content-Type": "application/json",
         ...options?.headers
@@ -345,8 +369,16 @@ export class RealBookApi implements BookApi {
       ...options
     });
     if (!res.ok) {
-      const errorText = await res.text();
-      throw new Error(`API Error (${res.status}): ${errorText}`);
+      let errorText = await res.text();
+      try {
+        const parsed = JSON.parse(errorText);
+        if (parsed.detail) {
+          errorText = typeof parsed.detail === "string" ? parsed.detail : JSON.stringify(parsed.detail);
+        }
+      } catch {
+        // ignore
+      }
+      throw new Error(errorText || `API Error (${res.status})`);
     }
     return res.json();
   }
@@ -466,13 +498,35 @@ export class RealBookApi implements BookApi {
     });
   }
 
+  async registerUser(email: string, pass: string, name?: string): Promise<UserProfile> {
+    const res = await this.request<{ user: UserProfile }>("/api/auth/register", {
+      method: "POST",
+      body: JSON.stringify({ email, password: pass, name: name || "" })
+    });
+    return res.user;
+  }
+
   async loginUser(email: string, pass: string): Promise<UserProfile> {
-    return {
-      id: "usr-001",
-      email,
-      name: "Valerius de Cendres",
-      plan: "pro"
-    };
+    const res = await this.request<{ user: UserProfile }>("/api/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ email, password: pass })
+    });
+    return res.user;
+  }
+
+  async logoutUser(): Promise<void> {
+    await this.request<{ message: string }>("/api/auth/logout", {
+      method: "POST"
+    });
+  }
+
+  async getCurrentUser(): Promise<UserProfile | null> {
+    try {
+      const res = await this.request<{ user: UserProfile }>("/api/auth/me");
+      return res.user;
+    } catch {
+      return null;
+    }
   }
 }
 

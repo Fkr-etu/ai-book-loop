@@ -40,3 +40,17 @@ class BookState(BaseModel):
     outline: str | None = None
     outline_approved: bool = False
     chapters: list[Chapter] = Field(default_factory=list)
+
+
+class User(BaseModel):
+    id: str
+    email: str
+    password_hash: str
+    name: str = ""
+    created_at: str | None = None
+
+
+class UserPublic(BaseModel):
+    id: str
+    email: str
+    name: str = ""
