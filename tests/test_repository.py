@@ -1,4 +1,4 @@
-from book_loop.domain.models import BookState, Outline, SceneReview
+from book_loop.domain.models import BookState, SceneReview
 from book_loop.infrastructure.database.repository import SQLiteBookRepository
 
 
@@ -9,28 +9,6 @@ def test_book_round_trip(tmp_path) -> None:
     repository.save(book)
 
     assert repository.get("book-1") == book
-
-
-def test_structured_outline_round_trip(tmp_path) -> None:
-    repository = SQLiteBookRepository(f"sqlite:///{tmp_path / 'book.db'}")
-    book = BookState(
-        id="book-1",
-        title="Test",
-        theme="Fantasy",
-        author_idea="A test idea",
-        outline=Outline(
-            chapters=[
-                {"number": 1, "title": "Opening", "objective": "Introduce the hero", "synopsis": "An inciting event."},
-                {"number": 2, "title": "Crossing", "objective": "Raise the stakes"},
-            ]
-        ),
-    )
-
-    repository.save(book)
-
-    loaded = repository.get("book-1")
-    assert loaded.outline == book.outline
-    assert loaded.outline.chapters[0].synopsis == "An inciting event."
 
 
 def test_chapter_version_and_review_are_persisted(tmp_path) -> None:

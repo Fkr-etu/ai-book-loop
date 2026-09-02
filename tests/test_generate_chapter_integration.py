@@ -6,7 +6,7 @@ from book_loop.agents.writer import WriterAgent
 from book_loop.application.services.context import ContextBuilder
 from book_loop.application.services.linter import ChapterLinter
 from book_loop.application.use_cases.generate_chapter import GenerateChapter
-from book_loop.domain.models import BookState, Chapter, ChapterStatus, Outline
+from book_loop.domain.models import BookState, Chapter, ChapterStatus
 from book_loop.workflow.chapter_graph import ChapterWorkflow, ChapterWorkflowState
 
 
@@ -76,15 +76,6 @@ def make_workflow(
     )
 
 
-def make_outline(*chapters: tuple[int, str, str]) -> Outline:
-    return Outline(
-        chapters=[
-            {"number": number, "title": title, "objective": objective}
-            for number, title, objective in chapters
-        ]
-    )
-
-
 def test_generate_chapter_passes_canonical_context_through_real_workflow() -> None:
     book = BookState(
         id="b1",
@@ -92,10 +83,7 @@ def test_generate_chapter_passes_canonical_context_through_real_workflow() -> No
         theme="Fantasy",
         author_idea="A hidden heir returns home.",
         lore="The old kingdom forbids magic.",
-        outline=make_outline(
-            (1, "Return", "Introduce the protagonist's return."),
-            (2, "The secret", "Reveal the first clue about the forbidden magic."),
-        ),
+        outline="Chapter 1: Return\nChapter 2: The secret",
         outline_approved=True,
         chapters=[
             Chapter(
@@ -144,7 +132,7 @@ def test_generate_chapter_retries_after_linter_failure_and_preserves_history() -
         title="Book",
         theme="Fantasy",
         author_idea="Idea",
-        outline=make_outline((1, "One", "Start")),
+        outline="Chapter 1",
         outline_approved=True,
         chapters=[Chapter(id="c1", number=1, title="One", objective="Start")],
     )
@@ -171,7 +159,7 @@ def test_generate_chapter_retries_after_low_review_and_preserves_reviews() -> No
         title="Book",
         theme="Fantasy",
         author_idea="Idea",
-        outline=make_outline((1, "One", "Start")),
+        outline="Chapter 1",
         outline_approved=True,
         chapters=[Chapter(id="c1", number=1, title="One", objective="Start")],
     )

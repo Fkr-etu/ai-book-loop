@@ -3,7 +3,7 @@ from book_loop.agents.summarizer import SummarizerAgent
 from book_loop.agents.writer import WriterAgent
 from book_loop.application.services.context import ContextBuilder
 from book_loop.application.services.linter import ChapterLinter
-from book_loop.domain.models import BookState, Chapter, Outline
+from book_loop.domain.models import BookState, Chapter
 from book_loop.workflow.chapter_graph import ChapterWorkflow, ChapterWorkflowState
 
 
@@ -49,14 +49,10 @@ def make_workflow(book, repository):
     )
 
 
-def make_outline() -> Outline:
-    return Outline(chapters=[{"number": 1, "title": "Beginning", "objective": "Start"}])
-
-
 def test_workflow_requires_approved_outline():
     book = BookState(
         id="b1", title="Book", theme="Fantasy", author_idea="Idea",
-        outline=make_outline(), outline_approved=False,
+        outline="Chapter 1", outline_approved=False,
         chapters=[Chapter(id="c1", number=1, title="Beginning", objective="Start")],
     )
     repository = InMemoryRepository(book)
@@ -72,7 +68,7 @@ def test_workflow_requires_approved_outline():
 def test_workflow_accepts_and_summarizes():
     book = BookState(
         id="b1", title="Book", theme="Fantasy", author_idea="Idea",
-        outline=make_outline(), outline_approved=True,
+        outline="Chapter 1", outline_approved=True,
         chapters=[Chapter(id="c1", number=1, title="Beginning", objective="Start")],
     )
     repository = InMemoryRepository(book)

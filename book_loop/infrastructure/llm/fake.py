@@ -14,32 +14,15 @@ class FakeLLMProvider(LLMProvider):
                 "score": 9,
                 "approved": True,
                 "issues": [],
-                "suggestions": ["Excellent style scholastique."],
+                "suggestions": ["Excellent style scholastique."]
             })
         if "summary" in sys_lower or "summarize" in sys_lower:
             return "Résumé canonique du chapitre."
         if "outline" in sys_lower:
-            return json.dumps({
-                "chapters": [
-                    {
-                        "number": 1,
-                        "title": "Le Murmure du Parchemin",
-                        "objective": "Découverte de la tablette",
-                        "synopsis": "Le protagoniste découvre la tablette dans les archives.",
-                    },
-                    {
-                        "number": 2,
-                        "title": "La Cité Suspendue",
-                        "objective": "Voyage vers le pont de verre",
-                        "synopsis": "Le voyage révèle les premiers enjeux de la cité.",
-                    },
-                    {
-                        "number": 3,
-                        "title": "L'Éclipse du Codex",
-                        "objective": "Sacrifice du premier souvenir",
-                        "synopsis": "Le secret du codex est révélé au prix d'un souvenir.",
-                    },
-                ]
-            })
+            return (
+                "1. Le Murmure du Parchemin — Découverte de la tablette\n"
+                "2. La Cité Suspendue — Voyage vers le pont de verre\n"
+                "3. L'Éclipse du Codex — Sacrifice du premier souvenir"
+            )
 
         return "Texte généré par l'assistant IA en mode offline."

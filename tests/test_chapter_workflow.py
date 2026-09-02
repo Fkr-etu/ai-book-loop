@@ -3,7 +3,7 @@ from book_loop.agents.summarizer import SummarizerAgent
 from book_loop.agents.writer import WriterAgent
 from book_loop.application.services.context import ContextBuilder
 from book_loop.application.services.linter import ChapterLinter
-from book_loop.domain.models import BookState, Chapter, Outline
+from book_loop.domain.models import BookState, Chapter
 from book_loop.workflow.chapter_graph import ChapterWorkflow
 from book_loop.infrastructure.database.repository import SQLiteBookRepository
 import tempfile
@@ -22,14 +22,6 @@ class FakeLLM:
         return "A valid chapter draft."
 
 
-def make_outline() -> Outline:
-    return Outline(
-        chapters=[
-            {"number": 1, "title": "One", "objective": "Start"},
-        ]
-    )
-
-
 def test_workflow_requires_approved_outline() -> None:
     with tempfile.NamedTemporaryFile(suffix=".db") as tmp:
         repo = SQLiteBookRepository(f"sqlite:///{tmp.name}")
@@ -38,7 +30,7 @@ def test_workflow_requires_approved_outline() -> None:
             title="B",
             theme="T",
             author_idea="I",
-            outline=make_outline(),
+            outline="Outline",
             outline_approved=False,
             chapters=[Chapter(id="c", number=1, title="One", objective="Start")],
         )
@@ -69,7 +61,7 @@ def test_workflow_generates_reviews_and_summary() -> None:
             title="B",
             theme="T",
             author_idea="I",
-            outline=make_outline(),
+            outline="Outline",
             outline_approved=True,
             chapters=[Chapter(id="c", number=1, title="One", objective="Start")],
         )

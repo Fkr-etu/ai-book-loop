@@ -10,7 +10,6 @@ from book_loop.application.use_cases.generate_outline import GenerateOutline
 from book_loop.application.use_cases.reject_chapter import RejectChapter
 from book_loop.application.use_cases.review_chapter import ReviewChapter
 from book_loop.application.use_cases.update_book import UpdateBook
-from book_loop.application.use_cases.update_outline import UpdateOutline
 
 __all__ = [
     "AddChapter",
@@ -22,5 +21,4 @@ __all__ = [
     "RejectChapter",
     "ReviewChapter",
     "UpdateBook",
-    "UpdateOutline",
 ]
