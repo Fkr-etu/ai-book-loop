@@ -5,9 +5,13 @@ import sqlite3
 
 from book_loop.domain.models import (
     Assertion,
+    AssertionStatus,
     BookState,
+    CanonicalFact,
+    Conflict,
     DocumentChunk,
     Evidence,
+    ReviewDecision,
     SceneReview,
     SourceDocument,
     User,
@@ -84,12 +88,43 @@ class SQLiteBookRepository:
             );
             CREATE TABLE IF NOT EXISTS evidence (
                 id TEXT PRIMARY KEY,
-                assertion_id TEXT NOT NULL,
+                assertion_id TEXT PRIMARY KEY,
                 source_document_id TEXT NOT NULL,
                 chunk_id TEXT NOT NULL,
                 start_offset INTEGER NOT NULL,
                 end_offset INTEGER NOT NULL,
                 excerpt TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS conflicts (
+                id TEXT PRIMARY KEY,
+                book_id TEXT NOT NULL,
+                left_assertion_id TEXT NOT NULL,
+                right_assertion_id TEXT NOT NULL,
+                status TEXT NOT NULL,
+                resolution_assertion_id TEXT,
+                UNIQUE(left_assertion_id, right_assertion_id)
+            );
+            CREATE TABLE IF NOT EXISTS review_decisions (
+                id TEXT PRIMARY KEY,
+                assertion_id TEXT NOT NULL,
+                decision TEXT NOT NULL,
+                reviewer_id TEXT,
+                rationale TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE TABLE IF NOT EXISTS canonical_facts (
+                id TEXT PRIMARY KEY,
+                book_id TEXT NOT NULL,
+                assertion_id TEXT NOT NULL,
+                statement TEXT NOT NULL,
+                subject TEXT NOT NULL,
+                predicate TEXT NOT NULL,
+                object TEXT NOT NULL,
+                decision_id TEXT NOT NULL,
+                version INTEGER NOT NULL,
+                active INTEGER NOT NULL,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(book_id, subject, predicate, version)
             );
             """
         )
@@ -160,12 +195,67 @@ class SQLiteBookRepository:
         )
         self._connection.commit()
 
+    def list_assertions(self, *, book_id: str) -> list[Assertion]:
+        rows = self._connection.execute(
+            """
+            SELECT a.* FROM assertions a
+            JOIN source_documents s ON s.id = a.source_document_id
+            WHERE s.book_id = ? ORDER BY a.rowid
+            """,
+            (book_id,),
+        ).fetchall()
+        return [self._assertion_from_row(row) for row in rows]
+
+    def save_conflict(self, conflict: Conflict) -> None:
+        left, right = sorted((conflict.left_assertion_id, conflict.right_assertion_id))
+        self._connection.execute(
+            """
+            INSERT INTO conflicts(id, book_id, left_assertion_id, right_assertion_id, status, resolution_assertion_id)
+            VALUES(?, ?, ?, ?, ?, ?)
+            ON CONFLICT(left_assertion_id, right_assertion_id) DO UPDATE SET
+              status=excluded.status, resolution_assertion_id=excluded.resolution_assertion_id
+            """,
+            (conflict.id, conflict.book_id, left, right, conflict.status.value, conflict.resolution_assertion_id),
+        )
+        self._connection.commit()
+
+    def save_review_decision(self, decision: ReviewDecision) -> None:
+        self._connection.execute(
+            "INSERT INTO review_decisions(id, assertion_id, decision, reviewer_id, rationale) VALUES(?, ?, ?, ?, ?)",
+            (decision.id, decision.assertion_id, decision.decision.value, decision.reviewer_id, decision.rationale),
+        )
+        self._connection.commit()
+
+    def save_canonical_fact(self, fact: CanonicalFact) -> None:
+        self._connection.execute(
+            "INSERT INTO canonical_facts(id, book_id, assertion_id, statement, subject, predicate, object, decision_id, version, active) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (fact.id, fact.book_id, fact.assertion_id, fact.statement, fact.subject, fact.predicate, fact.object, fact.decision_id, fact.version, int(fact.active)),
+        )
+        self._connection.commit()
+
+    def set_assertion_status(self, assertion_id: str, status: AssertionStatus) -> None:
+        cursor = self._connection.execute(
+            "UPDATE assertions SET status = ? WHERE id = ?",
+            (status.value, assertion_id),
+        )
+        if cursor.rowcount != 1:
+            raise KeyError(f"Unknown assertion: {assertion_id}")
+        self._connection.commit()
+
     @staticmethod
     def _source_from_row(row: sqlite3.Row) -> SourceDocument:
         return SourceDocument(
             id=row["id"], book_id=row["book_id"], name=row["name"], source_type=row["source_type"],
             content=row["content"], content_hash=row["content_hash"], metadata=json.loads(row["metadata"]),
             version=row["version"],
+        )
+
+    @staticmethod
+    def _assertion_from_row(row: sqlite3.Row) -> Assertion:
+        return Assertion(
+            id=row["id"], source_document_id=row["source_document_id"], chunk_id=row["chunk_id"],
+            statement=row["statement"], subject=row["subject"], predicate=row["predicate"],
+            object=row["object"], confidence=row["confidence"], status=row["status"], evidence_id=row["evidence_id"],
         )
 
     def create_user(self, user: User) -> User:
