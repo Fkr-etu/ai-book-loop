@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from book_loop.application.services.retrieval import CanonicalRetriever
 from book_loop.domain.models import BookState
-from book_loop.domain.protocols import KnowledgeRepository
+from book_loop.domain.protocols import CanonicalKnowledgeRetriever, KnowledgeRepository
 
 
 class ContextBuilder:
@@ -11,7 +11,7 @@ class ContextBuilder:
     def __init__(
         self,
         knowledge_repository: KnowledgeRepository | None = None,
-        retriever: CanonicalRetriever | None = None,
+        retriever: CanonicalKnowledgeRetriever | None = None,
     ) -> None:
         self.knowledge_repository = knowledge_repository
         self.retriever = retriever or CanonicalRetriever()

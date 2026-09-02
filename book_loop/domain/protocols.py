@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from typing import Protocol
 
 from book_loop.domain.models import (
@@ -42,6 +43,10 @@ class BookRepository(Protocol):
 
 class AssertionExtractor(Protocol):
     def extract(self, *, chunk: DocumentChunk) -> list[ExtractedAssertion]: ...
+
+
+class CanonicalKnowledgeRetriever(Protocol):
+    def retrieve(self, facts: Iterable[CanonicalFact], *, query: str) -> list[CanonicalFact]: ...
 
 
 class KnowledgeRepository(Protocol):
