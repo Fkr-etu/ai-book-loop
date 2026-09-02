@@ -2,174 +2,187 @@
 
 ## Strategic direction
 
-AI Book Loop is evolving from an **AI writing assistant for authors** into a **Narrative Content QA & Canon Engine** for teams that create and maintain complex fictional content.
+AI Book Loop starts with a deliberately focused product: an **agentic AI loop for reviewing, improving, and drafting a book**. The book workflow is not a disposable prototype or a temporary marketing story. It is the first concrete domain in which we will prove the underlying engine.
 
-The writing loop remains an important internal capability, but it is no longer the primary product proposition. The durable value is reducing the cost of narrative/content inconsistencies by maintaining a trusted, versioned source of truth and detecting when new or edited content breaks that source of truth.
+The strategic opportunity is to generalize that engine beyond books into **documentation and company knowledge QA**: a system that understands a corpus as a set of claims, dependencies, versions, and approvals, then reviews new or changed content against that knowledge.
 
-The competitive analysis reinforces this distinction: writing assistants, worldbuilding databases, narrative authoring tools, and branching engines already cover generation, organization, and production. The product should therefore not attempt to replace them. It should become the **QA layer that can inspect content produced in those tools**.
+The progression is intentional:
+
+```text
+AGENTIC BOOK LOOP
+Review → propose → validate → approve → canonical state
+                    ↓
+            generalized knowledge model
+                    ↓
+DOCUMENTATION / COMPANY KNOWLEDGE QA
+Ingest → extract claims → detect regressions → review → approve
+```
+
+The book is the **wedge and proving ground**. The underlying business logic is the long-term platform opportunity.
 
 ## Mission
 
-Help narrative teams ship coherent content without manually checking every character, event, relationship, rule, timeline, and dependency after every change.
+Build an AI agentic workflow that can reason over a long-lived body of content, review changes against its canonical state, propose improvements, and keep the approved knowledge coherent over time.
 
-> **We don't write your story. We test whether your story still holds together.**
+The first manifestation is book creation. Later manifestations include product documentation, technical documentation, internal company knowledge, and other high-value documentation workflows.
 
-## Initial ideal customer profile
+## Why start with books?
 
-The first ICP hypothesis is **small-to-mid-sized narrative game teams (roughly 5–50 people)** that already have meaningful content and an existing production workflow.
+The book domain is valuable because it forces the system to solve the hard version of the problem:
 
-Strong signals include:
+- long context and evolving state;
+- characters, facts, relationships, events, and timelines;
+- continuity across many documents/chapters;
+- explicit author intent and quality review;
+- iterative generation rather than one-shot prompting;
+- human approval of proposed changes;
+- a canonical state that evolves over time.
 
-- multiple writers/designers contribute to the same project;
-- substantial dialogue, quests, lore, characters, or timelines already exist;
-- the team uses one or more source systems such as Articy, Notion, Git, documents, spreadsheets, or custom tools;
-- content changes frequently;
-- localization, voice, implementation, or QA amplifies the cost of late narrative changes;
-- AI-assisted production is increasing content volume;
-- the team has experienced painful regressions or inconsistencies.
+These constraints are not incidental. They are the training ground for the generalized engine.
 
-The important ICP qualifier is **not team size alone**. It is evidence that content inconsistency is a recurring operational cost.
+The initial product should therefore **keep the book-writing loop as a first-class experience**, rather than prematurely hiding it behind an abstract documentation product.
 
-Publishing teams and other IP-heavy narrative organizations remain secondary expansion markets.
+## Initial product — Agentic Book Loop
 
-## Problem
-
-Narrative teams already have tools to write, organize, branch, and store content. The missing layer is often knowing whether the project is still internally consistent after content changes.
-
-Typical questions are:
-
-- What does this change contradict?
-- Which characters, events, documents, quests, or dialogue lines are affected?
-- Does this character know this information yet?
-- Did a timeline change invalidate another event?
-- Which content is stale after this canonical change?
-- Which source is authoritative?
-- Can we catch this before it reaches QA, localization, recording, or a build?
-
-Generic LLM writing tools can generate plausible text, but plausibility is not continuity. Existing narrative databases can store a canon, but storage alone does not prove that downstream content still agrees with it.
-
-The product therefore owns **narrative/content QA and change-impact analysis**, with the Canon Engine as its underlying source-of-truth model.
-
-## Core product promise
-
-Given an existing canon and new or modified content, the system should:
-
-1. ingest content from the team's existing workflow;
-2. extract and structure canonical facts and dependencies;
-3. validate new content against approved assertions;
-4. identify contradictions, stale information, structural risks, and uncertainty;
-5. explain each finding with evidence and affected dependencies;
-6. let humans review and approve changes;
-7. maintain the canonical state and audit history.
-
-## Killer interaction
-
-> **"What breaks if I change this?"**
-
-A user changes a fact, character attribute, event, relationship, or rule. The system shows the downstream content and canonical assertions that may become invalid.
-
-A second core interaction is:
-
-> **"Check this new content against my canon."**
-
-These workflows turn the Canon Engine into a QA system rather than another authoring database.
-
-## Product model
+The product helps an author or small writing team move through a controlled loop:
 
 ```text
-EXISTING SOURCES
-Articy / Git / Docs / Wiki / JSON / etc.
-              ↓
-        CANON ENGINE
-              ↓
-   ENTITIES + ASSERTIONS
-              ↓
-       CONTENT INGESTION
-              ↓
-       NARRATIVE QA ENGINE
-              ↓
-┌─────────────┼──────────────┐
-↓             ↓              ↓
-Contradictions  Risks       Impact
-└─────────────┼──────────────┘
-              ↓
-        HUMAN REVIEW
-              ↓
-       APPROVED CANON
-              ↓
-        NEW CONTENT
+Intent
+  ↓
+Research / context
+  ↓
+Outline
+  ↓
+Draft / proposal
+  ↓
+AI review
+  ↓
+Continuity / quality validation
+  ↓
+Human review & approval
+  ↓
+Canonical state
+  ↓
+Next chapter / revision
 ```
 
-The existing chapter loop remains useful as an implementation pattern:
+AI agents may analyze, critique, propose, and draft. They must not silently mutate canonical state. Human approval remains the authority.
+
+The important product property is the **loop**, not a particular model or prompt.
+
+## The underlying abstraction
+
+The engine should progressively separate content from the invariants that make it coherent.
+
+A useful canonical model includes:
+
+- entities: characters, products, teams, locations, concepts;
+- claims/facts;
+- relationships;
+- events and temporal assertions;
+- rules and constraints;
+- source documents;
+- versions;
+- provenance;
+- confidence;
+- review decisions;
+- dependencies between claims and content.
+
+For a book, an assertion may be:
+
+> Sarah learns the truth in chapter 18.
+
+For a company, an assertion may be:
+
+> API v3 requires OAuth 2.0.
+
+The engine should eventually be able to treat both as the same underlying primitive: **a claim whose validity can affect other content**.
+
+## Long-term product direction — Knowledge QA
+
+Once the book loop is reliable, extend the same logic to documentation and company knowledge.
+
+The product should sit above existing systems rather than requiring migration:
 
 ```text
-Proposal → Validation → Review → Canonical state → Next change
+Notion / Confluence / Git / Docs / Wiki / PDFs
+                    ↓
+              KNOWLEDGE ENGINE
+                    ↓
+       claims / dependencies / canon
+                    ↓
+            REVIEW & REGRESSION QA
+                    ↓
+        contradictions / stale content
+              / change impact
+                    ↓
+              human approval
 ```
 
-It is generalized from chapter generation to **content lifecycle + QA + canonical state management**.
+The commercial proposition becomes **Documentation QA / Knowledge Consistency**, with the book workflow as the first validated use case.
 
-## Competitive position
+A future killer interaction is:
 
-The product should explicitly avoid competing head-on with:
+> **"What becomes wrong if I change this?"**
 
-- AI writing assistants that optimize for prose generation;
-- worldbuilding/story-bible products that optimize for organization;
-- narrative authoring tools that optimize for branching and engine export.
+and, for continuous workflows:
 
-The wedge is **cross-source narrative QA**: inspect content created elsewhere, compare it to the approved canon, identify evidence-backed inconsistencies, and calculate change impact.
-
-This positioning matters because established tools already cover large parts of canon storage and narrative production. The product must complement those systems before it attempts to replace any of them.
-
-## Product principles
-
-- **Canon is the source of truth.** Generated or imported content is not canonical until explicitly approved.
-- **QA is first-class.** The product is valuable because it detects problems, not because it stores more lore.
-- **Continuity is evidence-backed.** Findings should identify the conflicting assertions, source material, and affected dependencies.
-- **Deterministic rules stay deterministic.** Dates, constraints, state transitions, permissions, identifiers, and other hard invariants should not depend solely on an LLM judgment.
-- **LLMs assist; they do not own state.** Provider-specific intelligence remains replaceable infrastructure.
-- **Every change is auditable.** Preserve versions, approvals, provenance, and review decisions.
-- **Explainability beats magic.** A useful finding is actionable and traceable.
-- **Integrate before replacing.** Customers should not need to migrate their narrative stack to obtain value.
-- **Cost-consciousness matters.** Avoid unnecessary LLM calls and reserve model usage for extraction, semantic comparison, and ambiguous cases.
-- **Human approval remains the authority.** The system recommends; the team decides.
+> **"Check this new content against the current knowledge state."**
 
 ## Business model hypothesis
 
-The product should be sold as a B2B SaaS focused on **risk reduction and QA**, rather than primarily as a consumer author subscription.
+The first product can validate willingness to pay in the author / small-team market while the larger opportunity is B2B documentation and knowledge QA.
 
-Initial pricing hypotheses:
+The business should progressively move toward SaaS pricing based on value delivered by the knowledge workflow rather than raw model tokens.
 
-- Team: approximately €99–299/month;
-- Studio: approximately €499–1,499/month;
-- Enterprise: custom pricing for SSO, security, API, dedicated infrastructure, and support.
+Potential expansion:
 
-These prices are hypotheses to validate through customer discovery, not commitments.
+1. Book / writing subscription for the initial product.
+2. Team plans for collaborative book projects.
+3. Documentation QA for software companies.
+4. Company knowledge QA across multiple sources.
+5. API / infrastructure for knowledge consistency checks.
 
-Pricing should not be based primarily on LLM tokens. Value-based dimensions should be tested first: projects, collaborators, canon capacity, content checks, integrations, CI usage, and governance.
+Pricing remains a hypothesis to validate with customers; do not optimize for enterprise pricing before product evidence exists.
+
+## Product principles
+
+- **The loop is first-class.** Review, propose, validate, approve, and update state are core product primitives.
+- **Canon is the source of truth.** Generated or inferred content is not canonical until approved.
+- **AI agents assist; they do not own state.** Agents can reason and propose changes within bounded workflows.
+- **Continuity and correctness are first-class.** Model dependencies rather than relying only on prompt context.
+- **Deterministic rules stay deterministic.** Dates, permissions, state transitions, and hard constraints should not depend solely on LLM judgment.
+- **Every change is auditable.** Preserve versions, provenance, and review decisions.
+- **Explainability beats magic.** A finding should expose its supporting claims and affected content.
+- **Existing systems remain sources.** The future documentation product should integrate before it asks customers to migrate.
+- **Cost-consciousness matters.** Use LLMs where semantic reasoning adds value; avoid unnecessary calls.
 
 ## What we are explicitly not building
 
-- another generic AI chapter/novel generator;
-- another worldbuilding database;
-- another branching dialogue editor;
-- a prompt library disguised as a SaaS;
-- a product whose moat is a proprietary writing prompt;
-- a broad enterprise knowledge-management platform before the narrative use case is validated.
+- a generic one-shot AI writing assistant;
+- a simple lore / story-bible database;
+- a generic documentation editor competing with Notion or Confluence;
+- a broad enterprise knowledge-management suite before the underlying engine is validated;
+- a product whose moat is a proprietary prompt.
 
-## Success criteria for the pivot
+## Success criteria for the strategic transition
 
-The pivot is validated only if target teams demonstrate that narrative/content inconsistencies are frequent and costly enough to justify a recurring QA product.
+The first milestone is not to prove the entire company-knowledge vision. It is to prove the loop in the book domain.
 
-Before substantial platform expansion, validate:
+### Book wedge
 
-1. at least 10 customer discovery interviews with teams matching the ICP;
-2. at least 3 teams willing to test with real project material;
-3. at least 1 paid pilot or equivalent strong buying signal;
-4. a measurable reduction in time spent finding or resolving narrative regressions;
-5. evidence that the product can integrate with existing tools without requiring migration.
+- authors complete real chapters with the agentic loop;
+- AI review catches useful continuity/quality issues;
+- proposed changes are understandable and controllable;
+- canonical state remains trustworthy;
+- users return for repeated review/drafting cycles.
 
-## Critical falsification question
+### Expansion validation
 
-> **Do narrative inconsistencies cost enough, happen often enough, and occur early enough in the workflow that a team will pay €100–1,500/month to catch them?**
+Only after the book loop demonstrates repeated value should we test adjacent documentation workflows:
 
-If the answer is no, the product should not expand into a larger platform. Revisit the ICP, problem severity, or adjacent QA use case instead.
+1. identify a documentation corpus with similar change/consistency pain;
+2. reuse the canonical claim/dependency model;
+3. prove that the same review loop catches costly regressions;
+4. secure design partners and a paid pilot;
+5. expand integrations and team governance only after evidence.
