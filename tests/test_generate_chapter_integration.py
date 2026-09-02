@@ -37,8 +37,10 @@ class RecordingLLM:
                     "suggestions": [],
                 }
             )
-        if "summarize" in prompt:
+        if "summar" in prompt:
             return "Canonical chapter summary."
+        if "editor" in prompt:
+            return next(self.drafts)
         raise AssertionError(f"Unexpected system prompt: {system_prompt}")
 
 
@@ -161,8 +163,12 @@ def test_generate_chapter_retries_after_linter_failure_and_preserves_history() -
         "TODO: unfinished draft",
         "A corrected chapter draft.",
     ]
-    assert len(repository.reviews) == 1
-    assert repository.reviews[0][2] == 2
+    assert len(repository.reviews) == 2
+    assert [review[2] for review in repository.reviews] == [1, 2]
+    assert repository.reviews[0][3].approved is False
+    assert repository.reviews[0][3].issues == ["Draft contains placeholders"]
+    assert repository.reviews[1][2] == 2
+    assert repository.reviews[1][3].approved is True
 
 
 def test_generate_chapter_retries_after_low_review_and_preserves_reviews() -> None:

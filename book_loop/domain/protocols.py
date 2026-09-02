@@ -34,6 +34,10 @@ class Reviewer(Protocol):
     def review(self, *, context: str, draft: str) -> SceneReview: ...
 
 
+class Corrector(Protocol):
+    def correct(self, *, context: str, draft: str, review: SceneReview) -> str: ...
+
+
 class Summarizer(Protocol):
     def summarize(self, *, context: str, chapter: str) -> str: ...
 
