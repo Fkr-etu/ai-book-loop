@@ -32,8 +32,8 @@ def test_embedding_retriever_ranks_by_cosine_similarity():
     provider = FakeEmbeddingProvider(
         {
             query: (1.0, 0.0),
-            "Alice has a silver key Alice has fact Alice has a silver key": (0.99, 0.1),
-            "The castle has a red gate The castle has fact The castle has a red gate": (0.0, 1.0),
+            "Alice has a silver key a has fact Alice has a silver key": (0.99, 0.1),
+            "The castle has a red gate b has fact The castle has a red gate": (0.0, 1.0),
         }
     )
 
