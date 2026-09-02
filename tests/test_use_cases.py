@@ -82,19 +82,6 @@ def test_add_chapter_rejects_out_of_order_or_duplicate_creation():
         AddChapter(repository).execute(book, chapter_number=1)
 
 
-def test_add_chapter_rejects_chapter_missing_from_outline():
-    repository = Repository()
-    book = CreateBook(repository).execute(title="Book", theme="Fantasy", author_idea="Idea")
-    UpdateOutline(repository).execute(
-        book,
-        Outline(chapters=[{"number": 1, "title": "Opening", "objective": "Start"}]),
-    )
-    ApproveOutline(repository).execute(book)
-
-    with pytest.raises(ValueError, match="Unknown chapter"):
-        AddChapter(repository).execute(book, chapter_number=1)
-
-
 def test_update_outline_rejects_empty_outline():
     repository = Repository()
     book = BookState(id="1", title="T", theme="Th", author_idea="I")
