@@ -45,7 +45,16 @@ def test_create_book(test_client):
 
 
 def test_outline_workflow(test_client):
-    res = test_client.post("/api/books/proj-001/outline/generate")
+    create = test_client.post("/api/books", json={
+        "title": "Outline Test",
+        "theme": "Fantasy",
+        "author_idea": "Une quête initiatique",
+        "lore": "Un monde ancien",
+    })
+    assert create.status_code == 200
+    book_id = create.json()["id"]
+
+    res = test_client.post(f"/api/books/{book_id}/outline/generate")
     assert res.status_code == 200
     book = res.json()
     assert book["outline"] is not None
@@ -60,17 +69,17 @@ def test_outline_workflow(test_client):
             ]
         }
     }
-    res = test_client.put("/api/books/proj-001/outline", json=edited)
+    res = test_client.put(f"/api/books/{book_id}/outline", json=edited)
     assert res.status_code == 200
     assert res.json()["outline_approved"] is False
 
-    res = test_client.post("/api/books/proj-001/outline/approve")
+    res = test_client.post(f"/api/books/{book_id}/outline/approve")
     assert res.status_code == 200
     assert res.json()["outline_approved"] is True
 
     for chapter_number in (1, 2, 3):
         res = test_client.post(
-            "/api/books/proj-001/chapters",
+            f"/api/books/{book_id}/chapters",
             json={"chapter_number": chapter_number},
         )
         assert res.status_code == 200
