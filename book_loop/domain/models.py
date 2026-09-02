@@ -59,6 +59,7 @@ class Chapter(BaseModel):
 
 class BookState(BaseModel):
     id: str
+    owner_id: str
     title: str
     theme: str
     author_idea: str
