@@ -4,16 +4,30 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Mail, Lock, Eye, EyeOff, ArrowRight, BookOpen, Feather } from "lucide-react";
+import { getApiClient } from "@/services/api";
 
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("auteur@manuscript.studio");
   const [password, setPassword] = useState("••••••••");
   const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    router.push("/studio");
+    setError(null);
+    setLoading(true);
+
+    try {
+      const api = getApiClient();
+      await api.loginUser(email, password);
+      router.push("/studio");
+    } catch (err: any) {
+      setError(err?.message || "Erreur lors de la connexion.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -54,6 +68,12 @@ export default function LoginPage() {
               Connexion à votre espace d'écriture
             </p>
           </div>
+
+          {error && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded">
+              {error}
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-5">
             <div>
@@ -107,9 +127,10 @@ export default function LoginPage() {
 
             <button
               type="submit"
-              className="mt-2 w-full bg-[#0f172a] text-[#f8f5f0] font-semibold text-sm py-3 rounded hover:bg-[#213145] transition-colors flex items-center justify-center gap-2 group shadow-sm"
+              disabled={loading}
+              className="mt-2 w-full bg-[#0f172a] text-[#f8f5f0] font-semibold text-sm py-3 rounded hover:bg-[#213145] transition-colors flex items-center justify-center gap-2 group shadow-sm disabled:opacity-50"
             >
-              <span>Connexion</span>
+              <span>{loading ? "Connexion en cours..." : "Connexion"}</span>
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform text-[#ffddb8]" />
             </button>
           </form>

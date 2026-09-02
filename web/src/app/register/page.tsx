@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Mail, Lock, User, Eye, EyeOff, ArrowRight, Feather, Sparkles } from "lucide-react";
+import { getApiClient } from "@/services/api";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -12,10 +13,23 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [plan, setPlan] = useState<"standard" | "pro">("pro");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    router.push("/setup");
+    setError(null);
+    setLoading(true);
+
+    try {
+      const api = getApiClient();
+      await api.registerUser(email, password, name);
+      router.push("/setup");
+    } catch (err: any) {
+      setError(err?.message || "Erreur lors de l'inscription.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -55,6 +69,12 @@ export default function RegisterPage() {
               Rejoignez les auteurs qui façonnent leurs récits avec l'IA
             </p>
           </div>
+
+          {error && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded">
+              {error}
+            </div>
+          )}
 
           {/* Plan Selector Toggle */}
           <div className="grid grid-cols-2 gap-3 mb-6 p-1 bg-[#eff4ff] rounded-lg border border-[#c6c6cd]/20">
@@ -154,9 +174,10 @@ export default function RegisterPage() {
 
             <button
               type="submit"
-              className="mt-4 w-full bg-[#0f172a] text-[#f8f5f0] font-semibold text-sm py-3 rounded hover:bg-[#213145] transition-colors flex items-center justify-center gap-2 group shadow-sm"
+              disabled={loading}
+              className="mt-4 w-full bg-[#0f172a] text-[#f8f5f0] font-semibold text-sm py-3 rounded hover:bg-[#213145] transition-colors flex items-center justify-center gap-2 group shadow-sm disabled:opacity-50"
             >
-              <span>Démarrer le Setup du Premier Projet</span>
+              <span>{loading ? "Création du compte..." : "Démarrer le Setup du Premier Projet"}</span>
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform text-[#ffddb8]" />
             </button>
           </form>
