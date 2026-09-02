@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-import json
 from typing import Any
 from fastapi import FastAPI, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from book_loop.domain.models import BookState, Chapter, ChapterStatus, SceneReview
+from book_loop.domain.models import BookState, Chapter, ChapterStatus
 from book_loop.infrastructure.container import Container
 from book_loop.application.services.context import ContextBuilder
 
@@ -49,12 +48,15 @@ def create_app(container: Container | None = None) -> FastAPI:
         try:
             return container.repository.get(book_id)
         except KeyError:
+            if book_id != "proj-001":
+                raise HTTPException(status_code=404, detail=f"Livre {book_id} introuvable.")
+
             default_book = BookState(
-                id=book_id,
-                title="La Porte d'Obsidienne",
-                theme="Le prix de l'immortalité et la décomposition de la mémoire collective.",
-                author_idea="Un archiviste amnésique découvre un manuscrit interdit gravé dans l'obsidienne.",
-                lore="Dans l'Empire de Cendres, les mages utilisent l'Obsidienne stellaire pour figer les souvenirs.",
+                id="proj-001",
+                title="L'Écho du Codex",
+                theme="Mystères alchimiques et cités perdues",
+                author_idea="Une chercheuse découvre un grimoire mécanique dont chaque page modifie la mémoire de son lecteur.",
+                lore="Dans l'archipel d'Aethelgard, les parchemins sont animés par une poussière stellaire pour figer les souvenirs.",
                 constraints=[
                     "Interdire les anachronismes modernes",
                     "Conserver une voix narrative érudite à la 3ème personne",
@@ -105,11 +107,14 @@ def create_app(container: Container | None = None) -> FastAPI:
 
     @app.put("/api/books/{book_id}")
     def update_book(book_id: str, updates: dict[str, Any] = Body(...)) -> dict[str, Any]:
-        book = _get_or_seed_book(book_id)
-        data = book.model_dump(mode="json")
-        data.update(updates)
-        updated_book = BookState.model_validate(data)
-        container.repository.save(updated_book)
+        _get_or_seed_book(book_id)
+        use_case = container.update_book()
+        try:
+            updated_book = use_case.execute(book_id, updates)
+        except KeyError:
+            raise HTTPException(status_code=404, detail=f"Livre {book_id} introuvable.")
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=str(e))
         return updated_book.model_dump(mode="json")
 
     @app.post("/api/books/{book_id}/outline/generate")
@@ -144,89 +149,61 @@ def create_app(container: Container | None = None) -> FastAPI:
     @app.post("/api/books/{book_id}/chapters/{chapter_number}/generate")
     def generate_chapter(book_id: str, chapter_number: int) -> dict[str, Any]:
         book = _get_or_seed_book(book_id)
-        if not book.outline_approved:
-            raise HTTPException(status_code=400, detail="L'outline doit être approuvé avant de générer un chapitre.")
+        use_case = container.generate_chapter()
+        try:
+            state = use_case.execute(book, chapter_number=chapter_number)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
 
-        chapter = next((c for c in book.chapters if c.number == chapter_number), None)
-        if chapter is None:
-            raise HTTPException(status_code=404, detail=f"Chapitre {chapter_number} introuvable.")
-
-        next_ver = chapter.current_version + 1
-        draft_content = f"Chapitre {chapter.number}: {chapter.title}. Objectif: {chapter.objective}.\n\nDans la pénombre du scriptorium..."
-
-        chapter.current_version = next_ver
-        chapter.status = ChapterStatus.PROPOSED
-        container.repository.save(book)
-        container.repository.save_chapter_version(
-            book_id=book.id, chapter_number=chapter.number, version=next_ver, draft=draft_content
-        )
-
+        updated_book = container.repository.get(book_id)
         return {
-            "book": book.model_dump(mode="json"),
-            "versionNumber": next_ver,
-            "content": draft_content,
+            "book": updated_book.model_dump(mode="json"),
+            "versionNumber": state.attempt,
+            "content": state.draft,
         }
 
     @app.post("/api/books/{book_id}/chapters/{chapter_number}/review")
-    def review_chapter(book_id: str, chapter_number: int, payload: ReviewPayload = Body(default_factory=ReviewPayload)) -> dict[str, Any]:
+    def review_chapter(
+        book_id: str,
+        chapter_number: int,
+        payload: ReviewPayload = Body(default_factory=ReviewPayload),
+    ) -> dict[str, Any]:
         book = _get_or_seed_book(book_id)
-        chapter = next((c for c in book.chapters if c.number == chapter_number), None)
-        if chapter is None:
-            raise HTTPException(status_code=404, detail=f"Chapitre {chapter_number} introuvable.")
-
-        v_num = payload.versionNumber or chapter.current_version
-        text = payload.draftText or f"Contenu du chapitre {chapter.number} version {v_num}"
-
-        issues: list[str] = []
-        if any(w in text.lower() for w in ["ordinateur", "robot", "telephone", "internet", "wifi"]):
-            issues.append("Termes anachroniques détectés.")
-        if len(text) < 10:
-            issues.append("Contenu trop court.")
-
-        approved = len(issues) == 0
-        score = 9 if approved else 4
-
-        review = SceneReview(
-            score=score,
-            approved=approved,
-            issues=issues,
-            suggestions=["Maintenir le style littéraire."] if approved else ["Réécrire sans termes anachroniques."]
-        )
-
-        container.repository.save_review(
-            book_id=book.id, chapter_number=chapter.number, version=v_num, review=review
-        )
-
-        chapter.status = ChapterStatus.NEEDS_REVIEW if approved else ChapterStatus.REJECTED
-        container.repository.save(book)
+        use_case = container.review_chapter()
+        try:
+            updated_book, review = use_case.execute(
+                book,
+                chapter_number=chapter_number,
+                version_number=payload.versionNumber,
+                draft_text=payload.draftText,
+            )
+        except ValueError as e:
+            raise HTTPException(status_code=404 if "not found" in str(e).lower() else 400, detail=str(e))
 
         return {
-            "book": book.model_dump(mode="json"),
-            "review": review.model_dump(mode="json")
+            "book": updated_book.model_dump(mode="json"),
+            "review": review.model_dump(mode="json"),
         }
 
     @app.post("/api/books/{book_id}/chapters/{chapter_number}/approve")
     def approve_chapter(book_id: str, chapter_number: int) -> dict[str, Any]:
         book = _get_or_seed_book(book_id)
-        chapter = next((c for c in book.chapters if c.number == chapter_number), None)
-        if chapter is None:
-            raise HTTPException(status_code=404, detail=f"Chapitre {chapter_number} introuvable.")
-
-        chapter.status = ChapterStatus.APPROVED
-        chapter.summary = f"Chapitre {chapter.number} ({chapter.title}): {chapter.objective} [Canonique]"
-        container.repository.save(book)
-        return book.model_dump(mode="json")
+        use_case = container.approve_chapter()
+        try:
+            updated_book = use_case.execute(book, chapter_number=chapter_number)
+        except ValueError as e:
+            raise HTTPException(status_code=404, detail=str(e))
+        return updated_book.model_dump(mode="json")
 
     @app.post("/api/books/{book_id}/chapters/{chapter_number}/reject")
     def reject_chapter(book_id: str, chapter_number: int) -> dict[str, Any]:
         book = _get_or_seed_book(book_id)
-        chapter = next((c for c in book.chapters if c.number == chapter_number), None)
-        if chapter is None:
-            raise HTTPException(status_code=404, detail=f"Chapitre {chapter_number} introuvable.")
-
-        chapter.status = ChapterStatus.REJECTED
-        container.repository.save(book)
-        return book.model_dump(mode="json")
+        use_case = container.reject_chapter()
+        try:
+            updated_book = use_case.execute(book, chapter_number=chapter_number)
+        except ValueError as e:
+            raise HTTPException(status_code=404, detail=str(e))
+        return updated_book.model_dump(mode="json")
 
     @app.get("/api/books/{book_id}/chapters/{chapter_number}/context")
     def get_canonical_context(book_id: str, chapter_number: int) -> dict[str, Any]:

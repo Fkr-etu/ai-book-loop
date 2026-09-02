@@ -85,3 +85,36 @@ def test_generate_and_review_chapter(test_client):
     assert res.status_code == 200
     rev_data = res.json()
     assert rev_data["review"]["approved"] is True
+
+
+def test_api_error_handling_and_not_found(test_client):
+    # 404 for non-existent book
+    res = test_client.get("/api/books/unknown-id")
+    assert res.status_code == 404
+
+    # Create a new book with unapproved outline
+    res_create = test_client.post("/api/books", json={
+        "title": "Book Test",
+        "theme": "Theme",
+        "author_idea": "Idea"
+    })
+    book_id = res_create.json()["id"]
+
+    # 400 when attempting to add chapter before outline approved
+    res = test_client.post(f"/api/books/{book_id}/chapters", json={"title": "Chap", "objective": "Obj"})
+    assert res.status_code == 400
+
+
+def test_approve_and_reject_chapter_api(test_client):
+    test_client.post("/api/books/proj-001/outline/approve")
+    test_client.post("/api/books/proj-001/chapters/1/generate")
+
+    # Approve chapter 1
+    res_app = test_client.post("/api/books/proj-001/chapters/1/approve")
+    assert res_app.status_code == 200
+    assert res_app.json()["chapters"][0]["status"] == "approved"
+
+    # Reject chapter 2
+    res_rej = test_client.post("/api/books/proj-001/chapters/2/reject")
+    assert res_rej.status_code == 200
+    assert res_rej.json()["chapters"][1]["status"] == "rejected"

@@ -11,7 +11,7 @@ from book_loop.agents.writer import WriterAgent
 from book_loop.application.policies.review import ReviewDecision, decide
 from book_loop.application.services.context import ContextBuilder
 from book_loop.application.services.linter import ChapterLinter
-from book_loop.domain.models import BookState
+from book_loop.domain.models import BookState, ChapterStatus
 from book_loop.domain.protocols import BookRepository
 
 
@@ -77,7 +77,7 @@ class ChapterWorkflow:
         summary = self.summarizer.summarize(context=context, chapter=state.draft)
         book = self.repository.get(state.book.id)
         chapter = next(c for c in book.chapters if c.number == state.chapter_number)
-        chapter.status = "approved"
+        chapter.status = ChapterStatus.APPROVED
         chapter.current_version = state.attempt
         chapter.summary = summary
         self.repository.save(book)
