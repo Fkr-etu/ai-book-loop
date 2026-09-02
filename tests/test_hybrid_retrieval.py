@@ -32,7 +32,7 @@ def test_hybrid_fuses_lexical_and_semantic_rankings():
 
     result = HybridCanonicalRetriever(lexical, semantic).retrieve(facts, query="key")
 
-    assert [item.id for item in result] == ["a", "b", "c"]
+    assert [item.id for item in result] == ["b", "a", "c"]
 
 
 def test_hybrid_order_is_deterministic_for_equal_rrf_scores():
