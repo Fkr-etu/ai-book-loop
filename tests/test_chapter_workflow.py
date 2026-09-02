@@ -3,8 +3,10 @@ from book_loop.agents.summarizer import SummarizerAgent
 from book_loop.agents.writer import WriterAgent
 from book_loop.application.services.context import ContextBuilder
 from book_loop.application.services.linter import ChapterLinter
-from book_loop.domain.models import BookState, Chapter, SceneReview
-from book_loop.workflow.chapter import ChapterWorkflow
+from book_loop.domain.models import BookState, Chapter
+from book_loop.workflow.chapter_graph import ChapterWorkflow
+from book_loop.infrastructure.database.repository import SQLiteBookRepository
+import tempfile
 
 
 class FakeLLM:
@@ -21,23 +23,61 @@ class FakeLLM:
 
 
 def test_workflow_requires_approved_outline() -> None:
-    book = BookState(id="b", title="B", theme="T", author_idea="I", outline="Outline", outline_approved=False,
-                     chapters=[Chapter(id="c", number=1, title="One", objective="Start")])
-    llm = FakeLLM()
-    workflow = ChapterWorkflow(WriterAgent(llm), ReviewerAgent(llm), SummarizerAgent(llm), ContextBuilder(), ChapterLinter(), max_retries=3, threshold=7)
-    try:
-        workflow.run(book, 1)
-        assert False, "expected approval gate"
-    except ValueError as exc:
-        assert "approved" in str(exc)
+    with tempfile.NamedTemporaryFile(suffix=".db") as tmp:
+        repo = SQLiteBookRepository(f"sqlite:///{tmp.name}")
+        book = BookState(
+            id="b",
+            title="B",
+            theme="T",
+            author_idea="I",
+            outline="Outline",
+            outline_approved=False,
+            chapters=[Chapter(id="c", number=1, title="One", objective="Start")],
+        )
+        repo.save(book)
+        llm = FakeLLM()
+        workflow = ChapterWorkflow(
+            repository=repo,
+            writer=WriterAgent(llm),
+            reviewer=ReviewerAgent(llm),
+            summarizer=SummarizerAgent(llm),
+            context_builder=ContextBuilder(),
+            linter=ChapterLinter(),
+            max_retries=3,
+            review_threshold=7,
+        )
+        try:
+            workflow.run(book=book, chapter_number=1)
+            assert False, "expected approval gate"
+        except ValueError as exc:
+            assert "approve" in str(exc).lower()
 
 
 def test_workflow_generates_reviews_and_summary() -> None:
-    book = BookState(id="b", title="B", theme="T", author_idea="I", outline="Outline", outline_approved=True,
-                     chapters=[Chapter(id="c", number=1, title="One", objective="Start")])
-    llm = FakeLLM()
-    workflow = ChapterWorkflow(WriterAgent(llm), ReviewerAgent(llm), SummarizerAgent(llm), ContextBuilder(), ChapterLinter(), max_retries=3, threshold=7)
-    result = workflow.run(book, 1)
-    assert result.decision.value == "accept"
-    assert result.summary == "Canonical summary."
-    assert result.attempts == 1
+    with tempfile.NamedTemporaryFile(suffix=".db") as tmp:
+        repo = SQLiteBookRepository(f"sqlite:///{tmp.name}")
+        book = BookState(
+            id="b",
+            title="B",
+            theme="T",
+            author_idea="I",
+            outline="Outline",
+            outline_approved=True,
+            chapters=[Chapter(id="c", number=1, title="One", objective="Start")],
+        )
+        repo.save(book)
+        llm = FakeLLM()
+        workflow = ChapterWorkflow(
+            repository=repo,
+            writer=WriterAgent(llm),
+            reviewer=ReviewerAgent(llm),
+            summarizer=SummarizerAgent(llm),
+            context_builder=ContextBuilder(),
+            linter=ChapterLinter(),
+            max_retries=3,
+            review_threshold=7,
+        )
+        state = workflow.run(book=book, chapter_number=1)
+        assert state.decision == "accept"
+        assert state.summary == "Canonical summary."
+        assert state.attempt == 1
