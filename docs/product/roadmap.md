@@ -1,163 +1,246 @@
 # Product Roadmap
 
-This roadmap is organized around **commercial validation first, product expansion second**. Dates are intentionally omitted until customer discovery establishes the pace of the work.
+This roadmap keeps the **agentic book loop** as the first product and treats broader documentation / company knowledge QA as a deliberate expansion of the same underlying engine.
 
 ## North star
 
-Build the smallest product that proves narrative teams will pay to **catch expensive content regressions before they reach QA, localization, recording, implementation, or release**.
+Build an AI agentic workflow that can repeatedly **review → propose → validate → approve → update canonical state**, first for books and later for other high-value documentation.
 
-## Phase 0 — Strategic validation
+The strategic asset is not a generic writing assistant. It is the reusable engine that understands a long-lived corpus, its claims and dependencies, and the effect of changes on that corpus.
 
-**Goal:** prove that the problem, ICP, and buying motion are real before expanding the platform.
+## Phase 0 — Book product validation
 
-- [ ] Interview at least 10 small-to-mid-sized narrative game teams.
-- [ ] Map where canonical content lives today: Articy, Git, Notion, docs, spreadsheets, custom databases, etc.
-- [ ] Identify the most expensive and frequent narrative regressions.
-- [ ] Identify when those regressions are discovered: writing review, implementation, QA, localization, voice, or post-release.
-- [ ] Quantify current cost in people-hours, delays, rework, or release risk.
-- [ ] Recruit at least 3 teams to test with real project material.
-- [ ] Secure at least 1 paid pilot or equivalent strong buying signal.
-- [ ] Establish baseline time spent finding and resolving continuity issues.
+**Goal:** prove that the agentic loop is genuinely useful for real book creation/revision.
 
-**Critical falsification question:** do teams encounter narrative inconsistencies often and expensively enough to pay €100–1,500/month for prevention/QA?
+- [ ] Validate author intent capture and project constraints.
+- [ ] Validate outline → draft workflow.
+- [ ] Validate AI review / critique.
+- [ ] Validate continuity checks against canonical state.
+- [ ] Validate explicit human approval gates.
+- [ ] Validate canonical summaries / state updates after approval.
+- [ ] Observe repeated use across multiple chapters and revisions.
+- [ ] Measure where the loop saves time versus a generic LLM workflow.
 
-**Exit criterion:** continuity/content regression is demonstrated as a recurring operational cost, not merely a nice-to-have AI feature.
+**Exit criterion:** real users repeatedly use the loop and trust its reviews/canonical state enough to continue a project through multiple iterations.
 
-## Phase 1 — Narrative QA wedge
+## Phase 1 — Excellent agentic book loop
 
-**Goal:** deliver one compelling workflow:
+**Goal:** make the first product compelling without turning it into a generic writing suite.
 
-> **Check new or edited content against an existing canon.**
+### Agentic workflow
 
-### Canon ingestion
+- [ ] Intent / creative brief capture.
+- [ ] Context and research ingestion where useful.
+- [ ] Outline proposal and approval.
+- [ ] Chapter drafting as bounded agent proposals.
+- [ ] AI review with structured findings.
+- [ ] Continuity / quality validation.
+- [ ] Revision proposals.
+- [ ] Human approval.
+- [ ] Canonical state update.
+- [ ] Repeatable next-chapter / revision loop.
 
-- [ ] Import a small set of existing source documents.
-- [ ] Extract characters, locations, events, relationships, facts, rules, and timeline assertions.
-- [ ] Show extracted assertions with provenance and confidence.
-- [ ] Allow a human to approve the initial canon.
+### Book intelligence
 
-### Continuity / regression checking
+- [ ] Characters.
+- [ ] Lore / world rules.
+- [ ] Relationships.
+- [Timeline and events.
+- [ ] Chapter versions.
+- [ ] Provenance and review history.
+- [ ] Canonical summaries.
+- [ ] Deterministic validation where possible.
 
-- [ ] Submit a new chapter, dialogue file, quest, or narrative document.
-- [ ] Detect contradictions against approved canon.
-- [ ] Detect stale references where possible.
-- [ ] Separate critical contradictions, warnings, structural risks, and uncertain findings.
-- [ ] Show the source assertions behind every finding.
-- [ ] Preserve evidence needed to reproduce a finding.
-- [ ] Avoid presenting uncertain LLM judgments as facts.
+**Exit criterion:** the product's main advantage over a generic LLM is the persistent, agentic, review-driven loop and its ability to maintain book coherence.
 
-### First UX
+## Phase 2 — Generalize the underlying knowledge model
 
-- [ ] Project dashboard.
-- [ ] Canon browser.
-- [ ] Source/content upload or paste flow.
-- [ ] Continuity report.
-- [ ] Finding detail with evidence.
-- [ ] Human review / approval flow.
+**Goal:** extract reusable primitives without prematurely changing the book UX.
 
-**Exit criterion:** a target team can import an existing project, check new content, understand the findings, and demonstrate meaningful time saved.
+- [ ] Define a domain-neutral entity model.
+- [ ] Define canonical claims / facts.
+- [ ] Model relationships and dependencies.
+- [ ] Model events and temporal assertions.
+- [ ] Model rules / constraints.
+- [ ] Attach provenance and confidence to claims.
+- [ ] Track versions and approval decisions.
+- [ ] Link claims to source content.
+- [ ] Separate domain-specific presentation from the underlying engine.
 
-## Phase 2 — Canon graph and change impact
+Example:
 
-**Goal:** make the product valuable when the project changes.
+```text
+Book:
+  "Sarah learns the truth in chapter 18."
 
-- [ ] Introduce a canonical entity model.
-- [ ] Model dependencies between facts, characters, relationships, events, locations, documents, and versions.
-- [ ] Implement **`What breaks if I change this?`**.
-- [ ] Show downstream affected content.
-- [ ] Add timeline consistency checks.
-- [ ] Add character knowledge/state checks.
-- [ ] Track provenance for every canonical assertion.
-- [ ] Add version history and approval audit trail.
-- [ ] Add canonical health / regression metrics.
+Company documentation:
+  "API v3 requires OAuth 2.0."
 
-**Exit criterion:** users can safely change a canonical fact and discover affected content before shipping the change.
+Both become:
+  canonical claim + source + validity + dependencies + review history
+```
 
-## Phase 3 — Team workflow
+**Exit criterion:** book continuity logic can be expressed using the generalized model without degrading the book product.
 
-**Goal:** turn the QA engine into a recurring team SaaS.
+## Phase 3 — Change impact / regression engine
 
-- [ ] Multi-user projects.
-- [ ] Roles and permissions.
-- [ ] Review queues.
-- [ ] Assign continuity issues.
-- [ ] Comments and decisions on findings.
-- [ ] Canon change requests.
-- [ ] Activity / audit log.
-- [ ] Notifications.
-- [ ] Project-level usage and QA health metrics.
+**Goal:** make the engine answer the consequences of change.
 
-**Commercial milestone:** convert design partners into paid Team plans.
+- [ ] `What breaks if I change this?`.
+- [ ] Find content affected by a changed claim.
+- [ ] Detect stale assertions.
+- [ ] Detect contradictory assertions.
+- [ ] Track dependency chains.
+- [ ] Add temporal consistency checks.
+- [ ] Add entity state / knowledge checks.
+- [ ] Produce evidence-backed regression reports.
+- [ ] Re-run analysis after proposed fixes.
 
-## Phase 4 — Workflow integrations
+For books, this is narrative continuity. The same mechanism will later power documentation regression testing.
 
-**Goal:** become the QA layer above the customer's existing narrative stack rather than asking them to replace it.
+## Phase 4 — Documentation QA design partners
+
+**Goal:** test whether the book-derived engine solves a valuable problem outside fiction.
+
+Initial ICP hypothesis: software / B2B SaaS companies with substantial, frequently changing documentation and multiple contributors.
+
+- [ ] Interview at least 10 documentation-heavy teams.
+- [ ] Map current sources: Git, Notion, Confluence, docs, wiki, support, etc.
+- [ ] Identify costly documentation regressions.
+- [ ] Identify existing review / release gates.
+- [ ] Recruit at least 3 design partners.
+- [ ] Run the engine on real corpora.
+- [ ] Obtain at least 1 paid pilot or equivalent strong buying signal.
+- [ ] Measure time saved / regressions avoided.
+
+**Critical falsification question:**
+
+> Do documentation inconsistencies cost enough, happen often enough, and occur early enough that companies will pay for automated knowledge regression testing?
+
+If not, stop expansion and revisit the ICP/problem.
+
+## Phase 5 — Documentation regression MVP
+
+**Goal:** productize the generalized loop for company documentation.
+
+```text
+Source documents
+      ↓
+Claim extraction
+      ↓
+Canonical knowledge
+      ↓
+New / changed content
+      ↓
+Regression analysis
+      ↓
+Findings + evidence
+      ↓
+Human review
+      ↓
+Approved knowledge
+```
+
+- [ ] Documentation corpus ingestion.
+- [ ] Claim extraction and provenance.
+- [ ] Canonical knowledge approval.
+- [ ] New-content checks.
+- [ ] Contradiction detection.
+- [ ] Stale-content detection.
+- [ ] Evidence-backed findings.
+- [ ] Human approval.
+- [ ] Knowledge health / regression report.
+
+## Phase 6 — Integrate with existing company workflow
+
+**Goal:** become a QA layer rather than another documentation editor.
 
 Prioritize based on design-partner demand:
 
-- [ ] Markdown / JSON / CSV import and export.
-- [ ] Git-based narrative repositories.
-- [ ] Articy or equivalent narrative-data import.
-- [ ] Game dialogue / quest data formats.
-- [ ] Wiki / documentation connectors.
+- [ ] Git / GitHub repositories.
+- [ ] Markdown / JSON / CSV.
+- [ ] Notion / Confluence.
+- [ ] Google Docs and similar document sources.
+- [ ] Help center / support content.
 - [ ] API and webhooks.
-- [ ] CI continuity checks.
-- [ ] Issue tracker / Slack-style notifications.
+- [ ] CI checks for documentation changes.
+- [ ] Slack / issue tracker notifications.
 
-**Exit criterion:** a studio can run narrative QA as part of its normal content workflow with minimal migration effort.
+**Principle:** do not require migration from the customer's existing source of truth.
 
-## Phase 5 — Assisted resolution
+## Phase 7 — General knowledge QA SaaS
 
-**Goal:** use AI to resolve issues without making generation the core product.
+**Goal:** turn the engine into a recurring B2B product.
 
-- [ ] Suggest minimal edits that restore continuity.
-- [ ] Generate alternative resolutions with explicit trade-offs.
-- [ ] Re-run checks after proposed changes.
-- [ ] Produce change summaries for reviewers.
-- [ ] Preserve human approval before canonical updates.
+- [ ] Multi-user workspaces.
+- [ ] Roles and permissions.
+- [ ] Review queues.
+- [ ] Issue assignment.
+- [ ] Comments and decisions.
+- [ ] Audit logs.
+- [ ] Knowledge-health metrics.
+- [ ] Scheduled / event-driven checks.
+- [ ] Usage controls and quotas.
+- [ ] Team / workspace billing.
 
-The existing chapter-generation loop can be reused here as a bounded proposal → validation → review workflow.
+Potential positioning:
 
-## Phase 6 — Narrative regression platform
+> **Documentation QA: test knowledge changes before they become company-wide misinformation.**
 
-**Only after repeated evidence from paid customers.**
+## Phase 8 — Agentic resolution
 
-- [ ] CI/build gating for narrative checks.
-- [ ] Regression baselines across releases.
-- [ ] Compare canon/content changes between versions.
-- [ ] Coverage metrics for characters, quests, timelines, and dependencies.
-- [ ] Automated alerts on newly introduced regressions.
-- [ ] API-first checks for custom production pipelines.
+**Goal:** generalize the book-writing agent loop into a documentation repair loop.
 
-**Strategic outcome:** evolve from a document checker into a narrative regression-testing layer.
+```text
+Regression
+   ↓
+Agent investigation
+   ↓
+Proposed fix
+   ↓
+Validation
+   ↓
+Human approval
+   ↓
+Updated content / knowledge
+```
 
-## Phase 7 — Studio / enterprise readiness
+- [ ] Suggest minimal documentation edits.
+- [ ] Generate alternative resolutions.
+- [ ] Explain trade-offs.
+- [ ] Propose updates to affected documents.
+- [ ] Re-run regression checks.
+- [ ] Summarize approved changes.
 
-**Only after product-market evidence.**
+The book product remains the reference implementation for this agentic pattern.
+
+## Phase 9 — Enterprise / knowledge infrastructure
+
+Only after repeated commercial evidence:
 
 - [ ] SSO / SAML.
 - [ ] Advanced access controls.
-- [ ] API keys and service accounts.
-- [ ] Data retention controls.
-- [ ] Export / deletion controls.
-- [ ] Security documentation.
-- [ ] Usage controls and quotas.
-- [ ] Dedicated or private deployment options where commercially justified.
-- [ ] Enterprise support / SLA.
+- [ ] Security / compliance documentation.
+- [ ] Retention and deletion controls.
+- [ ] API / service accounts.
+- [ ] Private deployment where justified.
+- [ ] SLA / enterprise support.
+- [ ] Knowledge QA API.
+
+The long-term hypothesis is that the engine can become a **knowledge consistency layer** consumed by multiple applications, not merely a standalone documentation UI.
 
 ## Deferred / explicitly deprioritized
 
-- [ ] Competing directly with generic AI novel-writing assistants.
-- [ ] Building a full-featured AI authoring suite before narrative QA is validated.
-- [ ] Becoming another worldbuilding / lore database.
-- [ ] Replacing Articy, Twine, Ink, Yarn, Notion, or other narrative production tools.
-- [ ] Large-scale vector-memory infrastructure before a concrete retrieval bottleneck exists.
-- [ ] Broad enterprise knowledge management outside narrative/IP workflows.
-- [ ] Large transmedia feature set before the core QA/change-impact engine has product-market evidence.
+- [ ] Competing directly with generic AI writing assistants.
+- [ ] Replacing Notion, Confluence, Articy, or other systems of record.
+- [ ] Building a full enterprise knowledge-management suite before QA value is proven.
+- [ ] Broad game-specific expansion unrelated to the core loop.
+- [ ] Large-scale vector-memory infrastructure before a measured retrieval bottleneck exists.
+- [ ] Enterprise infrastructure before product-market evidence.
 
-## Current technical assets to preserve
+## Existing technical assets to preserve
 
-The existing architecture already contains useful foundations for the pivot:
+The current project already contains foundations that map naturally to this roadmap:
 
 - explicit application use cases;
 - replaceable LLM providers;
@@ -166,18 +249,19 @@ The existing architecture already contains useful foundations for the pivot:
 - canonical summaries for continuity;
 - bounded retries;
 - persistence and history;
-- a web studio with lore, character, outline, validation, and export concepts.
+- lore / character / outline workflows;
+- validation and linting.
 
-The roadmap should **extract and generalize these capabilities**, not rewrite them prematurely.
+The strategy is to **prove the loop first, extract the reusable knowledge primitives second, and only then expand the market**.
 
-## Commercial validation loop
+## Decision gates
 
-Every major phase should answer five questions:
+Every expansion must answer:
 
-1. **Pain:** does this remove a costly narrative regression?
-2. **Frequency:** does the customer encounter the problem often enough to pay for an always-on product?
-3. **Timing:** does catching it earlier save meaningful downstream cost?
-4. **Switching:** can the product fit the customer's existing workflow without requiring a full tool migration?
-5. **Willingness to pay:** does the customer pay for reduced risk / QA effort rather than AI generation tokens?
+1. **Value:** does the loop solve a painful problem?
+2. **Trust:** do users trust the canonical state and evidence?
+3. **Frequency:** does the workflow recur often enough to support SaaS retention?
+4. **Integration:** can it fit the existing source-of-truth workflow?
+5. **Willingness to pay:** does the outcome justify payment independently of token consumption?
 
-If a phase cannot produce evidence for these questions, stop and revisit the ICP or problem before adding more features.
+If a gate fails, revisit the problem/ICP before adding platform complexity.
