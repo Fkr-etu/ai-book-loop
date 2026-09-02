@@ -13,6 +13,7 @@ class CreateBook:
     def execute(
         self,
         *,
+        owner_id: str,
         title: str,
         theme: str,
         author_idea: str,
@@ -21,6 +22,7 @@ class CreateBook:
     ) -> BookState:
         book = BookState(
             id=str(uuid4()),
+            owner_id=owner_id,
             title=title,
             theme=theme,
             author_idea=author_idea,
