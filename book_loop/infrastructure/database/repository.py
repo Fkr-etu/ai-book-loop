@@ -3,7 +3,15 @@ from __future__ import annotations
 import json
 import sqlite3
 
-from book_loop.domain.models import BookState, SceneReview, User
+from book_loop.domain.models import (
+    Assertion,
+    BookState,
+    DocumentChunk,
+    Evidence,
+    SceneReview,
+    SourceDocument,
+    User,
+)
 
 
 class SQLiteBookRepository:
@@ -41,6 +49,48 @@ class SQLiteBookRepository:
                 name TEXT NOT NULL DEFAULT '',
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             );
+            CREATE TABLE IF NOT EXISTS source_documents (
+                id TEXT PRIMARY KEY,
+                book_id TEXT NOT NULL,
+                name TEXT NOT NULL,
+                source_type TEXT NOT NULL,
+                content TEXT NOT NULL,
+                content_hash TEXT NOT NULL,
+                metadata TEXT NOT NULL,
+                version INTEGER NOT NULL,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(book_id, content_hash)
+            );
+            CREATE TABLE IF NOT EXISTS document_chunks (
+                id TEXT PRIMARY KEY,
+                source_document_id TEXT NOT NULL,
+                content TEXT NOT NULL,
+                sequence INTEGER NOT NULL,
+                start_offset INTEGER NOT NULL,
+                end_offset INTEGER NOT NULL,
+                metadata TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS assertions (
+                id TEXT PRIMARY KEY,
+                source_document_id TEXT NOT NULL,
+                chunk_id TEXT NOT NULL,
+                statement TEXT NOT NULL,
+                subject TEXT NOT NULL,
+                predicate TEXT NOT NULL,
+                object TEXT NOT NULL,
+                confidence REAL NOT NULL,
+                status TEXT NOT NULL,
+                evidence_id TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS evidence (
+                id TEXT PRIMARY KEY,
+                assertion_id TEXT NOT NULL,
+                source_document_id TEXT NOT NULL,
+                chunk_id TEXT NOT NULL,
+                start_offset INTEGER NOT NULL,
+                end_offset INTEGER NOT NULL,
+                excerpt TEXT NOT NULL
+            );
             """
         )
         self._connection.commit()
@@ -48,16 +98,13 @@ class SQLiteBookRepository:
     def save(self, book: BookState) -> None:
         data = json.dumps(book.model_dump(mode="json"))
         self._connection.execute(
-            "INSERT INTO books(id, data) VALUES(?, ?) "
-            "ON CONFLICT(id) DO UPDATE SET data=excluded.data",
+            "INSERT INTO books(id, data) VALUES(?, ?) ON CONFLICT(id) DO UPDATE SET data=excluded.data",
             (book.id, data),
         )
         self._connection.commit()
 
     def get(self, book_id: str) -> BookState:
-        row = self._connection.execute(
-            "SELECT data FROM books WHERE id = ?", (book_id,)
-        ).fetchone()
+        row = self._connection.execute("SELECT data FROM books WHERE id = ?", (book_id,)).fetchone()
         if row is None:
             raise KeyError(f"Unknown book: {book_id}")
         return BookState.model_validate(json.loads(row["data"]))
@@ -72,10 +119,54 @@ class SQLiteBookRepository:
     def save_review(self, book_id: str, chapter_number: int, version: int, review: SceneReview) -> None:
         self._connection.execute(
             "INSERT INTO reviews(book_id, chapter_number, version, score, approved, issues, suggestions) VALUES(?, ?, ?, ?, ?, ?, ?)",
-            (book_id, chapter_number, version, review.score, int(review.approved),
-             json.dumps(review.issues), json.dumps(review.suggestions)),
+            (book_id, chapter_number, version, review.score, int(review.approved), json.dumps(review.issues), json.dumps(review.suggestions)),
         )
         self._connection.commit()
+
+    def find_source_by_hash(self, *, book_id: str, content_hash: str) -> SourceDocument | None:
+        row = self._connection.execute(
+            "SELECT * FROM source_documents WHERE book_id = ? AND content_hash = ?",
+            (book_id, content_hash),
+        ).fetchone()
+        if row is None:
+            return None
+        return self._source_from_row(row)
+
+    def save_source(self, source: SourceDocument) -> None:
+        self._connection.execute(
+            "INSERT INTO source_documents(id, book_id, name, source_type, content, content_hash, metadata, version) VALUES(?, ?, ?, ?, ?, ?, ?, ?)",
+            (source.id, source.book_id, source.name, source.source_type, source.content, source.content_hash, json.dumps(source.metadata), source.version),
+        )
+        self._connection.commit()
+
+    def save_chunk(self, chunk: DocumentChunk) -> None:
+        self._connection.execute(
+            "INSERT INTO document_chunks(id, source_document_id, content, sequence, start_offset, end_offset, metadata) VALUES(?, ?, ?, ?, ?, ?, ?)",
+            (chunk.id, chunk.source_document_id, chunk.content, chunk.sequence, chunk.start_offset, chunk.end_offset, json.dumps(chunk.metadata)),
+        )
+        self._connection.commit()
+
+    def save_assertion(self, assertion: Assertion) -> None:
+        self._connection.execute(
+            "INSERT INTO assertions(id, source_document_id, chunk_id, statement, subject, predicate, object, confidence, status, evidence_id) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (assertion.id, assertion.source_document_id, assertion.chunk_id, assertion.statement, assertion.subject, assertion.predicate, assertion.object, assertion.confidence, assertion.status.value, assertion.evidence_id),
+        )
+        self._connection.commit()
+
+    def save_evidence(self, evidence: Evidence) -> None:
+        self._connection.execute(
+            "INSERT INTO evidence(id, assertion_id, source_document_id, chunk_id, start_offset, end_offset, excerpt) VALUES(?, ?, ?, ?, ?, ?, ?)",
+            (evidence.id, evidence.assertion_id, evidence.source_document_id, evidence.chunk_id, evidence.start_offset, evidence.end_offset, evidence.excerpt),
+        )
+        self._connection.commit()
+
+    @staticmethod
+    def _source_from_row(row: sqlite3.Row) -> SourceDocument:
+        return SourceDocument(
+            id=row["id"], book_id=row["book_id"], name=row["name"], source_type=row["source_type"],
+            content=row["content"], content_hash=row["content_hash"], metadata=json.loads(row["metadata"]),
+            version=row["version"],
+        )
 
     def create_user(self, user: User) -> User:
         self._connection.execute(
@@ -86,31 +177,13 @@ class SQLiteBookRepository:
         return self.get_user_by_email(user.email)  # type: ignore
 
     def get_user_by_email(self, email: str) -> User | None:
-        row = self._connection.execute(
-            "SELECT id, email, password_hash, name, created_at FROM users WHERE lower(email) = ?",
-            (email.lower().strip(),)
-        ).fetchone()
+        row = self._connection.execute("SELECT id, email, password_hash, name, created_at FROM users WHERE lower(email) = ?", (email.lower().strip(),)).fetchone()
         if row is None:
             return None
-        return User(
-            id=row["id"],
-            email=row["email"],
-            password_hash=row["password_hash"],
-            name=row["name"],
-            created_at=row["created_at"],
-        )
+        return User(id=row["id"], email=row["email"], password_hash=row["password_hash"], name=row["name"], created_at=row["created_at"])
 
     def get_user_by_id(self, user_id: str) -> User | None:
-        row = self._connection.execute(
-            "SELECT id, email, password_hash, name, created_at FROM users WHERE id = ?",
-            (user_id,)
-        ).fetchone()
+        row = self._connection.execute("SELECT id, email, password_hash, name, created_at FROM users WHERE id = ?", (user_id,)).fetchone()
         if row is None:
             return None
-        return User(
-            id=row["id"],
-            email=row["email"],
-            password_hash=row["password_hash"],
-            name=row["name"],
-            created_at=row["created_at"],
-        )
+        return User(id=row["id"], email=row["email"], password_hash=row["password_hash"], name=row["name"], created_at=row["created_at"])

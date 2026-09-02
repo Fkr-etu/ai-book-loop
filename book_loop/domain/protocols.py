@@ -2,7 +2,15 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from book_loop.domain.models import BookState, SceneReview
+from book_loop.domain.models import (
+    Assertion,
+    BookState,
+    DocumentChunk,
+    Evidence,
+    ExtractedAssertion,
+    SceneReview,
+    SourceDocument,
+)
 
 
 class LLMProvider(Protocol):
@@ -30,3 +38,15 @@ class BookRepository(Protocol):
     def save_review(
         self, book_id: str, chapter_number: int, version: int, review: SceneReview
     ) -> None: ...
+
+
+class AssertionExtractor(Protocol):
+    def extract(self, *, chunk: DocumentChunk) -> list[ExtractedAssertion]: ...
+
+
+class KnowledgeRepository(Protocol):
+    def find_source_by_hash(self, *, book_id: str, content_hash: str) -> SourceDocument | None: ...
+    def save_source(self, source: SourceDocument) -> None: ...
+    def save_chunk(self, chunk: DocumentChunk) -> None: ...
+    def save_assertion(self, assertion: Assertion) -> None: ...
+    def save_evidence(self, evidence: Evidence) -> None: ...

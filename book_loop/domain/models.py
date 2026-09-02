@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from enum import StrEnum
+
 from pydantic import BaseModel, Field, model_validator
 
 
@@ -82,3 +83,72 @@ class UserPublic(BaseModel):
     id: str
     email: str
     name: str = ""
+
+
+class SourceDocument(BaseModel):
+    id: str
+    book_id: str
+    name: str = Field(min_length=1)
+    source_type: str = Field(min_length=1)
+    content: str
+    content_hash: str = Field(min_length=64, max_length=64)
+    metadata: dict[str, str] = Field(default_factory=dict)
+    version: int = Field(default=1, ge=1)
+
+
+class DocumentChunk(BaseModel):
+    id: str
+    source_document_id: str
+    content: str = Field(min_length=1)
+    sequence: int = Field(ge=0)
+    start_offset: int = Field(ge=0)
+    end_offset: int = Field(gt=0)
+    metadata: dict[str, str] = Field(default_factory=dict)
+
+
+class AssertionStatus(StrEnum):
+    PROPOSED = "proposed"
+    ACCEPTED = "accepted"
+    REJECTED = "rejected"
+    DEFERRED = "deferred"
+
+
+class Evidence(BaseModel):
+    id: str
+    assertion_id: str
+    source_document_id: str
+    chunk_id: str
+    start_offset: int = Field(ge=0)
+    end_offset: int = Field(gt=0)
+    excerpt: str = Field(min_length=1)
+
+
+class Assertion(BaseModel):
+    id: str
+    source_document_id: str
+    chunk_id: str
+    statement: str = Field(min_length=1)
+    subject: str = Field(min_length=1)
+    predicate: str = Field(min_length=1)
+    object: str = Field(min_length=1)
+    confidence: float = Field(ge=0.0, le=1.0)
+    status: AssertionStatus = AssertionStatus.PROPOSED
+    evidence_id: str
+
+
+class ExtractedAssertion(BaseModel):
+    statement: str = Field(min_length=1)
+    subject: str = Field(min_length=1)
+    predicate: str = Field(min_length=1)
+    object: str = Field(min_length=1)
+    confidence: float = Field(ge=0.0, le=1.0)
+    start_offset: int = Field(ge=0)
+    end_offset: int = Field(gt=0)
+
+
+class IngestionResult(BaseModel):
+    source_document: SourceDocument
+    chunks: list[DocumentChunk] = Field(default_factory=list)
+    assertions: list[Assertion] = Field(default_factory=list)
+    evidence: list[Evidence] = Field(default_factory=list)
+    already_ingested: bool = False
