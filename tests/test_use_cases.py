@@ -29,9 +29,13 @@ class OutlineAgent:
         )
 
 
+def make_book(repository):
+    return CreateBook(repository).execute(owner_id="usr-test", title="Book", theme="Fantasy", author_idea="Idea")
+
+
 def test_use_cases_compose_without_services():
     repository = Repository()
-    book = CreateBook(repository).execute(title="Book", theme="Fantasy", author_idea="Idea")
+    book = make_book(repository)
     GenerateOutline(repository, OutlineAgent()).execute(book)
     ApproveOutline(repository).execute(book)
     AddChapter(repository).execute(book, chapter_number=1)
@@ -44,7 +48,7 @@ def test_use_cases_compose_without_services():
 
 def test_structured_outline_round_trips_through_repository():
     repository = Repository()
-    book = CreateBook(repository).execute(title="Book", theme="Fantasy", author_idea="Idea")
+    book = make_book(repository)
     outline = Outline(chapters=[{"number": 1, "title": "Opening", "objective": "Introduce the hero"}])
     UpdateOutline(repository).execute(book, outline=outline)
 
@@ -54,7 +58,7 @@ def test_structured_outline_round_trips_through_repository():
 
 def test_update_outline_invalidates_previous_approval():
     repository = Repository()
-    book = CreateBook(repository).execute(title="Book", theme="Fantasy", author_idea="Idea")
+    book = make_book(repository)
     GenerateOutline(repository, OutlineAgent()).execute(book)
     ApproveOutline(repository).execute(book)
 
@@ -70,7 +74,7 @@ def test_update_outline_invalidates_previous_approval():
 
 def test_add_chapter_rejects_out_of_order_or_duplicate_creation():
     repository = Repository()
-    book = CreateBook(repository).execute(title="Book", theme="Fantasy", author_idea="Idea")
+    book = make_book(repository)
     GenerateOutline(repository, OutlineAgent()).execute(book)
     ApproveOutline(repository).execute(book)
 
