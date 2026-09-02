@@ -20,6 +20,17 @@ class SceneReview(BaseModel):
     suggestions: list[str] = Field(default_factory=list)
 
 
+class OutlineChapter(BaseModel):
+    number: int = Field(gt=0)
+    title: str = Field(min_length=1)
+    objective: str = Field(min_length=1)
+    synopsis: str = ""
+
+
+class Outline(BaseModel):
+    chapters: list[OutlineChapter] = Field(min_length=1)
+
+
 class Chapter(BaseModel):
     id: str
     number: int = Field(gt=0)
@@ -37,6 +48,6 @@ class BookState(BaseModel):
     author_idea: str
     lore: str = ""
     constraints: list[str] = Field(default_factory=list)
-    outline: str | None = None
+    outline: Outline | None = None
     outline_approved: bool = False
     chapters: list[Chapter] = Field(default_factory=list)
