@@ -10,3 +10,7 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./book_loop.db"
     max_retries: int = 3
     review_threshold: int = 7
+    auth_secret_key: str = ""
+    auth_cookie_secure: bool = False
+    auth_cookie_samesite: str = "lax"
+    cors_allowed_origins: list[str] = ["http://localhost:3000", "http://localhost:5173"]

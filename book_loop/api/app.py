@@ -143,11 +143,13 @@ def create_app(container: Container | None = None) -> FastAPI:
 
         request.state.user = current_user
         parts = [part for part in request.url.path.split("/") if part]
+        # /api/books/{book_id}/...; POST /api/books creates a new resource.
         if len(parts) >= 3:
             book_id = parts[2]
             try:
                 book = container.repository.get(book_id)
             except KeyError:
+                # Preserve the endpoint's normal 404/seed behavior.
                 return await call_next(request)
             if book.owner_id != current_user.id:
                 return JSONResponse(status_code=404, content={"detail": "Livre introuvable."})
