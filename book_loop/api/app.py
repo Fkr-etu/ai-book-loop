@@ -107,11 +107,14 @@ def create_app(container: Container | None = None) -> FastAPI:
 
     @app.put("/api/books/{book_id}")
     def update_book(book_id: str, updates: dict[str, Any] = Body(...)) -> dict[str, Any]:
-        book = _get_or_seed_book(book_id)
-        data = book.model_dump(mode="json")
-        data.update(updates)
-        updated_book = BookState.model_validate(data)
-        container.repository.save(updated_book)
+        _get_or_seed_book(book_id)
+        use_case = container.update_book()
+        try:
+            updated_book = use_case.execute(book_id, updates)
+        except KeyError:
+            raise HTTPException(status_code=404, detail=f"Livre {book_id} introuvable.")
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=str(e))
         return updated_book.model_dump(mode="json")
 
     @app.post("/api/books/{book_id}/outline/generate")

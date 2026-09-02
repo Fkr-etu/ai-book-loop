@@ -14,6 +14,7 @@ from book_loop.application.use_cases.generate_chapter import GenerateChapter
 from book_loop.application.use_cases.generate_outline import GenerateOutline
 from book_loop.application.use_cases.reject_chapter import RejectChapter
 from book_loop.application.use_cases.review_chapter import ReviewChapter
+from book_loop.application.use_cases.update_book import UpdateBook
 from book_loop.infrastructure.config import Settings
 from book_loop.infrastructure.database.repository import SQLiteBookRepository
 from book_loop.infrastructure.llm.factory import create_llm
@@ -48,6 +49,9 @@ class Container:
 
     def create_book(self) -> CreateBook:
         return CreateBook(self.repository)
+
+    def update_book(self) -> UpdateBook:
+        return UpdateBook(self.repository)
 
     def generate_outline(self) -> GenerateOutline:
         return GenerateOutline(self.repository, self.outline_agent)

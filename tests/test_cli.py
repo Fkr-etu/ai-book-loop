@@ -23,3 +23,15 @@ def test_chapter_add_accepts_title_and_objective() -> None:
     assert args.command == "chapter-add"
     assert args.book_id == "b1"
     assert args.objective == "Start conflict"
+
+
+def test_cli_main_execution(monkeypatch, capsys):
+    import sys
+    from book_loop.cli.main import main
+
+    monkeypatch.setattr(sys, "argv", [
+        "book-loop", "create", "--title", "CLI Book", "--theme", "Theme", "--idea", "Idea"
+    ])
+    main()
+    captured = capsys.readouterr()
+    assert "Book created:" in captured.out

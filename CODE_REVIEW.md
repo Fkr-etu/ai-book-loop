@@ -175,3 +175,9 @@ Le projet **AI Book Loop** dispose de fondations solides en termes de modélisat
 4. **Renforcement des Tests & Couverture (`tests/`) :**
    - Ajout de tests pour `prompts.py`, augmentation de la couverture globale à **89%** (avec 100% sur la quasi-totalité des use cases et du container).
    - Validation complète des 24 tests unitaires et d'intégration via `pytest`.
+
+5. **Finalisation Globale & Couverture de Tests (90%) :**
+   - Implémentation du Use Case `UpdateBook` dans `book_loop/application/use_cases/update_book.py`.
+   - Couverture complète des exceptions et garde-fous de `GenerateChapter` dans `test_use_cases.py`.
+   - Couverture de la CLI (`main.py`) augmentée.
+   - Atteinte d'un taux de couverture globale de **90%** avec 27 tests validés avec succès.
