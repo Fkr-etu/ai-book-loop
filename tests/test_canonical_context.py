@@ -12,9 +12,21 @@ class FakeKnowledgeRepository:
 
 def test_context_includes_active_canonical_knowledge():
     book = BookState(
-        id="book-1", author_idea="idea", theme="theme", lore="lore",
-        constraints=[], outline_approved=True,
-        chapters=[Chapter(id="chapter-1", number=1, title="First", objective="Write it")],
+        id="book-1",
+        title="Test Book",
+        author_idea="idea",
+        theme="theme",
+        lore="lore",
+        constraints=[],
+        outline_approved=True,
+        chapters=[
+            Chapter(
+                id="chapter-1",
+                number=1,
+                title="First",
+                objective="Write it",
+            )
+        ],
     )
     facts = [CanonicalFact(
         id="fact-1", book_id="book-1", assertion_id="assertion-1",
