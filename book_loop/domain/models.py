@@ -146,6 +146,48 @@ class ExtractedAssertion(BaseModel):
     end_offset: int = Field(gt=0)
 
 
+class ConflictStatus(StrEnum):
+    OPEN = "open"
+    RESOLVED = "resolved"
+
+
+class Conflict(BaseModel):
+    id: str
+    book_id: str
+    left_assertion_id: str
+    right_assertion_id: str
+    status: ConflictStatus = ConflictStatus.OPEN
+    resolution_assertion_id: str | None = None
+
+
+class ReviewDecisionType(StrEnum):
+    ACCEPT = "accept"
+    REJECT = "reject"
+    DEFER = "defer"
+
+
+class ReviewDecision(BaseModel):
+    id: str
+    assertion_id: str
+    decision: ReviewDecisionType
+    reviewer_id: str | None = None
+    rationale: str = ""
+    created_at: str | None = None
+
+
+class CanonicalFact(BaseModel):
+    id: str
+    book_id: str
+    assertion_id: str
+    statement: str = Field(min_length=1)
+    subject: str = Field(min_length=1)
+    predicate: str = Field(min_length=1)
+    object: str = Field(min_length=1)
+    decision_id: str
+    version: int = Field(default=1, ge=1)
+    active: bool = True
+
+
 class IngestionResult(BaseModel):
     source_document: SourceDocument
     chunks: list[DocumentChunk] = Field(default_factory=list)
