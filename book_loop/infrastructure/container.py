@@ -40,7 +40,7 @@ class Container:
         self.writer_agent = WriterAgent(self.llm)
         self.reviewer_agent = ReviewerAgent(self.llm)
         self.summarizer_agent = SummarizerAgent(self.llm)
-        self.context_builder = ContextBuilder()
+        self.context_builder = ContextBuilder(knowledge_repository=self.repository)
         self.linter = ChapterLinter()
 
         self.chapter_workflow = ChapterWorkflow(
