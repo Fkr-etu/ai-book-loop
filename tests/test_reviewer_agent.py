@@ -20,6 +20,15 @@ def test_reviewer_accepts_plain_json() -> None:
     assert result == SceneReview(score=9, approved=True, issues=[], suggestions=[])
 
 
+def test_reviewer_accepts_fractional_score() -> None:
+    agent = ReviewerAgent(
+        FakeLLM('{"score": 8.5, "approved": true, "issues": [], "suggestions": []}')
+    )
+    result = agent.review(context="Context", draft="Draft")
+    assert result.score == pytest.approx(8.5)
+    assert result.approved is True
+
+
 def test_reviewer_accepts_fenced_json() -> None:
     agent = ReviewerAgent(
         FakeLLM(

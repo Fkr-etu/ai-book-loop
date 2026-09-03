@@ -51,7 +51,7 @@ Relevant statuses include `draft`, `proposed`, `approved`, `rejected`, `canonica
 
 A `SceneReview` contains:
 
-- `score` — integer from `0` to `10`;
+- `score` — numeric score from `0` to `10`, including fractional values such as `8.5`;
 - `approved` — reviewer assessment;
 - `issues`;
 - `suggestions`.
