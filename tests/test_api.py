@@ -165,3 +165,31 @@ def test_document_ingestion_and_assertion_review(test_client):
     )
     assert review_res.status_code == 200
     assert review_res.json()["decision"] == "accept"
+
+
+def test_approving_chapter_syncs_proposed_canon(test_client):
+    book_id = create_book(test_client, "Canon Approval Test")
+    outline = {
+        "outline": {
+            "chapters": [
+                {"number": 1, "title": "Le Fragment", "objective": "Découvrir le fragment"},
+            ]
+        }
+    }
+    assert test_client.put(f"/api/books/{book_id}/outline", json=outline).status_code == 200
+    assert test_client.post(f"/api/books/{book_id}/outline/approve").status_code == 200
+    assert test_client.post(f"/api/books/{book_id}/chapters", json={"chapter_number": 1}).status_code == 200
+    assert test_client.post(f"/api/books/{book_id}/chapters/1/generate").status_code == 200
+
+    response = test_client.post(f"/api/books/{book_id}/chapters/1/approve")
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["chapters"][0]["status"] == "approved"
+    assert data["canonSync"]["assertionCount"] == 1
+    assert data["canonSync"]["evidenceCount"] == 1
+    assert data["canonSync"]["sourceDocument"]["source_type"] == "approved_chapter"
+
+    assertions = test_client.get(f"/api/books/{book_id}/assertions").json()["assertions"]
+    assert len(assertions) == 1
+    assert assertions[0]["status"] == "proposed"
