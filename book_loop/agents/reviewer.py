@@ -1,9 +1,5 @@
 from __future__ import annotations
 
-import json
-
-from pydantic import ValidationError
-
 from book_loop.domain.models import SceneReview
 from book_loop.domain.protocols import LLMProvider
 
@@ -13,17 +9,20 @@ class ReviewerAgent:
         self.llm = llm
 
     def review(self, *, context: str, draft: str) -> SceneReview:
-        raw = self.llm.generate(
+        review = self.llm.generate_structured(
             system_prompt=(
-                "Review the chapter for author-intent fidelity, continuity, coherence and writing quality. "
-                "Return ONLY valid JSON with keys: score (0-10), approved (boolean), issues (array of strings), "
-                "suggestions (array of strings)."
+                "You are a deterministic chapter reviewer. Evaluate only the supplied chapter. "
+                "Assess author-intent fidelity, continuity, coherence and writing quality. "
+                "Do not rewrite the chapter, invent facts, modify canonical knowledge, or make decisions "
+                "outside the requested schema. Return only the structured review."
             ),
             user_prompt=f"CONTEXT:\n{context}\n\nDRAFT:\n{draft}",
-        ).strip()
-        if raw.startswith("```"):
-            raw = raw.removeprefix("```").removeprefix("json").removesuffix("```").strip()
-        try:
-            return SceneReview.model_validate(json.loads(raw))
-        except (json.JSONDecodeError, ValidationError) as exc:
-            raise ValueError("Reviewer returned invalid structured output") from exc
+            schema=SceneReview,
+            thinking_level="medium",
+            max_output_tokens=2048,
+        )
+        if not 0 <= review.score <= 10:
+            raise ValueError("Reviewer score must be between 0 and 10")
+        if review.approved != (review.score >= 7):
+            raise ValueError("Reviewer approval must match the configured score threshold")
+        return review
