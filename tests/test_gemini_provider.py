@@ -49,9 +49,12 @@ def test_gemini_provider_uses_interactions_api(monkeypatch):
 
 def test_gemini_provider_supports_native_structured_output(monkeypatch):
     client = FakeClient("key")
-    client.interactions.create = lambda **kwargs: SimpleNamespace(
-        output_text='{"score": 8.5, "approved": true}'
-    )
+
+    def create(**kwargs):
+        client.interactions.calls.append(kwargs)
+        return SimpleNamespace(output_text='{"score": 8.5, "approved": true}')
+
+    client.interactions.create = create
     monkeypatch.setattr(gemini.genai, "Client", lambda api_key: client)
 
     provider = gemini.GeminiProvider(api_key="key", model="gemini-3.6-flash")
