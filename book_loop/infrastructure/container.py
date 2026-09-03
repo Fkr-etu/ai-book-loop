@@ -16,6 +16,7 @@ from book_loop.application.use_cases.ingest_document import IngestDocument
 from book_loop.application.use_cases.reject_chapter import RejectChapter
 from book_loop.application.use_cases.review_assertion import ReviewAssertion
 from book_loop.application.use_cases.review_chapter import ReviewChapter
+from book_loop.application.use_cases.set_creative_brief import SetCreativeBrief
 from book_loop.application.use_cases.update_book import UpdateBook
 from book_loop.application.use_cases.update_outline import UpdateOutline
 from book_loop.infrastructure.config import Settings
@@ -53,6 +54,9 @@ class Container:
 
     def create_book(self) -> CreateBook:
         return CreateBook(self.repository)
+
+    def set_creative_brief(self) -> SetCreativeBrief:
+        return SetCreativeBrief(self.repository)
 
     def update_book(self) -> UpdateBook:
         return UpdateBook(self.repository)
