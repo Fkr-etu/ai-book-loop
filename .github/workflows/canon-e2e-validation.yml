@@ -22,8 +22,6 @@ jobs:
     env:
       LLM_PROVIDER: gemini
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-      BOOK_LOOP_REAL_RUN_TITLE: ${{ inputs.title }}
-      BOOK_LOOP_REAL_RUN_CHAPTERS: ${{ inputs.chapters }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -39,17 +37,18 @@ jobs:
       - name: Validate inputs
         run: |
           test -n "$GEMINI_API_KEY" || { echo "GEMINI_API_KEY is missing"; exit 1; }
-          test "$BOOK_LOOP_REAL_RUN_CHAPTERS" -ge 3 || { echo "At least 3 chapters are required"; exit 1; }
+          test "${{ inputs.chapters }}" -ge 3 || { echo "At least 3 chapters are required"; exit 1; }
 
       - name: Run live Canon E2E
         run: |
           python - <<'PY'
           from __future__ import annotations
 
+          import re
           from uuid import uuid4
 
           from book_loop.application.use_cases.detect_conflicts import DetectConflicts
-          from book_loop.domain.models import AssertionStatus, ReviewDecisionType
+          from book_loop.domain.models import AssertionStatus, CreativeBrief, ReviewDecisionType
           from book_loop.infrastructure.config import Settings
           from book_loop.infrastructure.container import Container
 
@@ -68,9 +67,9 @@ jobs:
               theme="thriller futuriste",
               author_idea="Une archiviste découvre que certains souvenirs de Marseille ont été volontairement effacés.",
           )
-          brief = container.set_creative_brief().execute(
+          book = container.set_creative_brief().execute(
               book,
-              __import__("book_loop.domain.models", fromlist=["CreativeBrief"]).CreativeBrief(
+              CreativeBrief(
                   premise="Une archiviste enquête sur des souvenirs effacés de Marseille.",
                   audience="adultes",
                   tone="mystérieux et tendu",
@@ -79,7 +78,7 @@ jobs:
                   must_avoid=["science-fiction trop technique"],
               ),
           )
-          book = container.generate_outline().execute(brief)
+          book = container.generate_outline().execute(book)
           if book.outline is None or len(book.outline.chapters) < chapter_count:
               raise RuntimeError(f"Live outline has fewer than {chapter_count} chapters")
           container.approve_outline().execute(book)
@@ -118,38 +117,48 @@ jobs:
           print(f"[3/8] Assertions/evidence produced: {len(assertions)}/{len(evidence)}")
           print(f"      per chapter: {ingestion_counts}")
 
+          # Choose a proposed assertion that the real Chapter 3 retrieval query can use.
+          chapter3 = next(c for c in book.chapters if c.number == 3)
+          summaries = "\n".join(
+              f"Chapter {c.number} ({c.title}): {c.summary}"
+              for c in book.chapters
+              if c.number < 3 and c.summary
+          )
+          retrieval_query = " ".join((chapter3.title, chapter3.objective, summaries))
+          token_re = re.compile(r"[\wÀ-ÖØ-öø-ÿ]+", re.UNICODE)
+          query_tokens = {t.casefold() for t in token_re.findall(retrieval_query)}
+          candidate = max(
+              assertions,
+              key=lambda a: (
+                  len(query_tokens & {t.casefold() for t in token_re.findall(f"{a.statement} {a.subject} {a.predicate} {a.object}")}),
+                  a.id,
+              ),
+          )
+          candidate_overlap = len(
+              query_tokens
+              & {t.casefold() for t in token_re.findall(f"{candidate.statement} {candidate.subject} {candidate.predicate} {candidate.object}")}
+          )
+          if candidate_overlap < 1:
+              raise RuntimeError("No extracted assertion is relevant to Chapter 3 retrieval query")
+
           # 4. Create a controlled contradictory assertion to exercise conflict detection.
-          original = assertions[0]
-          conflict = original.model_copy(
+          conflict = candidate.model_copy(
               deep=True,
               update={
                   "id": str(uuid4()),
-                  "statement": f"{original.subject} has {original.object}-CONTROLLED-CONFLICT.",
-                  "object": f"{original.object}-CONTROLLED-CONFLICT",
+                  "statement": f"{candidate.subject} has {candidate.object}-CONTROLLED-CONFLICT.",
+                  "object": f"{candidate.object}-CONTROLLED-CONFLICT",
                   "status": AssertionStatus.PROPOSED,
               },
           )
           container.repository.save_assertion(conflict)
           conflicts = DetectConflicts(container.repository).execute(book_id=book.id)
-          if not any({c.left_assertion_id, c.right_assertion_id} == {original.id, conflict.id} for c in conflicts):
+          if not any({c.left_assertion_id, c.right_assertion_id} == {candidate.id, conflict.id} for c in conflicts):
               raise RuntimeError("Controlled Canon conflict was not detected")
           print(f"[4/8] Conflict detection: PASS ({len(conflicts)} open conflict(s))")
 
-          # 5. Accept a human-review candidate that is relevant to the next chapter.
-          #    This makes the downstream retrieval assertion deterministic while keeping
-          #    the promotion path identical to the application workflow.
-          candidate = None
-          chapter3 = next(c for c in book.chapters if c.number == 3)
-          context3_before = container.context_builder.for_chapter(book, 3)
-          query_terms = set(context3_before.casefold().split())
-          for assertion in assertions:
-              if assertion.subject.casefold() in query_terms or assertion.object.casefold() in query_terms:
-                  candidate = assertion
-                  break
-          if candidate is None:
-              candidate = original
-
-          review = container.review_assertion().execute(
+          # 5. Exercise the explicit human-review promotion path.
+          container.review_assertion().execute(
               book_id=book.id,
               assertion_id=candidate.id,
               decision=ReviewDecisionType.ACCEPT,
@@ -157,22 +166,23 @@ jobs:
               rationale="Accepted by the phone-triggered Canon E2E validation.",
           )
           canonical = container.repository.list_active_canonical_facts(book_id=book.id)
-          if not any(f.assertion_id == candidate.id for f in canonical):
+          accepted_fact = next((f for f in canonical if f.assertion_id == candidate.id), None)
+          if accepted_fact is None:
               raise RuntimeError("Accepted assertion was not promoted to an active CanonicalFact")
-          if conflict.id in {a.id for a in container.repository.list_assertions(book_id=book.id) if a.status is AssertionStatus.PROPOSED}:
-              raise RuntimeError("Controlled conflicting assertion remained proposed after acceptance")
+          conflict_state = {a.id: a.status for a in container.repository.list_assertions(book_id=book.id)}
+          if conflict_state.get(conflict.id) is not AssertionStatus.REJECTED:
+              raise RuntimeError("Controlled conflicting assertion was not rejected after acceptance")
           print(f"[5/8] Manual acceptance path: PASS; active Canon facts={len(canonical)}")
           print(f"      accepted assertion={candidate.id}")
 
-          # 6. Verify the actual generation context contains the accepted Canon fact.
+          # 6. Verify the actual Chapter 3 generation context contains the accepted fact.
           book = container.repository.get(book.id)
           context3 = container.context_builder.for_chapter(book, 3)
-          accepted_fact = next(f for f in canonical if f.assertion_id == candidate.id)
           if accepted_fact.statement not in context3:
               raise RuntimeError("Chapter 3 context does not contain the accepted Canon fact")
           print("[6/8] Canon active in Chapter 3 context: PASS")
 
-          # 7. Capture the writer prompt while using the real Gemini provider.
+          # 7. Capture the actual writer prompt while using the real Gemini provider.
           class RecordingLLM:
               def __init__(self, delegate):
                   self.delegate = delegate
