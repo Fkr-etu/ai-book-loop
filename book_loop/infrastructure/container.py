@@ -8,6 +8,7 @@ from book_loop.application.services.context import ContextBuilder
 from book_loop.application.services.linter import ChapterLinter
 from book_loop.application.use_cases.add_chapter import AddChapter
 from book_loop.application.use_cases.approve_chapter import ApproveChapter
+from book_loop.application.use_cases.approve_chapter_and_sync_canon import ApproveChapterAndSyncCanon
 from book_loop.application.use_cases.approve_outline import ApproveOutline
 from book_loop.application.use_cases.create_book import CreateBook
 from book_loop.application.use_cases.extract_chapter_assertions import ExtractChapterAssertions
@@ -89,6 +90,14 @@ class Container:
 
     def approve_chapter(self) -> ApproveChapter:
         return ApproveChapter(self.repository)
+
+    def approve_chapter_and_sync_canon(self) -> ApproveChapterAndSyncCanon:
+        extractor = LLMAssertionExtractor(self.llm)
+        return ApproveChapterAndSyncCanon(
+            book_repository=self.repository,
+            knowledge_repository=self.repository,
+            extractor=extractor,
+        )
 
     def reject_chapter(self) -> RejectChapter:
         return RejectChapter(self.repository)
