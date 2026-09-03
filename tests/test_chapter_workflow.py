@@ -1,12 +1,15 @@
+from __future__ import annotations
+
+import tempfile
+
 from book_loop.agents.reviewer import ReviewerAgent
 from book_loop.agents.summarizer import SummarizerAgent
 from book_loop.agents.writer import WriterAgent
 from book_loop.application.services.context import ContextBuilder
 from book_loop.application.services.linter import ChapterLinter
-from book_loop.domain.models import BookState, Chapter, Outline
-from book_loop.workflow.chapter_graph import ChapterWorkflow
+from book_loop.domain.models import BookState, Chapter, Outline, SceneReview
 from book_loop.infrastructure.database.repository import SQLiteBookRepository
-import tempfile
+from book_loop.workflow.chapter_graph import ChapterWorkflow
 
 
 class FakeLLM:
@@ -15,11 +18,22 @@ class FakeLLM:
 
     def generate(self, *, system_prompt: str, user_prompt: str) -> str:
         self.calls += 1
-        if "Review" in system_prompt:
-            return '{"score": 9, "approved": true, "issues": [], "suggestions": []}'
         if "canonical continuity" in system_prompt.lower():
             return "Canonical summary."
         return "A valid chapter draft."
+
+    def generate_structured(
+        self,
+        *,
+        system_prompt: str,
+        user_prompt: str,
+        schema: type[SceneReview],
+        thinking_level: str = "medium",
+        max_output_tokens: int | None = None,
+    ) -> SceneReview:
+        del system_prompt, user_prompt, thinking_level, max_output_tokens
+        self.calls += 1
+        return schema(score=9, approved=True, issues=[], suggestions=[])
 
 
 def make_outline() -> Outline:

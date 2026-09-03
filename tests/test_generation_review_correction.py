@@ -24,6 +24,18 @@ class SequenceLLM:
             return f"Corrected draft {self.correct_calls}."
         return "Initial draft."
 
+    def generate_structured(
+        self,
+        *,
+        system_prompt: str,
+        user_prompt: str,
+        schema: type[SceneReview],
+        thinking_level: str = "medium",
+        max_output_tokens: int | None = None,
+    ) -> SceneReview:
+        del system_prompt, user_prompt, thinking_level, max_output_tokens
+        return schema.model_validate_json(next(self.reviews))
+
 
 class Repository:
     def __init__(self, book):

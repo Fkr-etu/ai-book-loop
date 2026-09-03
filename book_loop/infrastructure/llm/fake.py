@@ -1,7 +1,13 @@
 from __future__ import annotations
 
 import json
+from typing import TypeVar
+
+from pydantic import BaseModel
+
 from book_loop.domain.protocols import LLMProvider
+
+StructuredModel = TypeVar("StructuredModel", bound=BaseModel)
 
 
 class FakeLLMProvider(LLMProvider):
@@ -10,17 +16,19 @@ class FakeLLMProvider(LLMProvider):
     def generate(self, *, system_prompt: str, user_prompt: str) -> str:
         sys_lower = system_prompt.lower()
         if "assertion" in sys_lower or "extract" in sys_lower:
-            return json.dumps([
-                {
-                    "statement": "Valerius est né à Aethelgard.",
-                    "subject": "Valerius",
-                    "predicate": "birth_place",
-                    "object": "Aethelgard",
-                    "confidence": 0.95,
-                    "start_offset": 0,
-                    "end_offset": 28,
-                }
-            ])
+            return json.dumps({
+                "assertions": [
+                    {
+                        "statement": "Valerius est né à Aethelgard.",
+                        "subject": "Valerius",
+                        "predicate": "birth_place",
+                        "object": "Aethelgard",
+                        "confidence": 0.95,
+                        "start_offset": 0,
+                        "end_offset": 28,
+                    }
+                ]
+            })
         if "review" in sys_lower:
             return json.dumps({
                 "score": 9,
@@ -55,3 +63,17 @@ class FakeLLMProvider(LLMProvider):
             })
 
         return "Texte généré par l'assistant IA en mode offline."
+
+    def generate_structured(
+        self,
+        *,
+        system_prompt: str,
+        user_prompt: str,
+        schema: type[StructuredModel],
+        thinking_level: str = "medium",
+        max_output_tokens: int | None = None,
+    ) -> StructuredModel:
+        del thinking_level, max_output_tokens
+        return schema.model_validate_json(
+            self.generate(system_prompt=system_prompt, user_prompt=user_prompt)
+        )
