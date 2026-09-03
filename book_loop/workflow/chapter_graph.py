@@ -22,7 +22,7 @@ class ChapterWorkflowState:
     chapter_number: int
     attempt: int = 0
     draft: str = ""
-    review_score: int | None = None
+    review_score: float | None = None
     review: SceneReview | None = None
     decision: str | None = None
     summary: str | None = None

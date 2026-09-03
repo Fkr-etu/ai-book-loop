@@ -15,7 +15,7 @@ class ChapterStatus(StrEnum):
 
 
 class SceneReview(BaseModel):
-    score: int = Field(ge=0, le=10)
+    score: float = Field(ge=0, le=10)
     approved: bool
     issues: list[str] = Field(default_factory=list)
     suggestions: list[str] = Field(default_factory=list)
