@@ -20,7 +20,9 @@ class ReviewerAgent:
                 "suggestions (array of strings)."
             ),
             user_prompt=f"CONTEXT:\n{context}\n\nDRAFT:\n{draft}",
-        )
+        ).strip()
+        if raw.startswith("```"):
+            raw = raw.removeprefix("```").removeprefix("json").removesuffix("```").strip()
         try:
             return SceneReview.model_validate(json.loads(raw))
         except (json.JSONDecodeError, ValidationError) as exc:
