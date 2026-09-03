@@ -1,0 +1,223 @@
+name: Canon E2E Validation
+
+on:
+  workflow_dispatch:
+    inputs:
+      title:
+        description: "Book title used for the live E2E run"
+        required: true
+        default: "Les Veilleurs de Marseille"
+      chapters:
+        description: "Number of live chapters to generate before Canon validation"
+        required: true
+        default: "3"
+
+permissions:
+  contents: read
+
+jobs:
+  canon-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      LLM_PROVIDER: gemini
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: pip install -e .
+
+      - name: Validate inputs
+        run: |
+          test -n "$GEMINI_API_KEY" || { echo "GEMINI_API_KEY is missing"; exit 1; }
+          test "${{ inputs.chapters }}" -ge 3 || { echo "At least 3 chapters are required"; exit 1; }
+
+      - name: Run live Canon E2E
+        run: |
+          python - <<'PY'
+          from __future__ import annotations
+
+          import re
+          from uuid import uuid4
+
+          from book_loop.application.use_cases.detect_conflicts import DetectConflicts
+          from book_loop.domain.models import AssertionStatus, CreativeBrief, ReviewDecisionType
+          from book_loop.infrastructure.config import Settings
+          from book_loop.infrastructure.container import Container
+
+          title = "${{ inputs.title }}"
+          chapter_count = int("${{ inputs.chapters }}")
+          settings = Settings()
+          container = Container(settings)
+
+          if settings.llm_provider == "fake" or not settings.gemini_api_key:
+              raise RuntimeError("Live Canon E2E requires Gemini and GEMINI_API_KEY")
+
+          # 1. Build a real live book, not a fixture.
+          book = container.create_book().execute(
+              owner_id="canon-e2e",
+              title=title,
+              theme="thriller futuriste",
+              author_idea="Une archiviste découvre que certains souvenirs de Marseille ont été volontairement effacés.",
+          )
+          book = container.set_creative_brief().execute(
+              book,
+              CreativeBrief(
+                  premise="Une archiviste enquête sur des souvenirs effacés de Marseille.",
+                  audience="adultes",
+                  tone="mystérieux et tendu",
+                  themes=["mémoire", "identité", "transmission"],
+                  must_include=["Marseille", "une archiviste", "un secret familial"],
+                  must_avoid=["science-fiction trop technique"],
+              ),
+          )
+          book = container.generate_outline().execute(book)
+          if book.outline is None or len(book.outline.chapters) < chapter_count:
+              raise RuntimeError(f"Live outline has fewer than {chapter_count} chapters")
+          container.approve_outline().execute(book)
+          print(f"[1/8] Live book + outline ready: {book.id}")
+
+          # 2. Generate approved chapters that become Canon source material.
+          for chapter_number in range(1, chapter_count + 1):
+              book = container.repository.get(book.id)
+              book = container.add_chapter().execute(book, chapter_number=chapter_number)
+              result = container.generate_chapter().execute(book, chapter_number)
+              if result.review_score < settings.review_threshold:
+                  raise RuntimeError(f"Chapter {chapter_number} did not pass review threshold")
+          book = container.repository.get(book.id)
+          approved = [c for c in book.chapters if c.status.value == "approved"]
+          if len(approved) < 3:
+              raise RuntimeError("Expected at least three approved chapters")
+          print(f"[2/8] {len(approved)} approved chapters generated")
+
+          # 3. Ingest approved chapter versions as proposed assertions + evidence.
+          ingestion_counts = []
+          for chapter in approved[:2]:
+              result = container.extract_chapter_assertions().execute(
+                  book_id=book.id,
+                  chapter_number=chapter.number,
+                  version=chapter.current_version,
+              )
+              ingestion_counts.append((chapter.number, len(result.assertions), len(result.evidence)))
+          assertions = container.repository.list_assertions(book_id=book.id)
+          evidence = container.repository.list_evidence(book_id=book.id)
+          if not assertions:
+              raise RuntimeError("Canon extraction produced zero assertions")
+          if not evidence:
+              raise RuntimeError("Canon extraction produced zero evidence")
+          if any(a.status is not AssertionStatus.PROPOSED for a in assertions):
+              raise RuntimeError("Extraction must leave assertions proposed")
+          print(f"[3/8] Assertions/evidence produced: {len(assertions)}/{len(evidence)}")
+          print(f"      per chapter: {ingestion_counts}")
+
+          # Choose a proposed assertion that the real Chapter 3 retrieval query can use.
+          chapter3 = next(c for c in book.chapters if c.number == 3)
+          summaries = "\n".join(
+              f"Chapter {c.number} ({c.title}): {c.summary}"
+              for c in book.chapters
+              if c.number < 3 and c.summary
+          )
+          retrieval_query = " ".join((chapter3.title, chapter3.objective, summaries))
+          token_re = re.compile(r"[\wÀ-ÖØ-öø-ÿ]+", re.UNICODE)
+          query_tokens = {t.casefold() for t in token_re.findall(retrieval_query)}
+          candidate = max(
+              assertions,
+              key=lambda a: (
+                  len(query_tokens & {t.casefold() for t in token_re.findall(f"{a.statement} {a.subject} {a.predicate} {a.object}")}),
+                  a.id,
+              ),
+          )
+          candidate_overlap = len(
+              query_tokens
+              & {t.casefold() for t in token_re.findall(f"{candidate.statement} {candidate.subject} {candidate.predicate} {candidate.object}")}
+          )
+          if candidate_overlap < 1:
+              raise RuntimeError("No extracted assertion is relevant to Chapter 3 retrieval query")
+
+          # 4. Create a controlled contradictory assertion to exercise conflict detection.
+          conflict = candidate.model_copy(
+              deep=True,
+              update={
+                  "id": str(uuid4()),
+                  "statement": f"{candidate.subject} has {candidate.object}-CONTROLLED-CONFLICT.",
+                  "object": f"{candidate.object}-CONTROLLED-CONFLICT",
+                  "status": AssertionStatus.PROPOSED,
+              },
+          )
+          container.repository.save_assertion(conflict)
+          conflicts = DetectConflicts(container.repository).execute(book_id=book.id)
+          if not any({c.left_assertion_id, c.right_assertion_id} == {candidate.id, conflict.id} for c in conflicts):
+              raise RuntimeError("Controlled Canon conflict was not detected")
+          print(f"[4/8] Conflict detection: PASS ({len(conflicts)} open conflict(s))")
+
+          # 5. Exercise the explicit human-review promotion path.
+          container.review_assertion().execute(
+              book_id=book.id,
+              assertion_id=candidate.id,
+              decision=ReviewDecisionType.ACCEPT,
+              reviewer_id="manual-e2e",
+              rationale="Accepted by the phone-triggered Canon E2E validation.",
+          )
+          canonical = container.repository.list_active_canonical_facts(book_id=book.id)
+          accepted_fact = next((f for f in canonical if f.assertion_id == candidate.id), None)
+          if accepted_fact is None:
+              raise RuntimeError("Accepted assertion was not promoted to an active CanonicalFact")
+          conflict_state = {a.id: a.status for a in container.repository.list_assertions(book_id=book.id)}
+          if conflict_state.get(conflict.id) is not AssertionStatus.REJECTED:
+              raise RuntimeError("Controlled conflicting assertion was not rejected after acceptance")
+          print(f"[5/8] Manual acceptance path: PASS; active Canon facts={len(canonical)}")
+          print(f"      accepted assertion={candidate.id}")
+
+          # 6. Verify the actual Chapter 3 generation context contains the accepted fact.
+          book = container.repository.get(book.id)
+          context3 = container.context_builder.for_chapter(book, 3)
+          if accepted_fact.statement not in context3:
+              raise RuntimeError("Chapter 3 context does not contain the accepted Canon fact")
+          print("[6/8] Canon active in Chapter 3 context: PASS")
+
+          # 7. Capture the actual writer prompt while using the real Gemini provider.
+          class RecordingLLM:
+              def __init__(self, delegate):
+                  self.delegate = delegate
+                  self.user_prompts = []
+
+              def generate(self, *, system_prompt: str, user_prompt: str) -> str:
+                  self.user_prompts.append(user_prompt)
+                  return self.delegate.generate(system_prompt=system_prompt, user_prompt=user_prompt)
+
+          recorder = RecordingLLM(container.llm)
+          container.writer_agent.llm = recorder
+          book = container.repository.get(book.id)
+          result = container.generate_chapter().execute(book, 3)
+          if not recorder.user_prompts:
+              raise RuntimeError("Writer prompt was not captured")
+          if accepted_fact.statement not in recorder.user_prompts[0]:
+              raise RuntimeError("Accepted Canon fact did not reach the real writer prompt")
+          print(f"[7/8] Real Gemini writer received Canon context: PASS; chapter 3 score={result.review_score}")
+
+          # 8. Generation must not mutate Canon.
+          active_after = container.repository.list_active_canonical_facts(book_id=book.id)
+          matching = [f for f in active_after if f.assertion_id == candidate.id]
+          if not matching or matching[0].version != accepted_fact.version:
+              raise RuntimeError("Generation unexpectedly mutated the active Canon")
+          print("[8/8] Canon immutability during generation: PASS")
+          print("REAL CANON E2E TEST: PASS")
+          print(f"BOOK_ID={book.id}")
+          print(f"CANON_FACT_ID={accepted_fact.id}")
+          PY
+
+      - name: Upload SQLite database
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: canon-e2e-book-db
+          path: book_loop.db
+          retention-days: 7
+          if-no-files-found: ignore
