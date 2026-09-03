@@ -9,7 +9,9 @@ import {
   Scene,
   CreativeConstraint,
   SceneReview,
-  CanonicalContextResponse
+  CanonicalContextResponse,
+  IngestionResult,
+  Assertion
 } from "@/types";
 import { initialProjectData } from "@/lib/mockData";
 import { getApiClient } from "@/services/api";
@@ -43,6 +45,9 @@ interface ProjectContextType {
   addLoreItem: (item: Omit<LoreItem, "id">) => Promise<void>;
   updateLoreItem: (id: string, updates: Partial<LoreItem>) => Promise<void>;
   deleteLoreItem: (id: string) => Promise<void>;
+  ingestDocument: (name: string, content: string, sourceType?: string) => Promise<IngestionResult>;
+  listAssertions: () => Promise<Assertion[]>;
+  reviewAssertion: (assertionId: string, decision: "accept" | "reject" | "defer", rationale?: string) => Promise<void>;
 
   // UI Legacy Helpers
   addScene?: (chapterId: string, title: string, summary: string) => void;
@@ -273,6 +278,35 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
+  const ingestDocument = async (name: string, content: string, sourceType?: string): Promise<IngestionResult> => {
+    setLoading(true);
+    setError(null);
+    try {
+      return await getApiClient().ingestDocument(project.id, name, content, sourceType);
+    } catch (err: any) {
+      setError(err.message || "Erreur lors de l'ingestion du document.");
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const listAssertions = async (): Promise<Assertion[]> => {
+    return getApiClient().listAssertions(project.id);
+  };
+
+  const reviewAssertion = async (assertionId: string, decision: "accept" | "reject" | "defer", rationale: string = ""): Promise<void> => {
+    setLoading(true);
+    setError(null);
+    try {
+      await getApiClient().reviewAssertion(project.id, assertionId, decision, rationale);
+    } catch (err: any) {
+      setError(err.message || "Erreur lors de l'évaluation de l'assertion.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Legacy scene UI helper
   const addScene = (chapterId: string, title: string, summary: string) => {
     const newScene: Scene = { id: `sc-${Date.now()}`, title, summary, status: "draft", content: "" };
@@ -357,6 +391,9 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
         addLoreItem,
         updateLoreItem,
         deleteLoreItem,
+        ingestDocument,
+        listAssertions,
+        reviewAssertion,
         addScene,
         updateSceneContent,
         runAiValidation,

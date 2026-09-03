@@ -132,3 +132,36 @@ def test_books_are_isolated_between_users(tmp_path):
     assert client_b.post("/api/auth/register", json={"email": "b@example.com", "password": "password123"}).status_code == 201
     assert client_b.get(f"/api/books/{book_id}").status_code == 404
     assert client_b.post(f"/api/books/{book_id}/outline/generate").status_code == 404
+
+
+def test_document_ingestion_and_assertion_review(test_client):
+    book_id = create_book(test_client, "Ingestion Test Book")
+
+    # Ingest document
+    res = test_client.post(
+        f"/api/books/{book_id}/documents/ingest",
+        json={
+            "name": "Manuscrit Source",
+            "sourceType": "markdown",
+            "content": "Valerius est né à Aethelgard en l'an 1042. Il possède la relique d'obsidienne.",
+        },
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert data["source_document"]["name"] == "Manuscrit Source"
+    assert "assertions" in data
+
+    # List assertions
+    list_res = test_client.get(f"/api/books/{book_id}/assertions")
+    assert list_res.status_code == 200
+    assertions = list_res.json()["assertions"]
+    assert len(assertions) >= 1
+
+    # Review assertion
+    assertion_id = assertions[0]["id"]
+    review_res = test_client.post(
+        f"/api/books/{book_id}/assertions/{assertion_id}/review",
+        json={"decision": "accept", "rationale": "Information confirmée"},
+    )
+    assert review_res.status_code == 200
+    assert review_res.json()["decision"] == "accept"

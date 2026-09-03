@@ -51,6 +51,18 @@ class ReviewPayload(BaseModel):
 class UpdateOutlinePayload(BaseModel):
     outline: Outline
 
+class IngestDocumentPayload(BaseModel):
+    name: str
+    sourceType: str = "markdown"
+    content: str
+    metadata: dict[str, str] | None = None
+
+
+class ReviewAssertionPayload(BaseModel):
+    decision: str
+    rationale: str = ""
+
+
 
 def create_app(container: Container | None = None) -> FastAPI:
     if container is None:
@@ -286,7 +298,51 @@ def create_app(container: Container | None = None) -> FastAPI:
             "formattedContext": formatted,
         }
 
+
+    @app.post("/api/books/{book_id}/documents/ingest")
+    def ingest_document(book_id: str, payload: IngestDocumentPayload) -> dict[str, Any]:
+        _get_book(book_id)
+        try:
+            result = container.ingest_document().execute(
+                book_id=book_id,
+                name=payload.name,
+                source_type=payload.sourceType,
+                content=payload.content,
+                metadata=payload.metadata,
+            )
+            return result.model_dump(mode="json")
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+
+    @app.get("/api/books/{book_id}/assertions")
+    def list_assertions(book_id: str) -> dict[str, Any]:
+        _get_book(book_id)
+        assertions = container.repository.list_assertions(book_id=book_id)
+        return {"assertions": [a.model_dump(mode="json") for a in assertions]}
+
+    @app.post("/api/books/{book_id}/assertions/{assertion_id}/review")
+    def review_assertion(book_id: str, assertion_id: str, payload: ReviewAssertionPayload, request: Request) -> dict[str, Any]:
+        _get_book(book_id)
+        current_user: UserPublic | None = getattr(request.state, "user", None)
+        reviewer_id = current_user.id if current_user else "user"
+        try:
+            from book_loop.domain.models import ReviewDecisionType
+            decision_enum = ReviewDecisionType(payload.decision.lower())
+            review = container.review_assertion().execute(
+                book_id=book_id,
+                assertion_id=assertion_id,
+                decision=decision_enum,
+                reviewer_id=reviewer_id,
+                rationale=payload.rationale,
+            )
+            return review.model_dump(mode="json")
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=str(exc))
+
     return app
+
 
 
 app = create_app()

@@ -180,4 +180,21 @@ test.describe("Manuscript Studio - Complete Page Coverage Suite", () => {
     await expect(page.getByText("Contraintes Actives")).toBeVisible();
     await expect(page.getByText("Résumés Précédents")).toBeVisible();
   });
+
+  test("19. Business Workflow — Ingestion of source document extracts assertions and supports assertion review", async ({ page }) => {
+    await page.goto("/studio/lore");
+
+    await page.getByRole("button", { name: "Ingérer un Document Source" }).click();
+
+    await page.getByPlaceholder("Nom du document").fill("Notes d'Histoire");
+    await page.getByPlaceholder("Collez ici le contenu source").fill("Valerius a découvert la seconde relique à Aethelgard.");
+
+    await page.getByRole("button", { name: "Ingérer & Extraire les Assertions" }).click();
+
+    await expect(page.getByText("Assertions Extraites à Revoir")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Accepter (Canon)" }).first()).toBeVisible();
+
+    await page.getByRole("button", { name: "Accepter (Canon)" }).first().click();
+    await expect(page.getByText("accepted").first()).toBeVisible();
+  });
 });

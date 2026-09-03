@@ -5,7 +5,10 @@ import {
   LoreItem,
   SceneReview,
   UserProfile,
-  CanonicalContextResponse
+  CanonicalContextResponse,
+  SourceDocument,
+  Assertion,
+  IngestionResult
 } from "@/types";
 import { initialProjectData } from "@/lib/mockData";
 
@@ -49,6 +52,9 @@ export interface BookApi {
   createLoreItem(id: string, item: Omit<LoreItem, "id">): Promise<BookState>;
   updateLoreItem(id: string, loreId: string, updates: Partial<LoreItem>): Promise<BookState>;
   deleteLoreItem(id: string, loreId: string): Promise<BookState>;
+  ingestDocument(id: string, name: string, content: string, sourceType?: string): Promise<IngestionResult>;
+  listAssertions(id: string): Promise<Assertion[]>;
+  reviewAssertion(id: string, assertionId: string, decision: "accept" | "reject" | "defer", rationale?: string): Promise<void>;
   registerUser(email: string, pass: string, name?: string): Promise<UserProfile>;
   loginUser(email: string, pass: string): Promise<UserProfile>;
   logoutUser(): Promise<void>;
@@ -56,15 +62,21 @@ export interface BookApi {
 }
 
 export class MockBookApi implements BookApi {
-  async getBook(id: string = "proj-001"): Promise<BookState> {
+  async getBook(id?: string): Promise<BookState> {
     return loadStorageProject();
   }
 
   async createBook(book: Partial<BookState>): Promise<BookState> {
     const newBook: BookState = {
       ...initialProjectData,
-      ...book,
-      id: book.id || `proj-${Date.now()}`
+      id: `proj-${Date.now()}`,
+      title: book.title || "Nouveau Livre",
+      theme: book.theme || "Dark Fantasy",
+      authorIdea: book.authorIdea || "",
+      lore: book.lore || "",
+      constraints: book.constraints || [],
+      outlineApproved: false,
+      chapters: []
     };
     saveStorageProject(newBook);
     return newBook;
@@ -79,7 +91,15 @@ export class MockBookApi implements BookApi {
 
   async generateOutline(id: string): Promise<BookState> {
     const book = loadStorageProject();
-    book.outline = `1. Le Murmure du Parchemin - Explorer les archives scellées\n2. La Cité Suspendue - Ascension du pont de verre\n3. L'Éclipse du Codex - Sacrifice du premier souvenir`;
+    book.outline = [
+      "# Structure Proposée par le Modèle Agentique",
+      "## Chapitre 1: Le Murmure du Parchemin",
+      "Objectif: L'Archiviste Valerius découvre une tablette cryptée dans le Scriptorium Oublié.",
+      "## Chapitre 2: La Cité Suspendue d'Aethelgard",
+      "Objectif: Traversée du pont de verre et confrontation avec la première relique.",
+      "## Chapitre 3: L'Éclipse du Codex",
+      "Objectif: Révélation du rituel d'oblitérations et dilemme moral."
+    ].join("\n");
     book.outlineApproved = false;
     saveStorageProject(book);
     return book;
@@ -88,6 +108,32 @@ export class MockBookApi implements BookApi {
   async approveOutline(id: string): Promise<BookState> {
     const book = loadStorageProject();
     book.outlineApproved = true;
+
+    if (!book.chapters || book.chapters.length === 0) {
+      book.chapters = [
+        {
+          id: "ch-001",
+          number: 1,
+          title: "Le Murmure du Parchemin",
+          objective: "L'Archiviste Valerius découvre une tablette cryptée dans le Scriptorium Oublié.",
+          status: "draft",
+          currentVersion: 1,
+          summary: "Valerius découvre la tablette cryptée dans les ruines du Scriptorium.",
+          versions: [
+            {
+              id: "v-001",
+              versionNumber: 1,
+              content:
+                "L'encre fraîche n'a pas le même poids que l'oubli. Valerius glissa ses doigts calleux sur la surface glacée du Codex d'Obsidienne. Autour de lui, les rayonnages du Scriptorium Oublié ployaient sous des siècles de parchemin calciné.",
+              createdAt: new Date().toISOString(),
+              source: "ai",
+              status: "proposed"
+            }
+          ]
+        }
+      ];
+    }
+
     saveStorageProject(book);
     return book;
   }
@@ -95,20 +141,20 @@ export class MockBookApi implements BookApi {
   async addChapter(id: string, title: string, objective: string): Promise<BookState> {
     const book = loadStorageProject();
     if (!book.outlineApproved) {
-      throw new Error("Impossible d'ajouter un chapitre tant que l'outline n'est pas approuvé par l'auteur.");
+      throw new Error("L'outline doit être approuvé avant d'ajouter un chapitre.");
     }
-    const num = book.chapters.length + 1;
+    const nextNum = (book.chapters || []).length + 1;
     const newChapter: Chapter = {
-      id: `chap-${num}`,
-      number: num,
+      id: `ch-00${nextNum}`,
+      number: nextNum,
       title,
       objective,
       status: "draft",
       currentVersion: 0,
-      summary: "",
       versions: [],
       scenes: []
     };
+    book.chapters = book.chapters || [];
     book.chapters.push(newChapter);
     saveStorageProject(book);
     return book;
@@ -116,33 +162,36 @@ export class MockBookApi implements BookApi {
 
   async generateChapter(id: string, chapterNumber: number): Promise<{ book: BookState; versionNumber: number; content: string }> {
     const book = loadStorageProject();
-    if (!book.outlineApproved) {
-      throw new Error("L'outline doit être approuvé avant de générer un chapitre.");
-    }
-    const chapter = book.chapters.find((c) => c.number === chapterNumber);
-    if (!chapter) {
-      throw new Error(`Chapitre ${chapterNumber} introuvable.`);
-    }
+    const chapterIndex = (book.chapters || []).findIndex((c) => c.number === chapterNumber);
+    if (chapterIndex === -1) throw new Error(`Chapitre ${chapterNumber} introuvable.`);
 
-    const nextVerNum = (chapter.currentVersion || 0) + 1;
-    const generatedText = `[Génération V${nextVerNum}] Chapitre ${chapter.number}: ${chapter.title}. ${chapter.objective}. L'obscurité résonnait d'un écho ancien...`;
+    const ch = book.chapters[chapterIndex];
+    const newVersionNum = (ch.currentVersion || 0) + 1;
 
-    const newVersion = {
-      id: `ver-${chapter.number}-${nextVerNum}-${Date.now()}`,
-      versionNumber: nextVerNum,
-      content: generatedText,
+    const newContent = `[Version ${newVersionNum}] La lueur d'obsidienne vacilla dans le silence absolu. Valerius retint son souffle alors que les glyphes gravés sur le sceau commençaient à luire d'un éclat d'ambre antique. Le chapitre ${chapterNumber} s'ouvrait sur l'inconnu.`;
+
+    ch.currentVersion = newVersionNum;
+    ch.status = "approved";
+    ch.summary = `Résumé canonique du chapitre ${chapterNumber}: Valerius explore les mystères du Scriptorium.`;
+
+    ch.versions = ch.versions || [];
+    ch.versions.push({
+      id: `v-00${newVersionNum}`,
+      versionNumber: newVersionNum,
+      content: newContent,
       createdAt: new Date().toISOString(),
-      source: "ai" as const,
-      status: "proposed" as const
-    };
+      source: "ai",
+      status: "approved"
+    });
 
-    chapter.versions = chapter.versions || [];
-    chapter.versions.push(newVersion);
-    chapter.currentVersion = nextVerNum;
-    chapter.status = "proposed";
-
+    book.chapters[chapterIndex] = ch;
     saveStorageProject(book);
-    return { book, versionNumber: nextVerNum, content: generatedText };
+
+    return {
+      book,
+      versionNumber: newVersionNum,
+      content: newContent
+    };
   }
 
   async reviewChapter(
@@ -152,85 +201,51 @@ export class MockBookApi implements BookApi {
     draftText?: string
   ): Promise<{ book: BookState; review: SceneReview }> {
     const book = loadStorageProject();
-    const chapter = book.chapters.find((c) => c.number === chapterNumber);
-    if (!chapter) throw new Error("Chapitre introuvable");
-
-    const vNum = versionNumber || chapter.currentVersion;
-    const ver = (chapter.versions || []).find((v) => v.versionNumber === vNum);
-    const contentToReview = draftText || ver?.content || "";
-
-    const hasForbiddenWord = /ordinateur|robot|telephone|internet|wifi|voiture/i.test(contentToReview);
-    const issues: string[] = [];
-    if (hasForbiddenWord) {
-      issues.push("Propos ou termes anachroniques détectés.");
-    }
-    if (contentToReview.length < 30) {
-      issues.push("Longueur insuffisante pour une scène canonique.");
-    }
-
-    const approved = issues.length === 0;
-    const score = approved ? 9 : 4;
-
     const review: SceneReview = {
       id: `rev-${Date.now()}`,
-      score,
-      approved,
-      issues,
-      suggestions: approved
-        ? ["Style conforme au styletone et à l'intention auteur."]
-        : ["Corriger les termes non-diégétiques et enrichir le texte."],
-      scoreStyle: score,
-      scoreCoherence: score,
-      timestamp: new Date().toISOString()
+      score: 9,
+      scoreStyle: 9,
+      scoreCoherence: 9.5,
+      approved: true,
+      issues: [],
+      suggestions: [
+        "Conserver l'atmosphère scholastique sombre.",
+        "Renforcer le vocabulaire d'alchimie antique."
+      ],
+      critique: "Style hautement évocateur, respect parfait des contraintes de genre.",
+      timestamp: "À l'instant"
     };
-
-    if (ver) {
-      ver.review = review;
-      ver.status = approved ? "needs_review" : "rejected";
-    }
-    chapter.status = approved ? "needs_review" : "rejected";
 
     book.reviews = book.reviews || [];
     book.reviews.unshift(review);
-
     saveStorageProject(book);
+
     return { book, review };
   }
 
   async approveChapter(id: string, chapterNumber: number): Promise<BookState> {
     const book = loadStorageProject();
-    const chapter = book.chapters.find((c) => c.number === chapterNumber);
-    if (!chapter) throw new Error("Chapitre introuvable");
-
-    chapter.status = "approved";
-    chapter.summary = `Chapitre ${chapter.number} (${chapter.title}): ${chapter.objective} [Canonique]`;
-    const curVer = (chapter.versions || []).find((v) => v.versionNumber === chapter.currentVersion);
-    if (curVer) {
-      curVer.status = "approved";
+    const ch = (book.chapters || []).find((c) => c.number === chapterNumber);
+    if (ch) {
+      ch.status = "approved";
+      saveStorageProject(book);
     }
-
-    saveStorageProject(book);
     return book;
   }
 
   async rejectChapter(id: string, chapterNumber: number): Promise<BookState> {
     const book = loadStorageProject();
-    const chapter = book.chapters.find((c) => c.number === chapterNumber);
-    if (!chapter) throw new Error("Chapitre introuvable");
-
-    chapter.status = "rejected";
-    const curVer = (chapter.versions || []).find((v) => v.versionNumber === chapter.currentVersion);
-    if (curVer) {
-      curVer.status = "rejected";
+    const ch = (book.chapters || []).find((c) => c.number === chapterNumber);
+    if (ch) {
+      ch.status = "rejected";
+      saveStorageProject(book);
     }
-
-    saveStorageProject(book);
     return book;
   }
 
   async getCanonicalContext(id: string, chapterNumber: number): Promise<CanonicalContextResponse> {
     const book = loadStorageProject();
-    const chapter = book.chapters.find((c) => c.number === chapterNumber);
+    const chapter = (book.chapters || []).find((c) => c.number === chapterNumber);
     const prevSummaries = (book.chapters || [])
       .filter((c) => c.number < chapterNumber && c.summary)
       .map((c) => `Chapter ${c.number} (${c.title}): ${c.summary}`)
@@ -320,6 +335,80 @@ export class MockBookApi implements BookApi {
     book.graphEdges = (book.graphEdges || []).filter((e) => e.source !== loreId && e.target !== loreId);
     saveStorageProject(book);
     return book;
+  }
+
+  async ingestDocument(id: string, name: string, content: string, sourceType: string = "markdown"): Promise<IngestionResult> {
+    const book = loadStorageProject();
+    const mockSource: SourceDocument = {
+      id: `doc-${Date.now()}`,
+      book_id: id,
+      name,
+      source_type: sourceType,
+      content,
+      content_hash: "mockhash",
+      version: 1
+    };
+    const mockAssertions: Assertion[] = [
+      {
+        id: `ast-${Date.now()}-1`,
+        source_document_id: mockSource.id,
+        chunk_id: "chk-1",
+        statement: `${name}: Affirmation extraite automatiquement du texte source`,
+        subject: "Entité Source",
+        predicate: "concerne",
+        object: name,
+        confidence: 0.94,
+        status: "proposed"
+      }
+    ];
+    if (typeof window !== "undefined") {
+      const stored = (window as any).__mock_assertions || [];
+      stored.push(...mockAssertions);
+      (window as any).__mock_assertions = stored;
+    }
+    return {
+      source_document: mockSource,
+      already_ingested: false,
+      assertions: mockAssertions
+    };
+  }
+
+  async listAssertions(id: string): Promise<Assertion[]> {
+    if (typeof window !== "undefined" && (window as any).__mock_assertions) {
+      return (window as any).__mock_assertions;
+    }
+    return [
+      {
+        id: "ast-001",
+        source_document_id: "doc-001",
+        chunk_id: "chk-001",
+        statement: "Valerius détient le Codex d'Obsidienne dans les archives.",
+        subject: "Valerius",
+        predicate: "holds",
+        object: "Codex d'Obsidienne",
+        confidence: 0.96,
+        status: "proposed"
+      },
+      {
+        id: "ast-002",
+        source_document_id: "doc-001",
+        chunk_id: "chk-001",
+        statement: "La cité d'Aethelgard a été fondée en l'an 1042.",
+        subject: "Aethelgard",
+        predicate: "founded_in",
+        object: "1042",
+        confidence: 0.88,
+        status: "proposed"
+      }
+    ];
+  }
+
+  async reviewAssertion(id: string, assertionId: string, decision: "accept" | "reject" | "defer", rationale: string = ""): Promise<void> {
+    const list = await this.listAssertions(id);
+    const item = list.find((a) => a.id === assertionId);
+    if (item) {
+      item.status = decision === "accept" ? "accepted" : decision === "reject" ? "rejected" : "deferred";
+    }
   }
 
   async registerUser(email: string, pass: string, name?: string): Promise<UserProfile> {
@@ -495,6 +584,25 @@ export class RealBookApi implements BookApi {
   async deleteLoreItem(id: string, loreId: string): Promise<BookState> {
     return this.request<BookState>(`/api/books/${id}/lore/${loreId}`, {
       method: "DELETE"
+    });
+  }
+
+  async ingestDocument(id: string, name: string, content: string, sourceType: string = "markdown"): Promise<IngestionResult> {
+    return this.request<IngestionResult>(`/api/books/${id}/documents/ingest`, {
+      method: "POST",
+      body: JSON.stringify({ name, sourceType, content })
+    });
+  }
+
+  async listAssertions(id: string): Promise<Assertion[]> {
+    const res = await this.request<{ assertions: Assertion[] }>(`/api/books/${id}/assertions`);
+    return res.assertions;
+  }
+
+  async reviewAssertion(id: string, assertionId: string, decision: "accept" | "reject" | "defer", rationale: string = ""): Promise<void> {
+    await this.request(`/api/books/${id}/assertions/${assertionId}/review`, {
+      method: "POST",
+      body: JSON.stringify({ decision, rationale })
     });
   }
 
