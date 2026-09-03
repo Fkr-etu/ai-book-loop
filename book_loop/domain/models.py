@@ -21,6 +21,15 @@ class SceneReview(BaseModel):
     suggestions: list[str] = Field(default_factory=list)
 
 
+class CreativeBrief(BaseModel):
+    premise: str = Field(min_length=1)
+    audience: str = ""
+    tone: str = ""
+    themes: list[str] = Field(default_factory=list)
+    must_include: list[str] = Field(default_factory=list)
+    must_avoid: list[str] = Field(default_factory=list)
+
+
 class OutlineChapter(BaseModel):
     number: int = Field(gt=0)
     title: str = Field(min_length=1)
@@ -64,6 +73,7 @@ class BookState(BaseModel):
     title: str
     theme: str
     author_idea: str
+    creative_brief: CreativeBrief | None = None
     lore: str = ""
     constraints: list[str] = Field(default_factory=list)
     outline: Outline | None = None
