@@ -7,7 +7,6 @@ from book_loop.domain.models import (
     AssertionStatus,
     DocumentChunk,
     Evidence,
-    ExtractedAssertion,
     ReviewDecisionType,
     SourceDocument,
 )
@@ -50,6 +49,34 @@ def test_detects_competing_subject_predicate_values(tmp_path):
 
     assert len(conflicts) == 1
     assert {conflicts[0].left_assertion_id, conflicts[0].right_assertion_id} == {left.id, right.id}
+
+
+def test_detection_is_idempotent_and_returns_persisted_conflict(tmp_path):
+    repository = SQLiteBookRepository(str(tmp_path / "knowledge.db"))
+    left, right = _seed_assertions(repository)
+
+    first = DetectConflicts(repository).execute(book_id="book-1")
+    second = DetectConflicts(repository).execute(book_id="book-1")
+
+    assert len(first) == len(second) == 1
+    assert first[0].id == second[0].id
+    assert repository.list_conflicts(book_id="book-1")[0].id == first[0].id
+
+
+def test_resolved_conflict_is_not_reopened_by_detection(tmp_path):
+    repository = SQLiteBookRepository(str(tmp_path / "knowledge.db"))
+    left, _ = _seed_assertions(repository)
+    DetectConflicts(repository).execute(book_id="book-1")
+
+    ReviewAssertion(repository).execute(
+        book_id="book-1", assertion_id=left.id, decision=ReviewDecisionType.ACCEPT,
+        reviewer_id="user-1", rationale="The first source is authoritative.",
+    )
+
+    assert DetectConflicts(repository).execute(book_id="book-1") == []
+    conflict = repository.list_conflicts(book_id="book-1")[0]
+    assert conflict.status.value == "resolved"
+    assert conflict.resolution_assertion_id == left.id
 
 
 def test_acceptance_creates_versioned_canonical_fact_and_audit_decision(tmp_path):

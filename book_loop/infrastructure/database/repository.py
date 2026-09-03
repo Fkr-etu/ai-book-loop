@@ -222,6 +222,23 @@ class SQLiteBookRepository:
         )
         self._connection.commit()
 
+    def list_conflicts(self, *, book_id: str) -> list[Conflict]:
+        rows = self._connection.execute(
+            "SELECT * FROM conflicts WHERE book_id = ? ORDER BY rowid",
+            (book_id,),
+        ).fetchall()
+        return [
+            Conflict(
+                id=row["id"],
+                book_id=row["book_id"],
+                left_assertion_id=row["left_assertion_id"],
+                right_assertion_id=row["right_assertion_id"],
+                status=row["status"],
+                resolution_assertion_id=row["resolution_assertion_id"],
+            )
+            for row in rows
+        ]
+
     def resolve_conflict(self, left_assertion_id: str, right_assertion_id: str, resolution_assertion_id: str) -> None:
         left, right = sorted((left_assertion_id, right_assertion_id))
         self._connection.execute(
