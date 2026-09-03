@@ -1,0 +1,1 @@
+The Canon E2E Validation workflow is manual and deterministic. The default scenario is Les Veilleurs de Marseille.
