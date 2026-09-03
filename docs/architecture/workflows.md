@@ -70,9 +70,10 @@ Current implementation is `ChapterWorkflow`, orchestrated with LangGraph. LangGr
 - the complete structured outline when available;
 - global constraints;
 - summaries of previous chapters only;
-- the current chapter objective.
+- the current chapter objective;
+- relevant active Canon facts when available.
 
-Rejected drafts are not used as canonical continuity context. Accepted chapter summaries are the continuity mechanism for subsequent chapters.
+Rejected drafts are not used as canonical continuity context. Accepted chapter summaries and active Canon facts are the continuity mechanisms for subsequent chapters.
 
 ### 2. Writing
 
@@ -80,15 +81,30 @@ Rejected drafts are not used as canonical continuity context. Accepted chapter s
 
 The attempt number starts at `1` for the first generated draft and increments for every retry.
 
+Free-form generation deliberately uses Gemini's normal text output. Structured-output constraints are reserved for capabilities whose result is consumed as typed application data.
+
 ### 3. Deterministic validation
 
 `ChapterLinter` runs before the LLM reviewer. A lint failure is treated as a retryable failure while the retry budget remains; after the budget is exhausted the workflow ends in `needs_review` rather than looping indefinitely.
 
 This layer is intentionally deterministic and is not delegated to the LLM.
 
-### 4. LLM review and decision policy
+### 4. Native structured LLM output
 
-For a lint-valid draft, `ReviewerAgent` evaluates the draft against the chapter context. The review is persisted with the corresponding attempt.
+The Gemini adapter exposes two provider capabilities:
+
+- `generate()` for free-form text generation;
+- `generate_structured()` for typed responses constrained by a JSON Schema derived from a Pydantic model.
+
+The Interactions API `response_format` is used for structured calls, so Gemini is constrained by the schema before the response reaches the application. The JSON is then validated again with Pydantic. This replaces prompt-only JSON conventions and ad-hoc parsing as the primary mechanism.
+
+Gemini 3 generation is configured per capability rather than globally. Structured reviewer/extractor calls use an explicit `thinking_level` and output-token bound, while free-form writing keeps Gemini's model defaults. Sampling parameters such as temperature are intentionally not overridden for Gemini 3.x.
+
+### 5. LLM review and decision policy
+
+For a lint-valid draft, `ReviewerAgent` requests a native structured `SceneReview`. The provider validates the JSON against the schema before returning the typed model.
+
+The reviewer is instructed to evaluate only author-intent fidelity, continuity, coherence and writing quality. It cannot directly mutate the book or Canon.
 
 `application.policies.review.decide()` converts the review result into one of three workflow decisions:
 
@@ -98,13 +114,23 @@ For a lint-valid draft, `ReviewerAgent` evaluates the draft against the chapter 
 
 The configured `review_threshold` and `max_retries` are application policy, not model output.
 
-### 5. Retry
+### 6. Structured assertion extraction
+
+Canon extraction also uses native structured output. `LLMAssertionExtractor` requests an `ExtractedAssertions` Pydantic wrapper containing `ExtractedAssertion` items.
+
+The adapter validates assertion offsets against the actual source chunk after schema validation. Invalid ranges are rejected before assertions enter the application persistence path.
+
+The extractor can propose assertions and evidence locations, but it cannot promote anything into `CanonicalFact`. Human/application review remains authoritative.
+
+### 7. Retry
 
 A retry returns to `WriterAgent` with the same chapter context and creates a new persisted version. Retries are bounded by `max_retries`; there is no unbounded model-call loop.
 
+Structured-output failures are provider/application failures and can be handled by the same bounded retry/error policy without attempting to repair malformed JSON with regexes.
+
 The persisted attempt/review history is retained so a failed generation remains observable rather than silently replacing previous drafts.
 
-### 6. Summary and canonicalization
+### 8. Summary and canonicalization
 
 When the review decision is `accept`, `SummarizerAgent` produces the chapter summary. The workflow then updates the persisted chapter with:
 
@@ -133,10 +159,14 @@ A generation run can terminate in two ways without producing a canonical summary
 1. deterministic lint failures exhaust the retry budget;
 2. the LLM reviewer rejects the draft until the retry budget is exhausted.
 
-In both cases the workflow stops instead of silently approving content. Persisted chapter versions and reviews provide the audit trail available to the current repository implementation.
+Structured-output/schema failures are also surfaced as explicit provider/application errors rather than being silently normalized into data.
+
+In all cases, persisted chapter versions and reviews provide the audit trail available to the current repository implementation.
 
 ## Architecture boundary
 
 Agents encapsulate LLM-facing capabilities; they do not own business orchestration. Application services/policies own context construction and review decisions. The workflow coordinates these capabilities.
+
+The Gemini-specific features remain inside `infrastructure/llm`. The application depends only on the provider port and Pydantic/domain contracts.
 
 LangGraph currently implements the state-machine execution, but it must remain replaceable. The domain and application layers must not depend on LangGraph-specific state or APIs.
