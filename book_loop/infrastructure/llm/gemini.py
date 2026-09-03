@@ -26,7 +26,6 @@ class GeminiProvider(LLMProvider):
             model=self.model,
             input=user_prompt,
             system_instruction=system_prompt,
-            generation_config={"thinking_level": "medium"},
         )
         text = interaction.output_text
         if not text or not text.strip():
