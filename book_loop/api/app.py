@@ -51,6 +51,7 @@ class ReviewPayload(BaseModel):
 class UpdateOutlinePayload(BaseModel):
     outline: Outline
 
+
 class IngestDocumentPayload(BaseModel):
     name: str
     sourceType: str = "markdown"
@@ -61,7 +62,6 @@ class IngestDocumentPayload(BaseModel):
 class ReviewAssertionPayload(BaseModel):
     decision: str
     rationale: str = ""
-
 
 
 def create_app(container: Container | None = None) -> FastAPI:
@@ -161,7 +161,6 @@ def create_app(container: Container | None = None) -> FastAPI:
             try:
                 book = container.repository.get(book_id)
             except KeyError:
-                # Preserve the endpoint's normal 404/seed behavior.
                 return await call_next(request)
             if book.owner_id != current_user.id:
                 return JSONResponse(status_code=404, content={"detail": "Livre introuvable."})
@@ -311,7 +310,6 @@ def create_app(container: Container | None = None) -> FastAPI:
             "formattedContext": formatted,
         }
 
-
     @app.post("/api/books/{book_id}/documents/ingest")
     def ingest_document(book_id: str, payload: IngestDocumentPayload) -> dict[str, Any]:
         _get_book(book_id)
@@ -332,6 +330,18 @@ def create_app(container: Container | None = None) -> FastAPI:
         _get_book(book_id)
         assertions = container.repository.list_assertions(book_id=book_id)
         return {"assertions": [a.model_dump(mode="json") for a in assertions]}
+
+    @app.get("/api/books/{book_id}/conflicts")
+    def list_conflicts(book_id: str) -> dict[str, Any]:
+        _get_book(book_id)
+        conflicts = container.repository.list_conflicts(book_id=book_id)
+        return {"conflicts": [conflict.model_dump(mode="json") for conflict in conflicts]}
+
+    @app.get("/api/books/{book_id}/canonical-facts")
+    def list_canonical_facts(book_id: str) -> dict[str, Any]:
+        _get_book(book_id)
+        facts = container.repository.list_active_canonical_facts(book_id=book_id)
+        return {"facts": [fact.model_dump(mode="json") for fact in facts]}
 
     @app.post("/api/books/{book_id}/assertions/{assertion_id}/review")
     def review_assertion(book_id: str, assertion_id: str, payload: ReviewAssertionPayload, request: Request) -> dict[str, Any]:
@@ -355,7 +365,6 @@ def create_app(container: Container | None = None) -> FastAPI:
             raise HTTPException(status_code=404, detail=str(exc))
 
     return app
-
 
 
 app = create_app()
