@@ -1,0 +1,68 @@
+name: Real Book Run
+
+on:
+  workflow_dispatch:
+    inputs:
+      chapters:
+        description: "Number of chapters to run (the smoke test currently caps this at 2)"
+        required: false
+        default: "2"
+        type: string
+      title:
+        description: "Book title"
+        required: false
+        default: "Les Veilleurs de Marseille"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  real-run:
+    name: Live Gemini E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      LLM_PROVIDER: gemini
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      BOOK_LOOP_REAL_RUN_CHAPTERS: ${{ inputs.chapters }}
+      BOOK_LOOP_REAL_RUN_TITLE: ${{ inputs.title }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install project
+        run: python -m pip install --upgrade pip && python -m pip install -e .
+
+      - name: Validate Gemini secret
+        shell: bash
+        run: |
+          if [ -z "${GEMINI_API_KEY}" ]; then
+            echo "GEMINI_API_KEY is not configured in repository secrets."
+            exit 1
+          fi
+
+      - name: Run live two-chapter E2E
+        run: |
+          if [ "${BOOK_LOOP_REAL_RUN_CHAPTERS}" != "2" ]; then
+            echo "The current real-run implementation supports exactly 2 chapters."
+            echo "Requested: ${BOOK_LOOP_REAL_RUN_CHAPTERS}"
+            exit 1
+          fi
+          book-loop real-run --title "${BOOK_LOOP_REAL_RUN_TITLE}"
+
+      - name: Upload SQLite state
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: real-book-run-sqlite
+          path: book_loop.db
+          if-no-files-found: warn
+          retention-days: 7
