@@ -18,8 +18,6 @@ class FakeLLM:
 
     def generate(self, *, system_prompt: str, user_prompt: str) -> str:
         self.calls += 1
-        if "Review" in system_prompt:
-            return '{"score": 9, "approved": true, "issues": [], "suggestions": []}'
         if "canonical continuity" in system_prompt.lower():
             return "Canonical summary."
         return "A valid chapter draft."
@@ -33,10 +31,9 @@ class FakeLLM:
         thinking_level: str = "medium",
         max_output_tokens: int | None = None,
     ) -> SceneReview:
-        del thinking_level, max_output_tokens
-        return schema.model_validate_json(
-            self.generate(system_prompt=system_prompt, user_prompt=user_prompt)
-        )
+        del system_prompt, user_prompt, thinking_level, max_output_tokens
+        self.calls += 1
+        return schema(score=9, approved=True, issues=[], suggestions=[])
 
 
 def make_outline() -> Outline:
