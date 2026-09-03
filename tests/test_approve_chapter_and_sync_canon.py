@@ -58,7 +58,9 @@ class FakeKnowledgeRepository:
         self.evidence.append(evidence)
 
     def list_assertions(self, *, book_id: str):
-        return [assertion for assertion in self.assertions if assertion.book_id == book_id]
+        # Assertions are scoped to the book through their source document.
+        source_ids = {source.id for source in self.sources if source.book_id == book_id}
+        return [assertion for assertion in self.assertions if assertion.source_document_id in source_ids]
 
     def save_conflict(self, conflict):
         self.conflicts.append(conflict)
@@ -107,7 +109,7 @@ def test_approval_syncs_approved_version_as_proposed_canon_and_detects_conflict(
         book_repository=books,
         knowledge_repository=knowledge,
         extractor=FakeExtractor(),
-    ).execute(book=books.book, chapter_number=1)
+    ).execute(books.book, chapter_number=1)
 
     assert result.book.chapters[0].status is ChapterStatus.APPROVED
     assert len(result.ingestion.assertions) == 2
