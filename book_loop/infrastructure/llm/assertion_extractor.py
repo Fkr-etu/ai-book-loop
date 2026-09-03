@@ -21,7 +21,8 @@ class LLMAssertionExtractor:
         "For each assertion provide the exact statement, subject, predicate, object, confidence, "
         "start_offset and end_offset. Offsets are character offsets within the supplied chunk. "
         "Do not infer facts that are not supported by the source. "
-        "Prefer a small set of high-value assertions and keep statements concise."
+        "Prefer a small set of high-value assertions and keep statements concise. "
+        "Return no more than 12 assertions."
     )
 
     def __init__(self, provider: LLMProvider) -> None:
