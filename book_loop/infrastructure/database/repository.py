@@ -275,6 +275,27 @@ class SQLiteBookRepository:
         )
         self._connection.commit()
 
+    def list_active_canonical_facts(self, *, book_id: str) -> list[CanonicalFact]:
+        rows = self._connection.execute(
+            "SELECT * FROM canonical_facts WHERE book_id = ? AND active = 1 ORDER BY subject, predicate, version",
+            (book_id,),
+        ).fetchall()
+        return [
+            CanonicalFact(
+                id=row["id"],
+                book_id=row["book_id"],
+                assertion_id=row["assertion_id"],
+                statement=row["statement"],
+                subject=row["subject"],
+                predicate=row["predicate"],
+                object=row["object"],
+                decision_id=row["decision_id"],
+                version=row["version"],
+                active=bool(row["active"]),
+            )
+            for row in rows
+        ]
+
     def set_assertion_status(self, assertion_id: str, status: AssertionStatus) -> None:
         cursor = self._connection.execute("UPDATE assertions SET status = ? WHERE id = ?", (status.value, assertion_id))
         if cursor.rowcount != 1:
