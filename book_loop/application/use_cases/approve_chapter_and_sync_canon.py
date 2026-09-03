@@ -34,7 +34,7 @@ class ApproveChapterAndSyncCanon:
         )
         self._detect_conflicts = DetectConflicts(knowledge_repository)
 
-    def execute(self, *, book: BookState, chapter_number: int) -> ApprovedChapterCanonSync:
+    def execute(self, book: BookState, *, chapter_number: int) -> ApprovedChapterCanonSync:
         approved = self._approve.execute(book, chapter_number=chapter_number)
         chapter = next(chapter for chapter in approved.chapters if chapter.number == chapter_number)
         ingestion = self._extract.execute(
