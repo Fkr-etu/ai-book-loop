@@ -10,6 +10,7 @@ from book_loop.application.use_cases.add_chapter import AddChapter
 from book_loop.application.use_cases.approve_chapter import ApproveChapter
 from book_loop.application.use_cases.approve_outline import ApproveOutline
 from book_loop.application.use_cases.create_book import CreateBook
+from book_loop.application.use_cases.extract_chapter_assertions import ExtractChapterAssertions
 from book_loop.application.use_cases.generate_chapter import GenerateChapter
 from book_loop.application.use_cases.generate_outline import GenerateOutline
 from book_loop.application.use_cases.ingest_document import IngestDocument
@@ -95,6 +96,14 @@ class Container:
     def ingest_document(self) -> IngestDocument:
         extractor = LLMAssertionExtractor(self.llm)
         return IngestDocument(repository=self.repository, extractor=extractor)
+
+    def extract_chapter_assertions(self) -> ExtractChapterAssertions:
+        extractor = LLMAssertionExtractor(self.llm)
+        return ExtractChapterAssertions(
+            book_repository=self.repository,
+            knowledge_repository=self.repository,
+            extractor=extractor,
+        )
 
     def review_assertion(self) -> ReviewAssertion:
         return ReviewAssertion(self.repository)

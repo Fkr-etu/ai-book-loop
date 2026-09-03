@@ -151,6 +151,15 @@ class SQLiteBookRepository:
         )
         self._connection.commit()
 
+    def get_chapter_version(self, book_id: str, chapter_number: int, version: int) -> str:
+        row = self._connection.execute(
+            "SELECT draft FROM chapter_versions WHERE book_id = ? AND chapter_number = ? AND version = ?",
+            (book_id, chapter_number, version),
+        ).fetchone()
+        if row is None:
+            raise KeyError(f"Unknown chapter version: {chapter_number} v{version}")
+        return str(row["draft"])
+
     def save_review(self, book_id: str, chapter_number: int, version: int, review: SceneReview) -> None:
         self._connection.execute(
             "INSERT INTO reviews(book_id, chapter_number, version, score, approved, issues, suggestions) VALUES(?, ?, ?, ?, ?, ?, ?)",
