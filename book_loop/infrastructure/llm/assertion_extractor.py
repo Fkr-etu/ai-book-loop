@@ -20,7 +20,8 @@ class LLMAssertionExtractor:
         "Only extract facts explicitly supported by the text. "
         "For each assertion provide the exact statement, subject, predicate, object, confidence, "
         "start_offset and end_offset. Offsets are character offsets within the supplied chunk. "
-        "Do not infer facts that are not supported by the source."
+        "Do not infer facts that are not supported by the source. "
+        "Prefer a small set of high-value assertions and keep statements concise."
     )
 
     def __init__(self, provider: LLMProvider) -> None:
@@ -32,7 +33,7 @@ class LLMAssertionExtractor:
             user_prompt=f"SOURCE CHUNK:\n{chunk.content}",
             schema=ExtractedAssertions,
             thinking_level="medium",
-            max_output_tokens=4096,
+            max_output_tokens=8192,
         )
         assertions = result.assertions
         for assertion in assertions:
