@@ -261,10 +261,23 @@ def create_app(container: Container | None = None) -> FastAPI:
     def approve_chapter(book_id: str, chapter_number: int) -> dict[str, Any]:
         book = _get_book(book_id)
         try:
-            updated_book = container.approve_chapter().execute(book, chapter_number=chapter_number)
+            result = container.approve_chapter_and_sync_canon().execute(
+                book,
+                chapter_number=chapter_number,
+            )
         except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+        except KeyError as exc:
             raise HTTPException(status_code=404, detail=str(exc))
-        return updated_book.model_dump(mode="json")
+
+        response = result.book.model_dump(mode="json")
+        response["canonSync"] = {
+            "sourceDocument": result.ingestion.source_document.model_dump(mode="json"),
+            "assertionCount": len(result.ingestion.assertions),
+            "evidenceCount": len(result.ingestion.evidence),
+            "conflicts": [conflict.model_dump(mode="json") for conflict in result.conflicts],
+        }
+        return response
 
     @app.post("/api/books/{book_id}/chapters/{chapter_number}/reject")
     def reject_chapter(book_id: str, chapter_number: int) -> dict[str, Any]:
