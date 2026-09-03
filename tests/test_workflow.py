@@ -5,6 +5,7 @@ from book_loop.application.services.context import ContextBuilder
 from book_loop.application.services.linter import ChapterLinter
 from book_loop.domain.models import BookState, Chapter, Outline
 from book_loop.workflow.chapter_graph import ChapterWorkflow, ChapterWorkflowState
+from book_loop.domain.models import SceneReview
 
 
 class FakeLLM:
@@ -19,6 +20,13 @@ class FakeLLM:
         if "summarize" in prompt:
             return "Canonical chapter summary."
         return "A complete chapter draft."
+
+    def generate_structured(self, *, system_prompt: str, user_prompt: str, schema, thinking_level="medium", max_output_tokens=None):
+        self.calls += 1
+        prompt = system_prompt.casefold()
+        if "review" in prompt:
+            return schema.model_validate({"score": 8, "approved": True, "issues": [], "suggestions": []})
+        raise AssertionError("Unexpected structured generation request")
 
 
 class InMemoryRepository:
