@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from book_loop.application.use_cases.extract_chapter_assertions import ExtractChapterAssertions
 from book_loop.domain.models import BookState, Chapter, ChapterStatus, ExtractedAssertion
 
@@ -47,9 +49,9 @@ class FakeKnowledgeRepository:
     def resolve_conflict(self, left_assertion_id, right_assertion_id, resolution_assertion_id): ...
     def save_review_decision(self, decision): ...
     def next_canonical_version(self, *, book_id: str, subject: str, predicate: str): return 1
-    def deactivate_canonical_facts(self *, book_id: str, subject: str, predicate: str): ...
+    def deactivate_canonical_facts(self, *, book_id: str, subject: str, predicate: str): ...
     def save_canonical_fact(self, fact): ...
-    def list_active_canonical_facts(self *, book_id: str): return []
+    def list_active_canonical_facts(self, *, book_id: str): return []
     def set_assertion_status(self, assertion_id, status): ...
 
 
@@ -105,29 +107,21 @@ def test_rejects_non_approved_chapter():
     book = approved_book()
     book.chapters[0].status = ChapterStatus.DRAFT
 
-    try:
+    with pytest.raises(ValueError, match="approved chapters"):
         ExtractChapterAssertions(
             book_repository=FakeBookRepository(book),
             knowledge_repository=FakeKnowledgeRepository(),
             extractor=FakeExtractor(),
         ).execute(book_id="book-1", chapter_number=1)
-    except ValueError as exc:
-        assert "approved chapters" in str(exc)
-    else:
-        raise AssertionError("Expected ValueError")
 
 
 def test_requires_persisted_version():
     book = approved_book()
     book.chapters[0].current_version = 0
 
-    try:
+    with pytest.raises(ValueError, match="persisted version"):
         ExtractChapterAssertions(
             book_repository=FakeBookRepository(book),
             knowledge_repository=FakeKnowledgeRepository(),
             extractor=FakeExtractor(),
         ).execute(book_id="book-1", chapter_number=1)
-    except ValueError as exc:
-        assert "persisted version" in str(exc)
-    else:
-        raise AssertionError("Expected ValueError")
