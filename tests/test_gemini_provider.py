@@ -6,14 +6,14 @@ from book_loop.infrastructure.llm import gemini
 
 
 class FakeResponse:
-    text = "  generated text  "
+    output_text = "  generated text  "
 
 
-class FakeModels:
+class FakeInteractions:
     def __init__(self) -> None:
         self.calls: list[dict] = []
 
-    def generate_content(self, **kwargs):
+    def create(self, **kwargs):
         self.calls.append(kwargs)
         return FakeResponse()
 
@@ -21,10 +21,10 @@ class FakeModels:
 class FakeClient:
     def __init__(self, api_key: str) -> None:
         self.api_key = api_key
-        self.models = FakeModels()
+        self.interactions = FakeInteractions()
 
 
-def test_gemini_provider_uses_system_instruction(monkeypatch):
+def test_gemini_provider_uses_interactions_api(monkeypatch):
     client = FakeClient("key")
     monkeypatch.setattr(gemini.genai, "Client", lambda api_key: client)
 
@@ -32,9 +32,11 @@ def test_gemini_provider_uses_system_instruction(monkeypatch):
     result = provider.generate(system_prompt="system", user_prompt="user")
 
     assert result == "generated text"
-    assert client.models.calls[0]["model"] == "test-model"
-    assert client.models.calls[0]["contents"] == "user"
-    assert client.models.calls[0]["config"].system_instruction == "system"
+    assert client.interactions.calls[0] == {
+        "model": "test-model",
+        "input": "user",
+        "system_instruction": "system",
+    }
 
 
 def test_gemini_provider_rejects_missing_configuration():
@@ -46,10 +48,10 @@ def test_gemini_provider_rejects_missing_configuration():
 
 def test_gemini_provider_rejects_empty_response(monkeypatch):
     class EmptyResponse:
-        text = ""
+        output_text = ""
 
     client = FakeClient("key")
-    client.models.generate_content = lambda **_: EmptyResponse()
+    client.interactions.create = lambda **_: EmptyResponse()
     monkeypatch.setattr(gemini.genai, "Client", lambda api_key: client)
 
     provider = gemini.GeminiProvider(api_key="key", model="test-model")
