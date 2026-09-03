@@ -172,3 +172,32 @@ export interface CanonicalContextResponse {
   currentObjective: string;
   formattedContext: string;
 }
+
+export interface SourceDocument {
+  id: string;
+  book_id: string;
+  name: string;
+  source_type: string;
+  content: string;
+  content_hash: string;
+  version: number;
+}
+
+export interface Assertion {
+  id: string;
+  source_document_id: string;
+  chunk_id: string;
+  statement: string;
+  subject: string;
+  predicate: string;
+  object: string;
+  confidence: number;
+  status: "proposed" | "accepted" | "rejected" | "deferred";
+  evidence_id?: string;
+}
+
+export interface IngestionResult {
+  source_document: SourceDocument;
+  already_ingested?: boolean;
+  assertions?: Assertion[];
+}

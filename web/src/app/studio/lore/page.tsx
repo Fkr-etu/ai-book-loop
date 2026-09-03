@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { StudioLayout } from "@/components/StudioLayout";
 import { useProjectStore } from "@/lib/useProjectStore";
 import {
@@ -15,8 +15,12 @@ import {
   XCircle,
   Clock,
   Check,
-  X
+  X,
+  FileText,
+  Upload,
+  Database
 } from "lucide-react";
+import { Assertion } from "@/types";
 
 export default function LorePage() {
   const store = useProjectStore();
@@ -30,9 +34,22 @@ export default function LorePage() {
   const [category, setCategory] = useState<"faction" | "location" | "artifact" | "rule">("artifact");
   const [description, setDescription] = useState("");
 
+  // Document Ingestion State
+  const [showIngestForm, setShowIngestForm] = useState(false);
+  const [docName, setDocName] = useState("");
+  const [docContent, setDocContent] = useState("");
+  const [isIngesting, setIsIngesting] = useState(false);
+  const [assertions, setAssertions] = useState<Assertion[]>([]);
+
+  useEffect(() => {
+    store.listAssertions().then((list) => {
+      setAssertions(list || []);
+    }).catch(() => {});
+  }, []);
+
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim()) return;
+    if (!title) return;
     await store.addLoreItem({
       title,
       category,
@@ -54,6 +71,32 @@ export default function LorePage() {
     await store.updateLoreItem(id, { canonStatus: "rejected" });
   };
 
+  const handleIngestSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!docName || !docContent) return;
+    setIsIngesting(true);
+    try {
+      const res = await store.ingestDocument(docName, docContent, "markdown");
+      if (res.assertions) {
+        setAssertions((prev) => [...res.assertions!, ...prev]);
+      }
+      setDocName("");
+      setDocContent("");
+      setShowIngestForm(false);
+    } catch (err: any) {
+      console.error(err);
+    } finally {
+      setIsIngesting(false);
+    }
+  };
+
+  const handleAssertionDecision = async (assertionId: string, decision: "accept" | "reject" | "defer") => {
+    await store.reviewAssertion(assertionId, decision);
+    setAssertions((prev) =>
+      prev.map((a) => (a.id === assertionId ? { ...a, status: decision === "accept" ? "accepted" : decision === "reject" ? "rejected" : "deferred" } : a))
+    );
+  };
+
   const loreItemsList = project.loreItems || [];
 
   const filteredItems = loreItemsList.filter((item) => {
@@ -69,7 +112,7 @@ export default function LorePage() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#c6c6cd]/30 pb-6">
           <div>
             <span className="text-xs font-mono font-bold text-[#b87500] uppercase tracking-wider block mb-1">
-              Bible du Monde & Continuité
+              Bible du Monde & Ingestion Source
             </span>
             <h1 className="font-playfair text-3xl font-bold text-[#0b1c30]">
               Ancrage du Lore & Codex
@@ -79,14 +122,152 @@ export default function LorePage() {
             </p>
           </div>
 
-          <button
-            onClick={() => setIsAdding(!isAdding)}
-            className="px-4 py-2 bg-[#0b1c30] text-[#ffddb8] text-xs font-bold rounded hover:bg-[#131b2e] transition-colors flex items-center gap-2 shadow-xs shrink-0 cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Ajouter une Entrée Lore</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowIngestForm(!showIngestForm)}
+              className="px-3.5 py-2 bg-[#eff4ff] text-[#0b1c30] border border-[#c6c6cd]/40 text-xs font-bold rounded hover:bg-[#e5eeff] transition-colors flex items-center gap-2 cursor-pointer"
+            >
+              <Upload className="w-4 h-4 text-[#b87500]" />
+              <span>Ingérer un Document Source</span>
+            </button>
+
+            <button
+              onClick={() => setIsAdding(!isAdding)}
+              className="px-4 py-2 bg-[#0b1c30] text-[#ffddb8] text-xs font-bold rounded hover:bg-[#131b2e] transition-colors flex items-center gap-2 shadow-xs shrink-0 cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Ajouter une Entrée Lore</span>
+            </button>
+          </div>
         </div>
+
+        {/* Ingest Document Panel */}
+        {showIngestForm && (
+          <form
+            onSubmit={handleIngestSubmit}
+            className="p-6 bg-white rounded-xl border border-[#0b1c30]/40 shadow-sm space-y-4 animate-fadeIn"
+          >
+            <div className="flex items-center justify-between border-b border-[#c6c6cd]/20 pb-3">
+              <h2 className="text-xs font-mono font-bold text-[#0b1c30] uppercase flex items-center gap-2">
+                <FileText className="w-4 h-4 text-[#b87500]" /> Ingestion de Document Source (Extraction d'Assertions)
+              </h2>
+              <span className="text-[10px] font-mono text-[#76777d]">
+                Seules les assertions acceptées deviendront des Faits Canoniques
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <input
+                type="text"
+                placeholder="Nom du document (ex: Notes sur l'Ordre des Chronomanciens)"
+                value={docName}
+                onChange={(e) => setDocName(e.target.value)}
+                required
+                className="px-3 py-2 text-xs border border-[#c6c6cd] rounded bg-[#f8f9ff]"
+              />
+              <span className="text-xs text-[#76777d] flex items-center font-mono">
+                Format: Texte / Markdown brut
+              </span>
+            </div>
+
+            <textarea
+              placeholder="Collez ici le contenu source (manuscrit externe, notes de worldbuilding, chronologie)..."
+              rows={5}
+              value={docContent}
+              onChange={(e) => setDocContent(e.target.value)}
+              required
+              className="w-full p-3 text-xs border border-[#c6c6cd] rounded bg-[#f8f9ff] font-merriweather"
+            />
+
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowIngestForm(false)}
+                className="px-3 py-1.5 text-xs text-[#45464d]"
+              >
+                Annuler
+              </button>
+              <button
+                type="submit"
+                disabled={isIngesting}
+                className="px-4 py-1.5 text-xs font-bold bg-[#0b1c30] text-[#ffddb8] rounded cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+              >
+                <Sparkles className={`w-3.5 h-3.5 ${isIngesting ? "animate-spin" : ""}`} />
+                <span>{isIngesting ? "Analyse & Découpage..." : "Ingérer & Extraire les Assertions"}</span>
+              </button>
+            </div>
+          </form>
+        )}
+
+        {/* Assertions Review Section */}
+        {assertions.length > 0 && (
+          <div className="p-5 bg-white rounded-xl border border-[#c6c6cd]/40 shadow-xs space-y-4">
+            <div className="flex items-center justify-between border-b border-[#c6c6cd]/20 pb-3">
+              <span className="text-xs font-mono font-bold text-[#0b1c30] uppercase flex items-center gap-1.5">
+                <Database className="w-4 h-4 text-[#b87500]" /> Assertions Extraites à Revoir ({assertions.length})
+              </span>
+              <span className="text-[10px] font-mono text-[#76777d]">
+                L'acceptation promeut l'assertion au rang de Fait Canonique
+              </span>
+            </div>
+
+            <div className="divide-y divide-[#c6c6cd]/20">
+              {assertions.map((ast) => {
+                const isAcc = ast.status === "accepted";
+                const isRej = ast.status === "rejected";
+                const isDef = ast.status === "deferred";
+
+                return (
+                  <div key={ast.id} className="py-3 flex flex-col md:flex-row md:items-center justify-between gap-3 first:pt-0 last:pb-0">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-[#0b1c30]">
+                          {ast.statement}
+                        </span>
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#eff4ff] text-[#0b1c30]">
+                          Confiance: {Math.round(ast.confidence * 100)}%
+                        </span>
+                        <span
+                          className={`text-[10px] font-mono px-2 py-0.5 rounded uppercase font-bold ${
+                            isAcc
+                              ? "bg-[#d3e4fe] text-[#0b1c30]"
+                              : isRej
+                              ? "bg-[#ffdad6] text-[#ba1a1a]"
+                              : "bg-[#ffddb8] text-[#2a1700]"
+                          }`}
+                        >
+                          {ast.status}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-[#45464d] font-mono">
+                        Sujet: <strong>{ast.subject}</strong> | Prédicat: <strong>{ast.predicate}</strong> | Objet: <strong>{ast.object}</strong>
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      {ast.status === "proposed" && (
+                        <>
+                          <button
+                            onClick={() => handleAssertionDecision(ast.id, "accept")}
+                            className="px-2.5 py-1 bg-[#b87500] text-white font-bold text-[11px] rounded flex items-center gap-1 cursor-pointer"
+                          >
+                            <Check className="w-3.5 h-3.5" /> Accepter (Canon)
+                          </button>
+                          <button
+                            onClick={() => handleAssertionDecision(ast.id, "reject")}
+                            className="px-2.5 py-1 bg-[#ffdad6] text-[#ba1a1a] font-bold text-[11px] rounded flex items-center gap-1 cursor-pointer"
+                          >
+                            <X className="w-3.5 h-3.5" /> Rejeter
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Add Entry Form */}
         {isAdding && (

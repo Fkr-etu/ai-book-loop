@@ -12,12 +12,15 @@ from book_loop.application.use_cases.approve_outline import ApproveOutline
 from book_loop.application.use_cases.create_book import CreateBook
 from book_loop.application.use_cases.generate_chapter import GenerateChapter
 from book_loop.application.use_cases.generate_outline import GenerateOutline
+from book_loop.application.use_cases.ingest_document import IngestDocument
 from book_loop.application.use_cases.reject_chapter import RejectChapter
+from book_loop.application.use_cases.review_assertion import ReviewAssertion
 from book_loop.application.use_cases.review_chapter import ReviewChapter
 from book_loop.application.use_cases.update_book import UpdateBook
 from book_loop.application.use_cases.update_outline import UpdateOutline
 from book_loop.infrastructure.config import Settings
 from book_loop.infrastructure.database.repository import SQLiteBookRepository
+from book_loop.infrastructure.llm.assertion_extractor import LLMAssertionExtractor
 from book_loop.infrastructure.llm.factory import create_llm
 from book_loop.workflow.chapter_graph import ChapterWorkflow
 
@@ -84,3 +87,10 @@ class Container:
 
     def reject_chapter(self) -> RejectChapter:
         return RejectChapter(self.repository)
+
+    def ingest_document(self) -> IngestDocument:
+        extractor = LLMAssertionExtractor(self.llm)
+        return IngestDocument(repository=self.repository, extractor=extractor)
+
+    def review_assertion(self) -> ReviewAssertion:
+        return ReviewAssertion(self.repository)

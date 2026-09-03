@@ -9,6 +9,18 @@ class FakeLLMProvider(LLMProvider):
 
     def generate(self, *, system_prompt: str, user_prompt: str) -> str:
         sys_lower = system_prompt.lower()
+        if "assertion" in sys_lower or "extract" in sys_lower:
+            return json.dumps([
+                {
+                    "statement": "Valerius est né à Aethelgard.",
+                    "subject": "Valerius",
+                    "predicate": "birth_place",
+                    "object": "Aethelgard",
+                    "confidence": 0.95,
+                    "start_offset": 0,
+                    "end_offset": 28,
+                }
+            ])
         if "review" in sys_lower:
             return json.dumps({
                 "score": 9,
