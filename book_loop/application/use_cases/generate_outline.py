@@ -16,6 +16,7 @@ class GenerateOutline:
             author_idea=book.author_idea,
             lore=book.lore,
             constraints=book.constraints,
+            creative_brief=book.creative_brief,
         )
         book.outline_approved = False
         self.repository.save(book)
