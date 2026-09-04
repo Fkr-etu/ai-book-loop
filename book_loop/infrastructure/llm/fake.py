@@ -24,8 +24,6 @@ class FakeLLMProvider(LLMProvider):
                         "predicate": "birth_place",
                         "object": "Aethelgard",
                         "confidence": 0.95,
-                        "start_offset": 0,
-                        "end_offset": 28,
                     }
                 ]
             })
