@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Literal
 
 from langgraph.graph import END, START, StateGraph
@@ -10,9 +10,12 @@ from book_loop.agents.reviewer import ReviewerAgent
 from book_loop.agents.summarizer import SummarizerAgent
 from book_loop.agents.writer import WriterAgent
 from book_loop.application.policies.review import ReviewDecision, decide
+from book_loop.application.services.canon_validation import CanonDiagnosticChecker
 from book_loop.application.services.context import ContextBuilder
 from book_loop.application.services.linter import ChapterLinter
-from book_loop.domain.models import BookState, ChapterStatus, SceneReview
+from book_loop.application.services.linguistic_validation import LinguisticValidationService
+from book_loop.application.services.diagnostics import fuse_diagnostics
+from book_loop.domain.models import BookState, ChapterStatus, Diagnostic, SceneReview
 from book_loop.domain.protocols import BookRepository
 
 
@@ -24,12 +27,13 @@ class ChapterWorkflowState:
     draft: str = ""
     review_score: float | None = None
     review: SceneReview | None = None
+    diagnostics: list[Diagnostic] = field(default_factory=list)
     decision: str | None = None
     summary: str | None = None
 
 
 class ChapterWorkflow:
-    """Generate, review and correct a chapter with bounded, persisted iterations."""
+    """Generate, validate, review and correct a chapter with bounded iterations."""
 
     def __init__(
         self,
@@ -40,6 +44,8 @@ class ChapterWorkflow:
         summarizer: SummarizerAgent,
         context_builder: ContextBuilder,
         linter: ChapterLinter,
+        validation_service: LinguisticValidationService | None = None,
+        canon_checker: CanonDiagnosticChecker | None = None,
         corrector: CorrectorAgent | None = None,
         max_retries: int = 3,
         review_threshold: int = 7,
@@ -52,6 +58,8 @@ class ChapterWorkflow:
         self.summarizer = summarizer
         self.context_builder = context_builder
         self.linter = linter
+        self.validation_service = validation_service
+        self.canon_checker = canon_checker
         self.corrector = corrector or CorrectorAgent(writer.llm)
         self.max_retries = max_retries
         self.review_threshold = review_threshold
@@ -71,7 +79,9 @@ class ChapterWorkflow:
         context = self.context_builder.for_chapter(state.book, state.chapter_number)
         draft = self.writer.write(context=context)
         attempt = self._next_attempt(state)
-        self.repository.save_chapter_version(state.book.id, state.chapter_number, attempt, draft)
+        self.repository.save_chapter_version(
+            state.book.id, state.chapter_number, attempt, draft
+        )
         return {"draft": draft, "attempt": attempt}
 
     def _review(self, state: ChapterWorkflowState) -> dict:
@@ -84,24 +94,87 @@ class ChapterWorkflow:
                 issues=lint.errors,
                 suggestions=["Remove all lint errors before the next review."],
             )
-            self.repository.save_review(state.book.id, state.chapter_number, state.attempt, review)
+            self.repository.save_review(
+                state.book.id, state.chapter_number, state.attempt, review
+            )
             decision = decide(
                 review,
                 attempt=state.attempt,
                 max_retries=self.max_retries,
                 threshold=self.review_threshold,
             )
-            return {"decision": decision.value, "review_score": review.score, "review": review}
+            return {
+                "decision": decision.value,
+                "review_score": review.score,
+                "review": review,
+                "diagnostics": [],
+            }
 
-        review = self.reviewer.review(context=context, draft=state.draft)
-        self.repository.save_review(state.book.id, state.chapter_number, state.attempt, review)
+        diagnostics: list[Diagnostic] = []
+        if self.validation_service is not None:
+            validation = self.validation_service.validate(state.draft)
+            diagnostics.extend(validation.diagnostics)
+
+        if self.canon_checker is not None:
+            canon_result = self.canon_checker.check(state.draft, book_id=state.book.id)
+            diagnostics.extend(canon_result.diagnostics)
+
+        diagnostics = fuse_diagnostics(diagnostics)
+        blocking = [
+            diagnostic
+            for diagnostic in diagnostics
+            if diagnostic.severity.value == "error"
+        ]
+        if blocking:
+            review = SceneReview(
+                score=0,
+                approved=False,
+                issues=[
+                    f"[{item.category.value}] {item.message}"
+                    for item in blocking
+                ],
+                suggestions=[
+                    suggestion
+                    for item in blocking
+                    for suggestion in item.suggestions
+                ],
+            )
+            self.repository.save_review(
+                state.book.id, state.chapter_number, state.attempt, review
+            )
+            decision = decide(
+                review,
+                attempt=state.attempt,
+                max_retries=self.max_retries,
+                threshold=self.review_threshold,
+            )
+            return {
+                "decision": decision.value,
+                "review_score": review.score,
+                "review": review,
+                "diagnostics": diagnostics,
+            }
+
+        review = self.reviewer.review(
+            context=context,
+            draft=state.draft,
+            diagnostics=diagnostics,
+        )
+        self.repository.save_review(
+            state.book.id, state.chapter_number, state.attempt, review
+        )
         decision = decide(
             review,
             attempt=state.attempt,
             max_retries=self.max_retries,
             threshold=self.review_threshold,
         )
-        return {"decision": decision.value, "review_score": review.score, "review": review}
+        return {
+            "decision": decision.value,
+            "review_score": review.score,
+            "review": review,
+            "diagnostics": diagnostics,
+        }
 
     def _correct(self, state: ChapterWorkflowState) -> dict:
         if state.review is None:
@@ -113,7 +186,9 @@ class ChapterWorkflow:
             review=state.review,
         )
         attempt = self._next_attempt(state)
-        self.repository.save_chapter_version(state.book.id, state.chapter_number, attempt, draft)
+        self.repository.save_chapter_version(
+            state.book.id, state.chapter_number, attempt, draft
+        )
         return {"draft": draft, "attempt": attempt}
 
     def _summarize(self, state: ChapterWorkflowState) -> dict:
@@ -127,7 +202,9 @@ class ChapterWorkflow:
         self.repository.save(book)
         return {"summary": summary}
 
-    def _route(self, state: ChapterWorkflowState) -> Literal["correct", "summarize", "end"]:
+    def _route(
+        self, state: ChapterWorkflowState
+    ) -> Literal["correct", "summarize", "end"]:
         if state.decision == ReviewDecision.ACCEPT.value:
             return "summarize"
         if state.decision == ReviewDecision.RETRY.value:
@@ -153,7 +230,9 @@ class ChapterWorkflow:
 
     def run(self, *, book: BookState, chapter_number: int) -> ChapterWorkflowState:
         if not book.outline_approved:
-            raise ValueError("The author must approve the outline before generating chapters")
+            raise ValueError(
+                "The author must approve the outline before generating chapters"
+            )
 
         result = self.build().invoke(
             ChapterWorkflowState(book=book, chapter_number=chapter_number)

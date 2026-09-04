@@ -6,6 +6,8 @@ from book_loop.agents.summarizer import SummarizerAgent
 from book_loop.agents.writer import WriterAgent
 from book_loop.application.services.context import ContextBuilder
 from book_loop.application.services.linter import ChapterLinter
+from book_loop.application.services.linguistic_context import GeminiDiagnosticContextualizer
+from book_loop.application.services.linguistic_validation import LinguisticValidationService
 from book_loop.application.use_cases.add_chapter import AddChapter
 from book_loop.application.use_cases.approve_chapter import ApproveChapter
 from book_loop.application.use_cases.approve_chapter_and_sync_canon import ApproveChapterAndSyncCanon
@@ -23,8 +25,11 @@ from book_loop.application.use_cases.update_book import UpdateBook
 from book_loop.application.use_cases.update_outline import UpdateOutline
 from book_loop.infrastructure.config import Settings
 from book_loop.infrastructure.database.repository import SQLiteBookRepository
+from book_loop.infrastructure.linguistic.languagetool import LanguageToolChecker
+from book_loop.infrastructure.linguistic.spacy import SpacyFrenchChecker
 from book_loop.infrastructure.llm.assertion_extractor import LLMAssertionExtractor
 from book_loop.infrastructure.llm.factory import create_llm
+from book_loop.application.services.canon_validation import CanonDiagnosticChecker
 from book_loop.workflow.chapter_graph import ChapterWorkflow
 
 
@@ -42,6 +47,16 @@ class Container:
         self.summarizer_agent = SummarizerAgent(self.llm)
         self.context_builder = ContextBuilder(knowledge_repository=self.repository)
         self.linter = ChapterLinter()
+        self.assertion_extractor = LLMAssertionExtractor(self.llm)
+        self.diagnostic_contextualizer = GeminiDiagnosticContextualizer(llm=self.llm)
+        self.linguistic_validation = LinguisticValidationService(
+            self._build_linguistic_checkers(),
+            contextualizer=self.diagnostic_contextualizer,
+        )
+        self.canon_checker = CanonDiagnosticChecker(
+            knowledge_repository=self.repository,
+            assertion_extractor=self.assertion_extractor,
+        )
 
         self.chapter_workflow = ChapterWorkflow(
             repository=self.repository,
@@ -50,8 +65,26 @@ class Container:
             summarizer=self.summarizer_agent,
             context_builder=self.context_builder,
             linter=self.linter,
+            validation_service=self.linguistic_validation,
+            canon_checker=self.canon_checker,
             max_retries=self.settings.max_retries,
             review_threshold=self.settings.review_threshold,
+        )
+
+    def _build_linguistic_checkers(self):
+        if self.settings.linguistic_checker == "disabled":
+            return []
+        if self.settings.linguistic_checker == "spacy":
+            return [SpacyFrenchChecker(model_name=self.settings.spacy_model)]
+        if self.settings.linguistic_checker == "language_tool":
+            return [LanguageToolChecker(base_url=self.settings.language_tool_url)]
+        if self.settings.linguistic_checker == "hybrid":
+            return [
+                LanguageToolChecker(base_url=self.settings.language_tool_url),
+                SpacyFrenchChecker(model_name=self.settings.spacy_model),
+            ]
+        raise ValueError(
+            "LINGUISTIC_CHECKER must be one of: disabled, spacy, language_tool, hybrid"
         )
 
     def create_book(self) -> CreateBook:
@@ -92,26 +125,23 @@ class Container:
         return ApproveChapter(self.repository)
 
     def approve_chapter_and_sync_canon(self) -> ApproveChapterAndSyncCanon:
-        extractor = LLMAssertionExtractor(self.llm)
         return ApproveChapterAndSyncCanon(
             book_repository=self.repository,
             knowledge_repository=self.repository,
-            extractor=extractor,
+            extractor=self.assertion_extractor,
         )
 
     def reject_chapter(self) -> RejectChapter:
         return RejectChapter(self.repository)
 
     def ingest_document(self) -> IngestDocument:
-        extractor = LLMAssertionExtractor(self.llm)
-        return IngestDocument(repository=self.repository, extractor=extractor)
+        return IngestDocument(repository=self.repository, extractor=self.assertion_extractor)
 
     def extract_chapter_assertions(self) -> ExtractChapterAssertions:
-        extractor = LLMAssertionExtractor(self.llm)
         return ExtractChapterAssertions(
             book_repository=self.repository,
             knowledge_repository=self.repository,
-            extractor=extractor,
+            extractor=self.assertion_extractor,
         )
 
     def review_assertion(self) -> ReviewAssertion:

@@ -4,7 +4,8 @@ from collections.abc import Iterable
 from typing import Protocol
 
 from book_loop.application.services.diagnostics import fuse_diagnostics
-from book_loop.domain.models import Diagnostic, LinguisticCheckResult, LinguisticCheckStatus
+from book_loop.application.services.linguistic_context import GeminiDiagnosticContextualizer
+from book_loop.domain.models import Diagnostic, DiagnosticSeverity, LinguisticCheckResult, LinguisticCheckStatus
 
 
 class LinguisticChecker(Protocol):
@@ -12,10 +13,15 @@ class LinguisticChecker(Protocol):
 
 
 class LinguisticValidationService:
-    """Run linguistic checkers and expose one provider-neutral result."""
+    """Run deterministic checkers and optionally contextualize non-Canon findings."""
 
-    def __init__(self, checkers: Iterable[LinguisticChecker]) -> None:
+    def __init__(
+        self,
+        checkers: Iterable[LinguisticChecker],
+        contextualizer: GeminiDiagnosticContextualizer | None = None,
+    ) -> None:
         self.checkers = tuple(checkers)
+        self.contextualizer = contextualizer
 
     def validate(self, text: str, *, language: str = "fr") -> LinguisticCheckResult:
         if not text.strip():
@@ -50,7 +56,46 @@ class LinguisticValidationService:
         diagnostics = fuse_diagnostics(
             diagnostic for result in results for diagnostic in result.diagnostics
         )
-        failures = [result for result in results if result.status == LinguisticCheckStatus.CHECK_NOT_AVAILABLE]
+        failures = [
+            result
+            for result in results
+            if result.status == LinguisticCheckStatus.CHECK_NOT_AVAILABLE
+        ]
+
+        if self.contextualizer:
+            contextualized = [
+                diagnostic
+                for diagnostic in diagnostics
+                if diagnostic.category.value != "canon"
+            ]
+            if contextualized:
+                try:
+                    reviewed = self.contextualizer.review(
+                        chapter=text,
+                        diagnostics=contextualized,
+                    )
+                    by_rule = {id(item): item for item in contextualized}
+                    for original, updated in zip(contextualized, reviewed, strict=True):
+                        original.category = updated.category
+                        original.severity = updated.severity
+                        original.source = updated.source
+                        original.message = updated.message
+                        original.start_offset = updated.start_offset
+                        original.end_offset = updated.end_offset
+                        original.original_text = updated.original_text
+                        original.suggestions = updated.suggestions
+                        original.confidence = updated.confidence
+                        original.rule_id = updated.rule_id
+                        original.related_assertion_id = updated.related_assertion_id
+                        original.metadata = updated.metadata
+                except Exception as exc:
+                    failures.append(
+                        LinguisticCheckResult(
+                            status=LinguisticCheckStatus.CHECK_NOT_AVAILABLE,
+                            checker="gemini-contextualizer",
+                            error=str(exc),
+                        )
+                    )
 
         if diagnostics:
             status = LinguisticCheckStatus.ISSUES_FOUND
@@ -68,3 +113,12 @@ class LinguisticValidationService:
             checker="linguistic-validation",
             error=error,
         )
+
+    @staticmethod
+    def blocking_diagnostics(result: LinguisticCheckResult) -> list[Diagnostic]:
+        """Return diagnostics that are strong enough to trigger a bounded retry."""
+        return [
+            diagnostic
+            for diagnostic in result.diagnostics
+            if diagnostic.severity == DiagnosticSeverity.ERROR
+        ]
