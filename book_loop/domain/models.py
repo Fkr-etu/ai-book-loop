@@ -204,3 +204,63 @@ class IngestionResult(BaseModel):
     assertions: list[Assertion] = Field(default_factory=list)
     evidence: list[Evidence] = Field(default_factory=list)
     already_ingested: bool = False
+
+
+class DiagnosticCategory(StrEnum):
+    SPELLING = "spelling"
+    GRAMMAR = "grammar"
+    CONJUGATION = "conjugation"
+    AGREEMENT = "agreement"
+    SYNTAX = "syntax"
+    PUNCTUATION = "punctuation"
+    TYPOGRAPHY = "typography"
+    STYLE = "style"
+    REPETITION = "repetition"
+    CLARITY = "clarity"
+    CONTINUITY = "continuity"
+    CANON = "canon"
+    LOGIC = "logic"
+    CHARACTER = "character"
+    TIMELINE = "timeline"
+
+
+class DiagnosticSeverity(StrEnum):
+    ERROR = "error"
+    WARNING = "warning"
+    SUGGESTION = "suggestion"
+
+
+class DiagnosticSource(StrEnum):
+    LINGUISTIC_LINTER = "linguistic_linter"
+    NLP = "nlp"
+    CANON = "canon"
+    LLM = "llm"
+    FUSION = "fusion"
+
+
+class Diagnostic(BaseModel):
+    category: DiagnosticCategory
+    severity: DiagnosticSeverity
+    source: DiagnosticSource
+    message: str = Field(min_length=1)
+    start_offset: int | None = Field(default=None, ge=0)
+    end_offset: int | None = Field(default=None, gt=0)
+    original_text: str | None = None
+    suggestions: list[str] = Field(default_factory=list)
+    confidence: float = Field(ge=0.0, le=1.0)
+    rule_id: str | None = None
+    related_assertion_id: str | None = None
+    metadata: dict[str, str] = Field(default_factory=dict)
+
+
+class LinguisticCheckStatus(StrEnum):
+    NO_ISSUES_FOUND = "no_issues_found"
+    ISSUES_FOUND = "issues_found"
+    CHECK_NOT_AVAILABLE = "check_not_available"
+
+
+class LinguisticCheckResult(BaseModel):
+    status: LinguisticCheckStatus
+    diagnostics: list[Diagnostic] = Field(default_factory=list)
+    checker: str = Field(min_length=1)
+    error: str | None = None
