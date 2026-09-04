@@ -7,3 +7,4 @@ def test_linguistic_checker_defaults_to_safe_disabled_mode():
     assert settings.linguistic_checker == "disabled"
     assert settings.language_tool_url == "http://localhost:8010"
     assert settings.linguistic_language == "fr"
+    assert settings.spacy_model == "fr_core_news_sm"

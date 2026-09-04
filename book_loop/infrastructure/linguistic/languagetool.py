@@ -22,17 +22,22 @@ _CATEGORY_BY_ISSUE_TYPE = {
     "style": DiagnosticCategory.STYLE,
 }
 
+_CATEGORY_BY_RULE_CATEGORY = {
+    "TYPOS": DiagnosticCategory.SPELLING,
+    "SPELLING": DiagnosticCategory.SPELLING,
+    "GRAMMAR": DiagnosticCategory.GRAMMAR,
+    "AGREEMENT": DiagnosticCategory.AGREEMENT,
+    "CONJUGATION": DiagnosticCategory.CONJUGATION,
+    "PUNCTUATION": DiagnosticCategory.PUNCTUATION,
+    "TYPOGRAPHY": DiagnosticCategory.TYPOGRAPHY,
+    "STYLE": DiagnosticCategory.STYLE,
+}
+
 
 class LanguageToolChecker:
     """HTTP adapter for a LanguageTool server; no provider types leak upward."""
 
-    def __init__(
-        self,
-        *,
-        base_url: str = "http://localhost:8010",
-        timeout: float = 10.0,
-        opener: Callable[..., object] = request.urlopen,
-    ) -> None:
+    def __init__(self, *, base_url: str = "http://localhost:8010", timeout: float = 10.0, opener: Callable[..., object] = request.urlopen) -> None:
         if not base_url.strip():
             raise ValueError("LanguageTool base URL is required")
         if timeout <= 0:
@@ -44,35 +49,15 @@ class LanguageToolChecker:
     def check(self, text: str, *, language: str = "fr") -> LinguisticCheckResult:
         if not language.strip():
             raise ValueError("LanguageTool language is required")
-
         payload = parse.urlencode({"text": text, "language": language}).encode("utf-8")
-        req = request.Request(
-            f"{self.base_url}/v2/check",
-            data=payload,
-            headers={"Content-Type": "application/x-www-form-urlencoded"},
-            method="POST",
-        )
+        req = request.Request(f"{self.base_url}/v2/check", data=payload, headers={"Content-Type": "application/x-www-form-urlencoded"}, method="POST")
         try:
             with self.opener(req, timeout=self.timeout) as response:
-                body = response.read().decode("utf-8")
-            data = json.loads(body)
+                data = json.loads(response.read().decode("utf-8"))
         except (HTTPError, URLError, TimeoutError, OSError, ValueError) as exc:
-            return LinguisticCheckResult(
-                status=LinguisticCheckStatus.CHECK_NOT_AVAILABLE,
-                checker="languagetool",
-                error=str(exc),
-            )
-
+            return LinguisticCheckResult(status=LinguisticCheckStatus.CHECK_NOT_AVAILABLE, checker="languagetool", error=str(exc))
         diagnostics = [self._diagnostic(match, text, language=language) for match in data.get("matches", [])]
-        return LinguisticCheckResult(
-            status=(
-                LinguisticCheckStatus.ISSUES_FOUND
-                if diagnostics
-                else LinguisticCheckStatus.NO_ISSUES_FOUND
-            ),
-            diagnostics=diagnostics,
-            checker="languagetool",
-        )
+        return LinguisticCheckResult(status=LinguisticCheckStatus.ISSUES_FOUND if diagnostics else LinguisticCheckStatus.NO_ISSUES_FOUND, diagnostics=diagnostics, checker="languagetool")
 
     @staticmethod
     def _diagnostic(match: dict[str, object], text: str, *, language: str) -> Diagnostic:
@@ -82,19 +67,14 @@ class LanguageToolChecker:
         rule = match.get("rule") or {}
         if not isinstance(rule, dict):
             rule = {}
-        issue_type = str(rule.get("issueType", "grammar"))
-        category = _CATEGORY_BY_ISSUE_TYPE.get(issue_type, DiagnosticCategory.GRAMMAR)
-        severity = (
-            DiagnosticSeverity.SUGGESTION
-            if issue_type == "style"
-            else DiagnosticSeverity.ERROR
-        )
+        issue_type = str(rule.get("issueType", "grammar")).lower()
+        category_id = rule.get("categoryId")
+        category = _CATEGORY_BY_RULE_CATEGORY.get(str(category_id).upper()) if category_id else None
+        if category is None:
+            category = _CATEGORY_BY_ISSUE_TYPE.get(issue_type, DiagnosticCategory.GRAMMAR)
+        severity = DiagnosticSeverity.SUGGESTION if issue_type == "style" else DiagnosticSeverity.ERROR
         replacements = match.get("replacements") or []
-        suggestions = [
-            str(item.get("value", ""))
-            for item in replacements
-            if isinstance(item, dict) and item.get("value")
-        ]
+        suggestions = [str(item.get("value", "")) for item in replacements if isinstance(item, dict) and item.get("value")]
         return Diagnostic(
             category=category,
             severity=severity,
@@ -106,5 +86,5 @@ class LanguageToolChecker:
             suggestions=suggestions,
             confidence=0.9 if severity == DiagnosticSeverity.ERROR else 0.7,
             rule_id=str(rule.get("id")) if rule.get("id") else None,
-            metadata={"language": language},
+            metadata={"language": language, "issue_type": issue_type, "category_id": str(category_id or "")},
         )

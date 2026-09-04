@@ -1,0 +1,14 @@
+[
+  {"id":"spelling_01","text":"Il a pris le chemain du port.","expected_categories":["spelling"]},
+  {"id":"spelling_02","text":"La lumière éclairait les visages fatigués.","expected_categories":[]},
+  {"id":"agreement_01","text":"Les veilleurs veille devant la porte.","expected_categories":["agreement"]},
+  {"id":"agreement_02","text":"Les portes anciennes grinçaient sous le vent.","expected_categories":[]},
+  {"id":"grammar_01","text":"Ils est arrivés avant la nuit.","expected_categories":["grammar"]},
+  {"id":"punctuation_01","text":"Il entra, puis referma la porte.","expected_categories":[]},
+  {"id":"literary_fragment_01","text":"Une nuit silencieuse. Puis le cri, brutal, inattendu.","expected_categories":[]},
+  {"id":"literary_dialogue_01","text":"— Moi ? Jamais. Pas ici.","expected_categories":[]},
+  {"id":"literary_repetition_01","text":"Il courait, courait encore, sans regarder derrière lui.","expected_categories":[]},
+  {"id":"typo_01","text":"Il n'avait  pas vu la porte.","expected_categories":["typography"]},
+  {"id":"syntax_01","text":"Parce que la nuit tombait.","expected_categories":[]},
+  {"id":"clean_01","text":"Marseille dormait sous une pluie fine.","expected_categories":[]}
+]
