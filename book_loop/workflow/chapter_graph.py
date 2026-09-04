@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Literal
 
@@ -11,8 +12,17 @@ from book_loop.agents.summarizer import SummarizerAgent
 from book_loop.agents.writer import WriterAgent
 from book_loop.application.policies.review import ReviewDecision, decide
 from book_loop.application.services.context import ContextBuilder
+from book_loop.application.services.linguistic_validation import LinguisticValidationService
 from book_loop.application.services.linter import ChapterLinter
-from book_loop.domain.models import BookState, ChapterStatus, SceneReview
+from book_loop.domain.models import (
+    BookState,
+    ChapterStatus,
+    Diagnostic,
+    DiagnosticSeverity,
+    DiagnosticSource,
+    LinguisticCheckStatus,
+    SceneReview,
+)
 from book_loop.domain.protocols import BookRepository
 
 
@@ -29,7 +39,7 @@ class ChapterWorkflowState:
 
 
 class ChapterWorkflow:
-    """Generate, review and correct a chapter with bounded, persisted iterations."""
+    """Generate, validate, review and correct a chapter with bounded iterations."""
 
     def __init__(
         self,
@@ -41,11 +51,17 @@ class ChapterWorkflow:
         context_builder: ContextBuilder,
         linter: ChapterLinter,
         corrector: CorrectorAgent | None = None,
+        linguistic_validator_factory: Callable[[BookState], LinguisticValidationService]
+        | None = None,
+        linguistic_contextualizer: Callable[[str, list[Diagnostic]], list[Diagnostic]] | None = None,
+        linguistic_language: str = "fr",
         max_retries: int = 3,
         review_threshold: int = 7,
     ) -> None:
         if max_retries <= 0:
             raise ValueError("max_retries must be positive")
+        if not linguistic_language.strip():
+            raise ValueError("linguistic_language must not be empty")
         self.repository = repository
         self.writer = writer
         self.reviewer = reviewer
@@ -53,6 +69,9 @@ class ChapterWorkflow:
         self.context_builder = context_builder
         self.linter = linter
         self.corrector = corrector or CorrectorAgent(writer.llm)
+        self.linguistic_validator_factory = linguistic_validator_factory
+        self.linguistic_contextualizer = linguistic_contextualizer
+        self.linguistic_language = linguistic_language
         self.max_retries = max_retries
         self.review_threshold = review_threshold
 
@@ -71,8 +90,69 @@ class ChapterWorkflow:
         context = self.context_builder.for_chapter(state.book, state.chapter_number)
         draft = self.writer.write(context=context)
         attempt = self._next_attempt(state)
-        self.repository.save_chapter_version(state.book.id, state.chapter_number, attempt, draft)
+        self.repository.save_chapter_version(
+            state.book.id, state.chapter_number, attempt, draft
+        )
         return {"draft": draft, "attempt": attempt}
+
+    @staticmethod
+    def _review_from_linguistic_diagnostics(
+        diagnostics: list[Diagnostic], *, unavailable_error: str | None = None
+    ) -> SceneReview:
+        issues = [diagnostic.message for diagnostic in diagnostics]
+        suggestions = [
+            suggestion
+            for diagnostic in diagnostics
+            for suggestion in diagnostic.suggestions
+        ]
+        if unavailable_error:
+            issues.insert(0, f"Linguistic validation unavailable: {unavailable_error}")
+        return SceneReview(
+            score=0,
+            approved=False,
+            issues=issues,
+            suggestions=suggestions or [
+                "Correct the blocking linguistic diagnostics before review."
+            ],
+        )
+
+    def _linguistic_review(self, state: ChapterWorkflowState) -> SceneReview | None:
+        if self.linguistic_validator_factory is None:
+            return None
+        result = self.linguistic_validator_factory(state.book).validate(
+            state.draft, language=self.linguistic_language
+        )
+        diagnostics = list(result.diagnostics)
+        if self.linguistic_contextualizer and diagnostics:
+            contextualized = [
+                diagnostic
+                for diagnostic in diagnostics
+                if diagnostic.source != DiagnosticSource.CANON
+            ]
+            canon = [
+                diagnostic
+                for diagnostic in diagnostics
+                if diagnostic.source == DiagnosticSource.CANON
+            ]
+            if contextualized:
+                contextualized = self.linguistic_contextualizer(
+                    state.draft, contextualized
+                )
+            diagnostics = contextualized + canon
+
+        if result.status == LinguisticCheckStatus.CHECK_NOT_AVAILABLE:
+            return self._review_from_linguistic_diagnostics(
+                diagnostics,
+                unavailable_error=result.error or "unknown checker failure",
+            )
+        blocking = [
+            diagnostic
+            for diagnostic in diagnostics
+            if diagnostic.severity == DiagnosticSeverity.ERROR
+        ]
+        if blocking:
+            return self._review_from_linguistic_diagnostics(blocking)
+        return None
 
     def _review(self, state: ChapterWorkflowState) -> dict:
         context = self.context_builder.for_chapter(state.book, state.chapter_number)
@@ -84,24 +164,27 @@ class ChapterWorkflow:
                 issues=lint.errors,
                 suggestions=["Remove all lint errors before the next review."],
             )
-            self.repository.save_review(state.book.id, state.chapter_number, state.attempt, review)
-            decision = decide(
-                review,
-                attempt=state.attempt,
-                max_retries=self.max_retries,
-                threshold=self.review_threshold,
-            )
-            return {"decision": decision.value, "review_score": review.score, "review": review}
+        else:
+            linguistic_review = self._linguistic_review(state)
+            if linguistic_review is not None:
+                review = linguistic_review
+            else:
+                review = self.reviewer.review(context=context, draft=state.draft)
 
-        review = self.reviewer.review(context=context, draft=state.draft)
-        self.repository.save_review(state.book.id, state.chapter_number, state.attempt, review)
+        self.repository.save_review(
+            state.book.id, state.chapter_number, state.attempt, review
+        )
         decision = decide(
             review,
             attempt=state.attempt,
             max_retries=self.max_retries,
             threshold=self.review_threshold,
         )
-        return {"decision": decision.value, "review_score": review.score, "review": review}
+        return {
+            "decision": decision.value,
+            "review_score": review.score,
+            "review": review,
+        }
 
     def _correct(self, state: ChapterWorkflowState) -> dict:
         if state.review is None:
@@ -113,7 +196,9 @@ class ChapterWorkflow:
             review=state.review,
         )
         attempt = self._next_attempt(state)
-        self.repository.save_chapter_version(state.book.id, state.chapter_number, attempt, draft)
+        self.repository.save_chapter_version(
+            state.book.id, state.chapter_number, attempt, draft
+        )
         return {"draft": draft, "attempt": attempt}
 
     def _summarize(self, state: ChapterWorkflowState) -> dict:
