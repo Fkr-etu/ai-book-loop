@@ -33,8 +33,8 @@ class LLMAssertionExtractor:
             system_prompt=self.SYSTEM_PROMPT,
             user_prompt=f"SOURCE CHUNK:\n{chunk.content}",
             schema=ExtractedAssertions,
-            thinking_level="medium",
-            max_output_tokens=8192,
+            thinking_level="minimal",
+            max_output_tokens=4096,
         )
         assertions = result.assertions
         for assertion in assertions:
