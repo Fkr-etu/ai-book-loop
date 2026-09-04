@@ -49,6 +49,10 @@ class Repository:
     def get(self, book_id):
         return self.books[book_id]
 
+    def next_chapter_version(self, book_id, chapter_number):
+        versions = [version for b, chapter, version, _ in self.versions if b == book_id and chapter == chapter_number]
+        return max(versions, default=0) + 1
+
     def save_chapter_version(self, book_id, chapter_number, version, draft):
         self.versions.append((book_id, chapter_number, version, draft))
 
