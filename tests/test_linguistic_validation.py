@@ -64,7 +64,7 @@ def test_languagetool_maps_response_to_provider_neutral_diagnostic():
                 "matches": [
                     {
                         "offset": 4,
-                        "length": 5,
+                        "length": 9,
                         "message": "Agreement issue",
                         "replacements": [{"value": "chevaliers"}],
                         "rule": {"id": "FR_AGREEMENT", "issueType": "grammar"},
@@ -84,7 +84,7 @@ def test_languagetool_maps_response_to_provider_neutral_diagnostic():
     assert issue.category == DiagnosticCategory.GRAMMAR
     assert issue.severity == DiagnosticSeverity.ERROR
     assert issue.rule_id == "FR_AGREEMENT"
-    assert issue.original_text == "cheva"
+    assert issue.original_text == "chevalier"
     assert issue.suggestions == ["chevaliers"]
     assert "language=fr" in captured["body"]
     assert captured["timeout"] == 10.0
