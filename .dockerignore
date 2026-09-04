@@ -1,0 +1,17 @@
+.git
+.gitignore
+.venv
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache
+.coverage
+htmlcov
+web/
+node_modules/
+tests/
+test-results/
+*.db
+*.sqlite3
+EOF
