@@ -44,6 +44,12 @@ class InMemoryRepository:
     def save_chapter_version(self, book_id, chapter_number, version, draft):
         self.versions.append((book_id, chapter_number, version, draft))
 
+    def get_chapter_version(self, book_id, chapter_number, version):
+        for stored_book_id, stored_chapter_number, stored_version, draft in reversed(self.versions):
+            if (stored_book_id, stored_chapter_number, stored_version) == (book_id, chapter_number, version):
+                return draft
+        raise KeyError((book_id, chapter_number, version))
+
     def save_review(self, book_id, chapter_number, version, review):
         self.reviews.append((book_id, chapter_number, version, review))
 
