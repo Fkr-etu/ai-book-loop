@@ -10,6 +10,9 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./book_loop.db"
     max_retries: int = 3
     review_threshold: int = 7
+    linguistic_checker: str = "disabled"
+    language_tool_url: str = "http://localhost:8010"
+    linguistic_language: str = "fr"
     auth_secret_key: str = ""
     auth_cookie_secure: bool = False
     auth_cookie_samesite: str = "lax"
