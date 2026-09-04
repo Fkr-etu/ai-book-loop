@@ -22,6 +22,7 @@ This directory is the project's canonical knowledge base. Keep documentation sma
 - `architecture/data-model.md` — persisted domain model and canonical-state evolution.
 - `architecture/canonical-review.md` — implemented Canon review semantics.
 - `architecture/document-ingestion.md` — document-ingestion design and boundaries.
+- `architecture/linguistic-validation.md` — hybrid linguistic validation architecture and implementation plan.
 - `architecture/decisions/` — historical architecture decisions (ADRs).
 
 ### Development
