@@ -50,6 +50,12 @@ class InMemoryRepository:
     def save_chapter_version(self, book_id: str, chapter_number: int, version: int, draft: str) -> None:
         self.versions.append((book_id, chapter_number, version, draft))
 
+    def get_chapter_version(self, book_id: str, chapter_number: int, version: int) -> str:
+        for stored_book_id, stored_chapter_number, stored_version, draft in reversed(self.versions):
+            if (stored_book_id, stored_chapter_number, stored_version) == (book_id, chapter_number, version):
+                return draft
+        raise KeyError((book_id, chapter_number, version))
+
     def save_review(self, book_id: str, chapter_number: int, version: int, review) -> None:
         self.reviews.append((book_id, chapter_number, version, review))
 
@@ -125,3 +131,19 @@ def test_generate_chapter_retries_after_low_review_and_preserves_reviews() -> No
     assert [review[2] for review in repository.reviews] == [1, 2]
     assert [review[3].score for review in repository.reviews] == [5, 9]
     assert result.summary == "Canonical chapter summary."
+
+
+def test_generate_chapter_starts_after_existing_version() -> None:
+    book = BookState(id="b1", title="Book", theme="Fantasy", author_idea="Idea", outline=make_outline((1, "One", "Start")), outline_approved=True, chapters=[Chapter(id="c1", number=1, title="One", objective="Start")])
+    repository = InMemoryRepository(book)
+    repository.save_chapter_version("b1", 1, 1, "Previous draft")
+    llm = RecordingLLM(drafts=["A new chapter draft."])
+    use_case = GenerateChapter(make_workflow(book, repository, llm))
+
+    result = use_case.execute(book, chapter_number=1)
+
+    assert result.decision == "accept"
+    assert result.attempt == 2
+    assert [version[2] for version in repository.versions] == [1, 2]
+    assert [version[3] for version in repository.versions] == ["Previous draft", "A new chapter draft."]
+    assert [review[2] for review in repository.reviews] == [2]
