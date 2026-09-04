@@ -112,20 +112,52 @@ def test_llm_assertion_extractor_derives_provenance_from_source():
     assert result[0].end_offset == len("Alice lives in Marseille.")
 
 
-def test_llm_assertion_extractor_rejects_statement_not_present_in_source():
+def test_llm_assertion_extractor_drops_statement_not_present_in_source():
     class FakeProvider:
         def generate_structured(self, *, system_prompt, user_prompt, schema, thinking_level="medium", max_output_tokens=None):
             del system_prompt, user_prompt, thinking_level, max_output_tokens
-            return ExtractedAssertions(assertions=[ExtractedAssertionDraft(
-                statement="Alice lives in Paris.", subject="Alice", predicate="lives_in",
-                object="Paris", confidence=0.99,
-            )])
+            return ExtractedAssertions(assertions=[
+                ExtractedAssertionDraft(
+                    statement="Alice lives in Paris.", subject="Alice", predicate="lives_in",
+                    object="Paris", confidence=0.99,
+                ),
+                ExtractedAssertionDraft(
+                    statement="Alice lives in Marseille.", subject="Alice", predicate="lives_in",
+                    object="Marseille", confidence=0.99,
+                ),
+            ])
 
-    extractor = LLMAssertionExtractor(FakeProvider())
-    with pytest.raises(ValueError, match="not found in source chunk"):
-        extractor.extract(
-            chunk=DocumentChunk(
-                id="chunk-1", source_document_id="source-1", content="Alice lives in Marseille.",
-                sequence=0, start_offset=0, end_offset=25,
-            )
+    result = LLMAssertionExtractor(FakeProvider()).extract(
+        chunk=DocumentChunk(
+            id="chunk-1", source_document_id="source-1", content="Alice lives in Marseille.",
+            sequence=0, start_offset=0, end_offset=25,
         )
+    )
+
+    assert len(result) == 1
+    assert result[0].statement == "Alice lives in Marseille."
+
+
+def test_llm_assertion_extractor_drops_only_invalid_candidates():
+    class FakeProvider:
+        def generate_structured(self, *, system_prompt, user_prompt, schema, thinking_level="medium", max_output_tokens=None):
+            del system_prompt, user_prompt, schema, thinking_level, max_output_tokens
+            return ExtractedAssertions(assertions=[
+                ExtractedAssertionDraft(
+                    statement="Not in source", subject="Unknown", predicate="exists",
+                    object="yes", confidence=0.5,
+                ),
+                ExtractedAssertionDraft(
+                    statement="The castle stands on the hill.", subject="castle", predicate="stands_on",
+                    object="hill", confidence=0.98,
+                ),
+            ])
+
+    result = LLMAssertionExtractor(FakeProvider()).extract(
+        chunk=DocumentChunk(
+            id="chunk-1", source_document_id="source-1", content="The castle stands on the hill.",
+            sequence=0, start_offset=0, end_offset=31,
+        )
+    )
+
+    assert [item.statement for item in result] == ["The castle stands on the hill."]
