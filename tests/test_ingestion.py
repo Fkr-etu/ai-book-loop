@@ -112,7 +112,7 @@ def test_llm_assertion_extractor_derives_provenance_from_source():
     assert result[0].end_offset == len("Alice lives in Marseille.")
 
 
-def test_llm_assertion_extractor_rejects_statement_not_present_in_source():
+def test_llm_assertion_extractor_drops_statement_not_present_in_source():
     class FakeProvider:
         def generate_structured(self, *, system_prompt, user_prompt, schema, thinking_level="medium", max_output_tokens=None):
             del system_prompt, user_prompt, thinking_level, max_output_tokens
@@ -122,10 +122,32 @@ def test_llm_assertion_extractor_rejects_statement_not_present_in_source():
             )])
 
     extractor = LLMAssertionExtractor(FakeProvider())
-    with pytest.raises(ValueError, match="not found in source chunk"):
-        extractor.extract(
-            chunk=DocumentChunk(
-                id="chunk-1", source_document_id="source-1", content="Alice lives in Marseille.",
-                sequence=0, start_offset=0, end_offset=25,
-            )
+    result = extractor.extract(
+        chunk=DocumentChunk(
+            id="chunk-1", source_document_id="source-1", content="Alice lives in Marseille.",
+            sequence=0, start_offset=0, end_offset=25,
         )
+    )
+
+    assert result == []
+
+
+def test_llm_assertion_extractor_drops_ambiguous_repeated_statement():
+    class FakeProvider:
+        def generate_structured(self, *, system_prompt, user_prompt, schema, thinking_level="medium", max_output_tokens=None):
+            del system_prompt, user_prompt, thinking_level, max_output_tokens
+            return ExtractedAssertions(assertions=[ExtractedAssertionDraft(
+                statement="Alice lives in Marseille.", subject="Alice", predicate="lives_in",
+                object="Marseille", confidence=0.99,
+            )])
+
+    extractor = LLMAssertionExtractor(FakeProvider())
+    result = extractor.extract(
+        chunk=DocumentChunk(
+            id="chunk-1", source_document_id="source-1",
+            content="Alice lives in Marseille. Bob agrees. Alice lives in Marseille.",
+            sequence=0, start_offset=0, end_offset=63,
+        )
+    )
+
+    assert result == []
