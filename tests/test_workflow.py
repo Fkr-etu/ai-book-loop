@@ -41,6 +41,10 @@ class InMemoryRepository:
     def get(self, book_id):
         return self.books[book_id]
 
+    def next_chapter_version(self, book_id, chapter_number):
+        versions = [version for b, chapter, version, _ in self.versions if b == book_id and chapter == chapter_number]
+        return max(versions, default=0) + 1
+
     def save_chapter_version(self, book_id, chapter_number, version, draft):
         self.versions.append((book_id, chapter_number, version, draft))
 
@@ -94,3 +98,21 @@ def test_workflow_accepts_and_summarizes():
     assert len(repository.versions) == 1
     assert len(repository.reviews) == 1
     assert repository.get("b1").chapters[0].current_version == 1
+
+
+def test_workflow_starts_after_existing_persisted_version():
+    book = BookState(
+        id="b1", title="Book", theme="Fantasy", author_idea="Idea",
+        outline=make_outline(), outline_approved=True,
+        chapters=[Chapter(id="c1", number=1, title="Beginning", objective="Start", current_version=1)],
+    )
+    repository = InMemoryRepository(book)
+    repository.save_chapter_version("b1", 1, 1, "Previous draft")
+    workflow = make_workflow(book, repository)
+
+    result = workflow.run(book=book, chapter_number=1)
+
+    assert result.decision == "accept"
+    assert result.attempt == 2
+    assert [version[2] for version in repository.versions] == [1, 2]
+    assert [review[2] for review in repository.reviews] == [2]
