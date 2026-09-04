@@ -56,10 +56,22 @@ class ChapterWorkflow:
         self.max_retries = max_retries
         self.review_threshold = review_threshold
 
+    def _next_version(self, state: ChapterWorkflowState) -> int:
+        """Find the first unused persisted version so reruns never overwrite history."""
+        version = state.attempt + 1
+        while True:
+            try:
+                self.repository.get_chapter_version(
+                    state.book.id, state.chapter_number, version
+                )
+            except KeyError:
+                return version
+            version += 1
+
     def _write(self, state: ChapterWorkflowState) -> dict:
         context = self.context_builder.for_chapter(state.book, state.chapter_number)
         draft = self.writer.write(context=context)
-        attempt = state.attempt + 1
+        attempt = self._next_version(state)
         self.repository.save_chapter_version(state.book.id, state.chapter_number, attempt, draft)
         return {"draft": draft, "attempt": attempt}
 
@@ -101,7 +113,7 @@ class ChapterWorkflow:
             draft=state.draft,
             review=state.review,
         )
-        attempt = state.attempt + 1
+        attempt = self._next_version(state)
         self.repository.save_chapter_version(state.book.id, state.chapter_number, attempt, draft)
         return {"draft": draft, "attempt": attempt}
 
