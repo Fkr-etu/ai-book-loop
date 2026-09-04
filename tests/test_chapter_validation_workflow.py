@@ -25,10 +25,11 @@ class RecordingLLM:
         self.reviewer_prompts = []
 
     def generate(self, *, system_prompt, user_prompt):
-        if "writer" in system_prompt.lower() or "editor" in system_prompt.lower():
-            return next(self.drafts)
-        if "summar" in system_prompt.lower():
+        prompt = system_prompt.lower()
+        if "summar" in prompt:
             return "Summary."
+        if "writer" in prompt or "editor" in prompt:
+            return next(self.drafts)
         raise AssertionError(system_prompt)
 
     def generate_structured(self, *, system_prompt, user_prompt, schema, thinking_level="medium", max_output_tokens=None):
