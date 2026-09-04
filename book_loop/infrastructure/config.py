@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     linguistic_checker: str = "disabled"
     language_tool_url: str = "http://localhost:8010"
     linguistic_language: str = "fr"
+    spacy_model: str = "fr_core_news_sm"
     auth_secret_key: str = ""
     auth_cookie_secure: bool = False
     auth_cookie_samesite: str = "lax"
