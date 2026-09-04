@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-from typing import Iterable, Protocol
+from collections.abc import Iterable, Sequence
+from typing import Protocol, TypeVar
+
+from pydantic import BaseModel
 
 from book_loop.domain.models import (
     Assertion,
@@ -16,9 +19,28 @@ from book_loop.domain.models import (
     SourceDocument,
 )
 
+StructuredModel = TypeVar("StructuredModel", bound=BaseModel)
+
+
+class LLMProvider(Protocol):
+    def generate(self, *, system_prompt: str, user_prompt: str) -> str: ...
+
+    def generate_structured(
+        self,
+        *,
+        system_prompt: str,
+        user_prompt: str,
+        schema: type[StructuredModel],
+        thinking_level: str = "medium",
+        max_output_tokens: int | None = None,
+    ) -> StructuredModel: ...
+
+
+class EmbeddingProvider(Protocol):
+    def embed(self, *, text: str) -> Sequence[float]: ...
+
 
 class Writer(Protocol):
-    llm: object
     def write(self, *, context: str) -> str: ...
 
 
