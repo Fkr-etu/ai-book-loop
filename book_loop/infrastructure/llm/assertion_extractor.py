@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import logging
+
 from pydantic import BaseModel, Field
 
 from book_loop.domain.models import DocumentChunk, ExtractedAssertion
 from book_loop.domain.protocols import LLMProvider
+
+logger = logging.getLogger(__name__)
 
 
 class ExtractedAssertionDraft(BaseModel):
@@ -40,10 +44,22 @@ class LLMAssertionExtractor:
 
     @staticmethod
     def _to_extracted_assertion(*, chunk_content: str, draft: ExtractedAssertionDraft) -> ExtractedAssertion:
-        """Build source provenance deterministically from the exact source statement."""
-        start = chunk_content.find(draft.statement)
-        if start < 0:
+        """Build source provenance only when the statement has one unique source location."""
+        positions: list[int] = []
+        start = 0
+        while True:
+            index = chunk_content.find(draft.statement, start)
+            if index < 0:
+                break
+            positions.append(index)
+            start = index + 1
+
+        if not positions:
             raise ValueError("Assertion extractor returned a statement not found in source chunk")
+        if len(positions) > 1:
+            raise ValueError("Assertion extractor returned an ambiguous statement found multiple times in source chunk")
+
+        start = positions[0]
         return ExtractedAssertion(
             statement=draft.statement,
             subject=draft.subject,
@@ -62,7 +78,16 @@ class LLMAssertionExtractor:
             thinking_level="minimal",
             max_output_tokens=4096,
         )
-        return [
-            self._to_extracted_assertion(chunk_content=chunk.content, draft=draft)
-            for draft in result.assertions
-        ]
+        assertions: list[ExtractedAssertion] = []
+        for draft in result.assertions:
+            try:
+                assertions.append(
+                    self._to_extracted_assertion(chunk_content=chunk.content, draft=draft)
+                )
+            except ValueError:
+                logger.warning(
+                    "Dropping ungrounded or ambiguous assertion from source chunk %s: %r",
+                    chunk.id,
+                    draft.statement,
+                )
+        return assertions
