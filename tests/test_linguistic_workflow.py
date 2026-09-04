@@ -27,11 +27,11 @@ class SequenceLLM:
 
     def generate(self, *, system_prompt: str, user_prompt: str) -> str:
         prompt = system_prompt.casefold()
+        if "summar" in prompt:
+            return "Final summary."
         if "editor" in prompt:
             self.correct_calls += 1
             return f"Corrected draft {self.correct_calls}."
-        if "summar" in prompt:
-            return "Final summary."
         return "Initial draft."
 
     def generate_structured(self, *, system_prompt, user_prompt, schema, thinking_level="medium", max_output_tokens=None):
@@ -133,7 +133,6 @@ def test_linguistic_checker_unavailable_is_fail_closed_when_enabled():
     book = make_book()
     repository = Repository(book)
     llm = SequenceLLM('{"score": 9, "approved": true, "issues": [], "suggestions": []}')
-    unavailable = LinguisticValidationService([])
 
     class FailingChecker:
         def check(self, text, *, language="fr"):
