@@ -16,18 +16,22 @@ from book_loop.domain.protocols import AssertionExtractor, KnowledgeRepository
 
 
 class CanonDiagnosticChecker:
-    """Compare extracted chapter assertions with the active Canon without mutating it."""
+    """Compare extracted chapter assertions with one book's active Canon."""
 
     def __init__(
         self,
         *,
+        book_id: str,
         knowledge_repository: KnowledgeRepository,
         assertion_extractor: AssertionExtractor,
     ) -> None:
+        if not book_id.strip():
+            raise ValueError("CanonDiagnosticChecker requires a book id")
+        self.book_id = book_id
         self._knowledge = knowledge_repository
         self._extractor = assertion_extractor
 
-    def check(self, text: str, *, book_id: str, language: str = "fr") -> LinguisticCheckResult:
+    def check(self, text: str, *, language: str = "fr") -> LinguisticCheckResult:
         if language.lower() not in {"fr", "fr-fr"}:
             raise ValueError("CanonDiagnosticChecker currently supports only French")
         if not text.strip():
@@ -38,8 +42,8 @@ class CanonDiagnosticChecker:
 
         try:
             chunk = DocumentChunk(
-                id=str(uuid5(NAMESPACE_URL, f"canon-check:{book_id}:{text}")),
-                source_document_id=f"canon-check:{book_id}",
+                id=str(uuid5(NAMESPACE_URL, f"canon-check:{self.book_id}:{text}")),
+                source_document_id=f"canon-check:{self.book_id}",
                 content=text,
                 sequence=0,
                 start_offset=0,
@@ -47,7 +51,7 @@ class CanonDiagnosticChecker:
                 metadata={"ephemeral": "true"},
             )
             extracted = self._extractor.extract(chunk=chunk)
-            facts = self._knowledge.list_active_canonical_facts(book_id=book_id)
+            facts = self._knowledge.list_active_canonical_facts(book_id=self.book_id)
             diagnostics = self._diagnostics(extracted, facts)
         except Exception as exc:
             return LinguisticCheckResult(
