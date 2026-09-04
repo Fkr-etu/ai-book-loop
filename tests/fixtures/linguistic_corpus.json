@@ -1,0 +1,44 @@
+[
+  {
+    "id": "spelling-01",
+    "text": "Il se dirigea vers la Canbière.",
+    "expected_categories": ["spelling"],
+    "literary": false
+  },
+  {
+    "id": "grammar-01",
+    "text": "Les veilleur observent la mer.",
+    "expected_categories": ["grammar", "agreement"],
+    "literary": false
+  },
+  {
+    "id": "agreement-01",
+    "text": "Les lumières tremble dans le brouillard.",
+    "expected_categories": ["agreement"],
+    "literary": false
+  },
+  {
+    "id": "punctuation-01",
+    "text": "Il entra dans la salle, puis il referma la porte.",
+    "expected_categories": [],
+    "literary": false
+  },
+  {
+    "id": "literary-fragment-01",
+    "text": "Une nuit sans lune. Le silence. Puis Marseille.",
+    "expected_categories": [],
+    "literary": true
+  },
+  {
+    "id": "literary-dialogue-01",
+    "text": "— À demain. Pas de questions. Promis.",
+    "expected_categories": [],
+    "literary": true
+  },
+  {
+    "id": "clean-01",
+    "text": "Les veilleurs traversèrent la Canebière avant l'aube.",
+    "expected_categories": [],
+    "literary": false
+  }
+]
