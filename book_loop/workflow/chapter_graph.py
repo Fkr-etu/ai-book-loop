@@ -56,10 +56,20 @@ class ChapterWorkflow:
         self.max_retries = max_retries
         self.review_threshold = review_threshold
 
+    def _next_version(self, state: ChapterWorkflowState) -> int:
+        """Return the first unused persisted version without overwriting history."""
+        version = state.attempt + 1
+        while True:
+            try:
+                self.repository.get_chapter_version(state.book.id, state.chapter_number, version)
+            except KeyError:
+                return version
+            version += 1
+
     def _write(self, state: ChapterWorkflowState) -> dict:
         context = self.context_builder.for_chapter(state.book, state.chapter_number)
         draft = self.writer.write(context=context)
-        attempt = state.attempt + 1
+        attempt = self._next_version(state)
         self.repository.save_chapter_version(state.book.id, state.chapter_number, attempt, draft)
         return {"draft": draft, "attempt": attempt}
 
@@ -74,34 +84,20 @@ class ChapterWorkflow:
                 suggestions=["Remove all lint errors before the next review."],
             )
             self.repository.save_review(state.book.id, state.chapter_number, state.attempt, review)
-            decision = decide(
-                review,
-                attempt=state.attempt,
-                max_retries=self.max_retries,
-                threshold=self.review_threshold,
-            )
+            decision = decide(review, attempt=state.attempt, max_retries=self.max_retries, threshold=self.review_threshold)
             return {"decision": decision.value, "review_score": review.score, "review": review}
 
         review = self.reviewer.review(context=context, draft=state.draft)
         self.repository.save_review(state.book.id, state.chapter_number, state.attempt, review)
-        decision = decide(
-            review,
-            attempt=state.attempt,
-            max_retries=self.max_retries,
-            threshold=self.review_threshold,
-        )
+        decision = decide(review, attempt=state.attempt, max_retries=self.max_retries, threshold=self.review_threshold)
         return {"decision": decision.value, "review_score": review.score, "review": review}
 
     def _correct(self, state: ChapterWorkflowState) -> dict:
         if state.review is None:
             raise ValueError("A review is required before correction")
         context = self.context_builder.for_chapter(state.book, state.chapter_number)
-        draft = self.corrector.correct(
-            context=context,
-            draft=state.draft,
-            review=state.review,
-        )
-        attempt = state.attempt + 1
+        draft = self.corrector.correct(context=context, draft=state.draft, review=state.review)
+        attempt = self._next_version(state)
         self.repository.save_chapter_version(state.book.id, state.chapter_number, attempt, draft)
         return {"draft": draft, "attempt": attempt}
 
@@ -131,11 +127,7 @@ class ChapterWorkflow:
         graph.add_node("summarize", self._summarize)
         graph.add_edge(START, "write")
         graph.add_edge("write", "review")
-        graph.add_conditional_edges(
-            "review",
-            self._route,
-            {"correct": "correct", "summarize": "summarize", "end": END},
-        )
+        graph.add_conditional_edges("review", self._route, {"correct": "correct", "summarize": "summarize", "end": END})
         graph.add_edge("correct", "review")
         graph.add_edge("summarize", END)
         return graph.compile()
@@ -143,8 +135,5 @@ class ChapterWorkflow:
     def run(self, *, book: BookState, chapter_number: int) -> ChapterWorkflowState:
         if not book.outline_approved:
             raise ValueError("The author must approve the outline before generating chapters")
-
-        result = self.build().invoke(
-            ChapterWorkflowState(book=book, chapter_number=chapter_number)
-        )
+        result = self.build().invoke(ChapterWorkflowState(book=book, chapter_number=chapter_number))
         return ChapterWorkflowState(**result)
