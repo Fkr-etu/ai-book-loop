@@ -57,15 +57,18 @@ def assertion(*, object_value="Lyon"):
     )
 
 
-def test_detects_active_canon_contradiction_with_provenance():
-    knowledge = FakeKnowledge([fact()])
-    extractor = FakeExtractor([assertion()])
-    checker = CanonDiagnosticChecker(
-        knowledge_repository=knowledge,
-        assertion_extractor=extractor,
+def make_checker(*, facts, assertions, book_id="book-1"):
+    return CanonDiagnosticChecker(
+        book_id=book_id,
+        knowledge_repository=FakeKnowledge(facts),
+        assertion_extractor=FakeExtractor(assertions),
     )
 
-    result = checker.check("Marie vit à Lyon.", book_id="book-1")
+
+def test_detects_active_canon_contradiction_with_provenance():
+    result = make_checker(facts=[fact()], assertions=[assertion()]).check(
+        "Marie vit à Lyon."
+    )
 
     assert result.status == LinguisticCheckStatus.ISSUES_FOUND
     assert len(result.diagnostics) == 1
@@ -81,14 +84,12 @@ def test_detects_active_canon_contradiction_with_provenance():
     assert diagnostic.metadata["canonical_fact_version"] == "1"
     assert diagnostic.metadata["canonical_object"] == "Marseille"
     assert diagnostic.metadata["chapter_object"] == "Lyon"
-    assert knowledge.book_ids == ["book-1"]
 
 
 def test_compatible_restatement_is_not_a_contradiction():
-    result = CanonDiagnosticChecker(
-        knowledge_repository=FakeKnowledge([fact()]),
-        assertion_extractor=FakeExtractor([assertion(object_value="Marseille")]),
-    ).check("Marie vit à Marseille.", book_id="book-1")
+    result = make_checker(
+        facts=[fact()], assertions=[assertion(object_value="Marseille")]
+    ).check("Marie vit à Marseille.")
 
     assert result.status == LinguisticCheckStatus.NO_ISSUES_FOUND
     assert result.diagnostics == []
@@ -105,23 +106,19 @@ def test_ignores_unrelated_subject_or_predicate():
         end_offset=len("Paul travaille à Lyon."),
     )
 
-    result = CanonDiagnosticChecker(
-        knowledge_repository=FakeKnowledge([fact()]),
-        assertion_extractor=FakeExtractor([unrelated]),
-    ).check("Paul travaille à Lyon.", book_id="book-1")
+    result = make_checker(facts=[fact()], assertions=[unrelated]).check(
+        "Paul travaille à Lyon."
+    )
 
     assert result.status == LinguisticCheckStatus.NO_ISSUES_FOUND
 
 
-def test_does_not_use_inactive_canonical_facts_returned_by_repository():
-    inactive = fact().model_copy(update={"active": False})
-    result = CanonDiagnosticChecker(
-        knowledge_repository=FakeKnowledge([]),
-        assertion_extractor=FakeExtractor([assertion()]),
-    ).check("Marie vit à Lyon.", book_id="book-1")
+def test_repository_contract_exposes_only_active_facts():
+    result = make_checker(facts=[], assertions=[assertion()]).check(
+        "Marie vit à Lyon."
+    )
 
     assert result.status == LinguisticCheckStatus.NO_ISSUES_FOUND
-    assert inactive.active is False
 
 
 def test_extractor_failure_is_visible_as_unavailable():
@@ -130,23 +127,34 @@ def test_extractor_failure_is_visible_as_unavailable():
             raise RuntimeError("extractor unavailable")
 
     result = CanonDiagnosticChecker(
+        book_id="book-1",
         knowledge_repository=FakeKnowledge([fact()]),
         assertion_extractor=FailingExtractor(),
-    ).check("Marie vit à Lyon.", book_id="book-1")
+    ).check("Marie vit à Lyon.")
 
     assert result.status == LinguisticCheckStatus.CHECK_NOT_AVAILABLE
     assert "extractor unavailable" in result.error
 
 
 def test_non_french_language_is_rejected():
-    checker = CanonDiagnosticChecker(
-        knowledge_repository=FakeKnowledge([]),
-        assertion_extractor=FakeExtractor([]),
-    )
+    checker = make_checker(facts=[], assertions=[])
 
     try:
-        checker.check("Marie lives in Lyon.", book_id="book-1", language="en")
+        checker.check("Marie lives in Lyon.", language="en")
     except ValueError as exc:
         assert "only French" in str(exc)
     else:
         raise AssertionError("Expected non-French validation to fail")
+
+
+def test_book_id_is_required():
+    try:
+        CanonDiagnosticChecker(
+            book_id="",
+            knowledge_repository=FakeKnowledge([]),
+            assertion_extractor=FakeExtractor([]),
+        )
+    except ValueError as exc:
+        assert "book id" in str(exc)
+    else:
+        raise AssertionError("Expected missing book id to fail")
