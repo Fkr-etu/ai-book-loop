@@ -6,7 +6,19 @@ from book_loop.agents.writer import WriterAgent
 from book_loop.application.services.context import ContextBuilder
 from book_loop.application.services.linter import ChapterLinter
 from book_loop.application.use_cases.generate_chapter import GenerateChapter
-from book_loop.domain.models import BookState, Chapter, ChapterStatus, Outline, SceneReview
+from book_loop.domain.models import (
+    BookState,
+    Chapter,
+    ChapterStatus,
+    Diagnostic,
+    DiagnosticCategory,
+    DiagnosticSeverity,
+    DiagnosticSource,
+    LinguisticCheckResult,
+    LinguisticCheckStatus,
+    Outline,
+    SceneReview,
+)
 from book_loop.workflow.chapter_graph import ChapterWorkflow, ChapterWorkflowState
 
 
@@ -147,3 +159,87 @@ def test_generate_chapter_starts_after_existing_version() -> None:
     assert [version[2] for version in repository.versions] == [1, 2]
     assert [version[3] for version in repository.versions] == ["Previous draft", "A new chapter draft."]
     assert [review[2] for review in repository.reviews] == [2]
+
+
+def _diagnostic(*, severity: DiagnosticSeverity, message: str) -> Diagnostic:
+    return Diagnostic(
+        category=DiagnosticCategory.GRAMMAR,
+        severity=severity,
+        source=DiagnosticSource.LINGUISTIC_LINTER,
+        message=message,
+        confidence=1.0,
+        rule_id="PHASE_A_TEST",
+    )
+
+
+class ScriptedValidationService:
+    def __init__(self, diagnostics_by_call: list[list[Diagnostic]]) -> None:
+        self.results = iter(diagnostics_by_call)
+
+    def validate(self, text: str) -> LinguisticCheckResult:
+        del text
+        diagnostics = next(self.results)
+        return LinguisticCheckResult(
+            status=(LinguisticCheckStatus.ISSUES_FOUND if diagnostics else LinguisticCheckStatus.NO_ISSUES_FOUND),
+            diagnostics=diagnostics,
+            checker="phase-a-test",
+        )
+
+
+class EmptyCanonChecker:
+    def check(self, text: str, *, book_id: str) -> LinguisticCheckResult:
+        del text, book_id
+        return LinguisticCheckResult(status=LinguisticCheckStatus.NO_ISSUES_FOUND, checker="canon-test")
+
+
+def test_validation_error_blocks_review_retries_and_preserves_versions() -> None:
+    book = BookState(id="b1", title="Book", theme="Fantasy", author_idea="Idea", outline=make_outline((1, "One", "Start")), outline_approved=True, chapters=[Chapter(id="c1", number=1, title="One", objective="Start")])
+    repository = InMemoryRepository(book)
+    llm = RecordingLLM(drafts=["First candidate.", "Corrected candidate."])
+    workflow = ChapterWorkflow(
+        repository=repository,
+        writer=WriterAgent(llm),
+        reviewer=ReviewerAgent(llm),
+        summarizer=SummarizerAgent(llm),
+        context_builder=ContextBuilder(),
+        linter=ChapterLinter(),
+        validation_service=ScriptedValidationService([
+            [_diagnostic(severity=DiagnosticSeverity.ERROR, message="Invalid agreement")],
+            [],
+        ]),
+        canon_checker=EmptyCanonChecker(),
+    )
+
+    result = GenerateChapter(workflow).execute(book, chapter_number=1)
+
+    assert result.decision == "accept"
+    assert result.attempt == 2
+    assert len(repository.versions) == 2
+    assert [review[3].approved for review in repository.reviews] == [False, True]
+    assert repository.reviews[0][3].issues == ["[grammar] Invalid agreement"]
+
+
+def test_validation_warning_reaches_reviewer_without_triggering_retry() -> None:
+    book = BookState(id="b1", title="Book", theme="Fantasy", author_idea="Idea", outline=make_outline((1, "One", "Start")), outline_approved=True, chapters=[Chapter(id="c1", number=1, title="One", objective="Start")])
+    repository = InMemoryRepository(book)
+    llm = RecordingLLM()
+    workflow = ChapterWorkflow(
+        repository=repository,
+        writer=WriterAgent(llm),
+        reviewer=ReviewerAgent(llm),
+        summarizer=SummarizerAgent(llm),
+        context_builder=ContextBuilder(),
+        linter=ChapterLinter(),
+        validation_service=ScriptedValidationService([
+            [_diagnostic(severity=DiagnosticSeverity.WARNING, message="Possible agreement issue")],
+        ]),
+        canon_checker=EmptyCanonChecker(),
+    )
+
+    result = GenerateChapter(workflow).execute(book, chapter_number=1)
+
+    assert result.decision == "accept"
+    assert result.attempt == 1
+    assert len(repository.versions) == 1
+    assert len(repository.reviews) == 1
+    assert "Possible agreement issue" in llm.calls[-1][1]
