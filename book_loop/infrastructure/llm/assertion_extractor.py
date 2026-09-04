@@ -1,15 +1,25 @@
 from __future__ import annotations
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from book_loop.domain.models import DocumentChunk, ExtractedAssertion
 from book_loop.domain.protocols import LLMProvider
 
 
+class ExtractedAssertionDraft(BaseModel):
+    """Provider-facing assertion shape; source provenance is derived outside the LLM."""
+
+    statement: str = Field(min_length=1)
+    subject: str = Field(min_length=1)
+    predicate: str = Field(min_length=1)
+    object: str = Field(min_length=1)
+    confidence: float = Field(ge=0.0, le=1.0)
+
+
 class ExtractedAssertions(BaseModel):
     """Provider-facing wrapper because Gemini structured outputs are object-shaped."""
 
-    assertions: list[ExtractedAssertion]
+    assertions: list[ExtractedAssertionDraft]
 
 
 class LLMAssertionExtractor:
@@ -18,9 +28,9 @@ class LLMAssertionExtractor:
     SYSTEM_PROMPT = (
         "Extract factual assertions from the supplied source chunk. "
         "Only extract facts explicitly supported by the text. "
-        "For each assertion provide the exact statement, subject, predicate, object, confidence, "
-        "start_offset and end_offset. Offsets are character offsets within the supplied chunk. "
-        "Do not infer facts that are not supported by the source. "
+        "For each assertion provide the exact statement, subject, predicate, object and confidence. "
+        "The statement must be an exact contiguous excerpt from the supplied source chunk; "
+        "do not paraphrase it. Do not infer facts that are not supported by the source. "
         "Prefer a small set of high-value assertions and keep statements concise. "
         "Return no more than 12 assertions."
     )
@@ -29,13 +39,19 @@ class LLMAssertionExtractor:
         self._provider = provider
 
     @staticmethod
-    def _reconcile_offsets(*, chunk_content: str, assertion: ExtractedAssertion) -> ExtractedAssertion:
-        """Derive provenance offsets from source text instead of trusting the LLM."""
-        start = chunk_content.find(assertion.statement)
+    def _to_extracted_assertion(*, chunk_content: str, draft: ExtractedAssertionDraft) -> ExtractedAssertion:
+        """Build source provenance deterministically from the exact source statement."""
+        start = chunk_content.find(draft.statement)
         if start < 0:
             raise ValueError("Assertion extractor returned a statement not found in source chunk")
-        return assertion.model_copy(
-            update={"start_offset": start, "end_offset": start + len(assertion.statement)}
+        return ExtractedAssertion(
+            statement=draft.statement,
+            subject=draft.subject,
+            predicate=draft.predicate,
+            object=draft.object,
+            confidence=draft.confidence,
+            start_offset=start,
+            end_offset=start + len(draft.statement),
         )
 
     def extract(self, *, chunk: DocumentChunk) -> list[ExtractedAssertion]:
@@ -47,6 +63,6 @@ class LLMAssertionExtractor:
             max_output_tokens=4096,
         )
         return [
-            self._reconcile_offsets(chunk_content=chunk.content, assertion=assertion)
-            for assertion in result.assertions
+            self._to_extracted_assertion(chunk_content=chunk.content, draft=draft)
+            for draft in result.assertions
         ]
