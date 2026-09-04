@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import logging
+
 from pydantic import BaseModel, Field
 
 from book_loop.domain.models import DocumentChunk, ExtractedAssertion
 from book_loop.domain.protocols import LLMProvider
+
+logger = logging.getLogger(__name__)
 
 
 class ExtractedAssertionDraft(BaseModel):
@@ -62,7 +66,16 @@ class LLMAssertionExtractor:
             thinking_level="minimal",
             max_output_tokens=4096,
         )
-        return [
-            self._to_extracted_assertion(chunk_content=chunk.content, draft=draft)
-            for draft in result.assertions
-        ]
+        assertions: list[ExtractedAssertion] = []
+        for draft in result.assertions:
+            try:
+                assertions.append(
+                    self._to_extracted_assertion(chunk_content=chunk.content, draft=draft)
+                )
+            except ValueError:
+                logger.warning(
+                    "Dropping ungrounded assertion from source chunk %s: %r",
+                    chunk.id,
+                    draft.statement,
+                )
+        return assertions
