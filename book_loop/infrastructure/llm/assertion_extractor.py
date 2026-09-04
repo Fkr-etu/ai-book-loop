@@ -28,6 +28,16 @@ class LLMAssertionExtractor:
     def __init__(self, provider: LLMProvider) -> None:
         self._provider = provider
 
+    @staticmethod
+    def _reconcile_offsets(*, chunk_content: str, assertion: ExtractedAssertion) -> ExtractedAssertion:
+        """Derive provenance offsets from source text instead of trusting the LLM."""
+        start = chunk_content.find(assertion.statement)
+        if start < 0:
+            raise ValueError("Assertion extractor returned a statement not found in source chunk")
+        return assertion.model_copy(
+            update={"start_offset": start, "end_offset": start + len(assertion.statement)}
+        )
+
     def extract(self, *, chunk: DocumentChunk) -> list[ExtractedAssertion]:
         result = self._provider.generate_structured(
             system_prompt=self.SYSTEM_PROMPT,
@@ -36,10 +46,7 @@ class LLMAssertionExtractor:
             thinking_level="minimal",
             max_output_tokens=4096,
         )
-        assertions = result.assertions
-        for assertion in assertions:
-            if assertion.end_offset > len(chunk.content):
-                raise ValueError("Assertion extractor returned an out-of-range end offset")
-            if assertion.start_offset >= assertion.end_offset:
-                raise ValueError("Assertion extractor returned an invalid offset range")
-        return assertions
+        return [
+            self._reconcile_offsets(chunk_content=chunk.content, assertion=assertion)
+            for assertion in result.assertions
+        ]
