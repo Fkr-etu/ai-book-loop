@@ -61,11 +61,12 @@ def test_sentence_fragment_is_warning_not_error() -> None:
     tokens = [
         FakeToken("Une", 0, "DET", FakeMorph("Sing"), "det"),
         FakeToken("nuit", 4, "NOUN", FakeMorph("Sing"), "ROOT"),
-        FakeToken("silencieuse", 9, "ADJ", FakeMorph("Sing"), "amod"),
-        FakeToken(".", 20, "PUNCT", FakeMorph("Sing"), "punct"),
+        FakeToken("très", 9, "ADV", FakeMorph("Sing"), "advmod"),
+        FakeToken("silencieuse", 14, "ADJ", FakeMorph("Sing"), "amod"),
+        FakeToken(".", 25, "PUNCT", FakeMorph("Sing"), "punct"),
     ]
     doc = FakeDoc([FakeSentence(tokens)])
-    result = SpacyFrenchChecker(nlp=lambda _: doc).check("Une nuit silencieuse.")
+    result = SpacyFrenchChecker(nlp=lambda _: doc).check("Une nuit très silencieuse.")
 
     assert result.status == LinguisticCheckStatus.ISSUES_FOUND
     assert result.diagnostics[0].category == DiagnosticCategory.SYNTAX
