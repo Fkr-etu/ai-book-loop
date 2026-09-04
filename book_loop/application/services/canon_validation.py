@@ -21,19 +21,28 @@ class CanonDiagnosticChecker:
     def __init__(
         self,
         *,
-        book_id: str,
         knowledge_repository: KnowledgeRepository,
         assertion_extractor: AssertionExtractor,
+        book_id: str | None = None,
     ) -> None:
-        if not book_id.strip():
-            raise ValueError("CanonDiagnosticChecker requires a book id")
+        if book_id is not None and not book_id.strip():
+            raise ValueError("CanonDiagnosticChecker requires a non-empty book id")
         self.book_id = book_id
         self._knowledge = knowledge_repository
         self._extractor = assertion_extractor
 
-    def check(self, text: str, *, language: str = "fr") -> LinguisticCheckResult:
+    def check(
+        self,
+        text: str,
+        *,
+        language: str = "fr",
+        book_id: str | None = None,
+    ) -> LinguisticCheckResult:
         if language.lower() not in {"fr", "fr-fr"}:
             raise ValueError("CanonDiagnosticChecker currently supports only French")
+        resolved_book_id = book_id or self.book_id
+        if not resolved_book_id or not resolved_book_id.strip():
+            raise ValueError("CanonDiagnosticChecker requires a book id")
         if not text.strip():
             return LinguisticCheckResult(
                 status=LinguisticCheckStatus.NO_ISSUES_FOUND,
@@ -42,8 +51,8 @@ class CanonDiagnosticChecker:
 
         try:
             chunk = DocumentChunk(
-                id=str(uuid5(NAMESPACE_URL, f"canon-check:{self.book_id}:{text}")),
-                source_document_id=f"canon-check:{self.book_id}",
+                id=str(uuid5(NAMESPACE_URL, f"canon-check:{resolved_book_id}:{text}")),
+                source_document_id=f"canon-check:{resolved_book_id}",
                 content=text,
                 sequence=0,
                 start_offset=0,
@@ -51,7 +60,7 @@ class CanonDiagnosticChecker:
                 metadata={"ephemeral": "true"},
             )
             extracted = self._extractor.extract(chunk=chunk)
-            facts = self._knowledge.list_active_canonical_facts(book_id=self.book_id)
+            facts = self._knowledge.list_active_canonical_facts(book_id=resolved_book_id)
             diagnostics = self._diagnostics(extracted, facts)
         except Exception as exc:
             return LinguisticCheckResult(
