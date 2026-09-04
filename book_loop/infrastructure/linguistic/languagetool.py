@@ -63,7 +63,7 @@ class LanguageToolChecker:
                 error=str(exc),
             )
 
-        diagnostics = [self._diagnostic(match, text) for match in data.get("matches", [])]
+        diagnostics = [self._diagnostic(match, text, language=language) for match in data.get("matches", [])]
         return LinguisticCheckResult(
             status=(
                 LinguisticCheckStatus.ISSUES_FOUND
@@ -75,7 +75,7 @@ class LanguageToolChecker:
         )
 
     @staticmethod
-    def _diagnostic(match: dict[str, object], text: str) -> Diagnostic:
+    def _diagnostic(match: dict[str, object], text: str, *, language: str) -> Diagnostic:
         offset = int(match.get("offset", 0))
         length = int(match.get("length", 0))
         end = offset + length
@@ -106,5 +106,5 @@ class LanguageToolChecker:
             suggestions=suggestions,
             confidence=0.9 if severity == DiagnosticSeverity.ERROR else 0.7,
             rule_id=str(rule.get("id")) if rule.get("id") else None,
-            metadata={"language": "fr"},
+            metadata={"language": language},
         )
