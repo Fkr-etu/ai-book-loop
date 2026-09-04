@@ -131,3 +131,19 @@ def test_generate_chapter_retries_after_low_review_and_preserves_reviews() -> No
     assert [review[2] for review in repository.reviews] == [1, 2]
     assert [review[3].score for review in repository.reviews] == [5, 9]
     assert result.summary == "Canonical chapter summary."
+
+
+def test_generate_chapter_starts_after_existing_version() -> None:
+    book = BookState(id="b1", title="Book", theme="Fantasy", author_idea="Idea", outline=make_outline((1, "One", "Start")), outline_approved=True, chapters=[Chapter(id="c1", number=1, title="One", objective="Start")])
+    repository = InMemoryRepository(book)
+    repository.save_chapter_version("b1", 1, 1, "Previous draft")
+    llm = RecordingLLM(drafts=["A new chapter draft."])
+    use_case = GenerateChapter(make_workflow(book, repository, llm))
+
+    result = use_case.execute(book, chapter_number=1)
+
+    assert result.decision == "accept"
+    assert result.attempt == 2
+    assert [version[2] for version in repository.versions] == [1, 2]
+    assert [version[3] for version in repository.versions] == ["Previous draft", "A new chapter draft."]
+    assert [review[2] for review in repository.reviews] == [2]
