@@ -202,6 +202,24 @@ class SQLiteBookRepository:
         )
         self._connection.commit()
 
+    def list_evidence(self, *, book_id: str) -> list[Evidence]:
+        rows = self._connection.execute(
+            "SELECT e.* FROM evidence e JOIN source_documents s ON s.id = e.source_document_id WHERE s.book_id = ? ORDER BY e.rowid",
+            (book_id,),
+        ).fetchall()
+        return [
+            Evidence(
+                id=row["id"],
+                assertion_id=row["assertion_id"],
+                source_document_id=row["source_document_id"],
+                chunk_id=row["chunk_id"],
+                start_offset=row["start_offset"],
+                end_offset=row["end_offset"],
+                excerpt=row["excerpt"],
+            )
+            for row in rows
+        ]
+
     def list_assertions(self, *, book_id: str) -> list[Assertion]:
         rows = self._connection.execute(
             "SELECT a.* FROM assertions a JOIN source_documents s ON s.id = a.source_document_id WHERE s.book_id = ? ORDER BY a.rowid",
