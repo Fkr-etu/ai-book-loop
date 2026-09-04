@@ -52,3 +52,16 @@ def test_chapter_version_and_review_are_persisted(tmp_path) -> None:
     assert version[0] == "Draft v2"
     assert saved_review[0] == 8
     assert saved_review[1] == 1
+
+
+def test_next_chapter_version_is_monotonic_per_chapter(tmp_path) -> None:
+    repository = SQLiteBookRepository(f"sqlite:///{tmp_path / 'book.db'}")
+
+    assert repository.next_chapter_version("book-1", 1) == 1
+    repository.save_chapter_version("book-1", 1, 1, "Draft v1")
+    repository.save_chapter_version("book-1", 1, 3, "Draft v3")
+    repository.save_chapter_version("book-1", 2, 1, "Chapter 2")
+
+    assert repository.next_chapter_version("book-1", 1) == 4
+    assert repository.next_chapter_version("book-1", 2) == 2
+    assert repository.next_chapter_version("book-2", 1) == 1
