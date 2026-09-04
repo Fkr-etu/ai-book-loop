@@ -28,6 +28,7 @@ class RecordingLLM:
         self.review_scores = iter(review_scores or [9])
         self.writer_contexts: list[str] = []
         self.calls: list[tuple[str, str]] = []
+        self.structured_calls: list[tuple[str, str]] = []
 
     def generate(self, *, system_prompt: str, user_prompt: str) -> str:
         self.calls.append((system_prompt, user_prompt))
@@ -42,6 +43,7 @@ class RecordingLLM:
         raise AssertionError(f"Unexpected system prompt: {system_prompt}")
 
     def generate_structured(self, *, system_prompt: str, user_prompt: str, schema: type[SceneReview], thinking_level: str = "medium", max_output_tokens: int | None = None) -> SceneReview:
+        self.structured_calls.append((system_prompt, user_prompt))
         del system_prompt, user_prompt, thinking_level, max_output_tokens
         score = next(self.review_scores)
         return schema(score=score, approved=score >= 7, issues=[], suggestions=[])
@@ -242,4 +244,4 @@ def test_validation_warning_reaches_reviewer_without_triggering_retry() -> None:
     assert result.attempt == 1
     assert len(repository.versions) == 1
     assert len(repository.reviews) == 1
-    assert "Possible agreement issue" in llm.calls[-1][1]
+    assert "Possible agreement issue" in llm.structured_calls[-1][1]
