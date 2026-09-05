@@ -1,0 +1,40 @@
+name: PostgreSQL Integration
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  postgres-tests:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: book_loop
+          POSTGRES_USER: book_loop
+          POSTGRES_PASSWORD: book_loop
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U book_loop -d book_loop"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://book_loop:book_loop@localhost:5432/book_loop
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: pip install -e '.[dev]'
+      - name: Run PostgreSQL integration tests
+        run: pytest tests/test_postgres_repository.py
