@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import json
+import uuid
 from typing import Any
-from urllib.parse import urlsplit, urlunsplit
 
 import psycopg
 from psycopg.rows import dict_row
@@ -68,7 +68,7 @@ class PostgresBookRepository(SQLiteBookRepository):
                 chapter_number INTEGER NOT NULL,
                 version INTEGER NOT NULL,
                 draft TEXT NOT NULL,
-                created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE(book_id, chapter_number, version)
             );
             CREATE TABLE IF NOT EXISTS reviews (
@@ -76,18 +76,18 @@ class PostgresBookRepository(SQLiteBookRepository):
                 book_id TEXT NOT NULL,
                 chapter_number INTEGER NOT NULL,
                 version INTEGER NOT NULL,
-                score INTEGER NOT NULL,
+                score DOUBLE PRECISION NOT NULL,
                 approved INTEGER NOT NULL,
                 issues TEXT NOT NULL,
                 suggestions TEXT NOT NULL,
-                created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             );
             CREATE TABLE IF NOT EXISTS users (
                 id TEXT PRIMARY KEY,
                 email TEXT UNIQUE NOT NULL,
                 password_hash TEXT NOT NULL,
                 name TEXT NOT NULL DEFAULT '',
-                created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             );
             CREATE TABLE IF NOT EXISTS source_documents (
                 id TEXT PRIMARY KEY,
@@ -98,7 +98,7 @@ class PostgresBookRepository(SQLiteBookRepository):
                 content_hash TEXT NOT NULL,
                 metadata TEXT NOT NULL,
                 version INTEGER NOT NULL,
-                created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE(book_id, content_hash)
             );
             CREATE TABLE IF NOT EXISTS document_chunks (
@@ -146,7 +146,7 @@ class PostgresBookRepository(SQLiteBookRepository):
                 decision TEXT NOT NULL,
                 reviewer_id TEXT,
                 rationale TEXT NOT NULL,
-                created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             );
             CREATE TABLE IF NOT EXISTS canonical_facts (
                 id TEXT PRIMARY KEY,
@@ -159,7 +159,7 @@ class PostgresBookRepository(SQLiteBookRepository):
                 decision_id TEXT NOT NULL,
                 version INTEGER NOT NULL,
                 active INTEGER NOT NULL,
-                created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE(book_id, subject, predicate, version)
             );
             """
@@ -181,8 +181,8 @@ class PostgresWorkflowRunStore:
                 idempotency_key TEXT NOT NULL,
                 status TEXT NOT NULL,
                 state TEXT NOT NULL,
-                created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE(book_id, chapter_number, idempotency_key)
             )
             """
@@ -196,8 +196,6 @@ class PostgresWorkflowRunStore:
         ).fetchone()
         if row is not None:
             return ChapterWorkflowRun.model_validate(json.loads(row["state"]))
-
-        import uuid
 
         run = ChapterWorkflowRun(id=str(uuid.uuid4()), book_id=book_id, chapter_number=chapter_number, idempotency_key=idempotency_key)
         self._connection.execute(
