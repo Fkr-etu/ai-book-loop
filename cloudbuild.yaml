@@ -11,31 +11,19 @@ substitutions:
 steps:
   - id: build-api
     name: gcr.io/cloud-builders/docker
-    args:
-      - build
-      - -t
-      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_API_REPOSITORY}/api:$COMMIT_SHA
-      - .
+    args: [build, -t, ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_API_REPOSITORY}/api:$COMMIT_SHA, .]
 
   - id: build-web
     name: gcr.io/cloud-builders/docker
-    args:
-      - build
-      - -t
-      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_WEB_REPOSITORY}/web:$COMMIT_SHA
-      - ./web
+    args: [build, -t, ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_WEB_REPOSITORY}/web:$COMMIT_SHA, ./web]
 
   - id: push-api
     name: gcr.io/cloud-builders/docker
-    args:
-      - push
-      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_API_REPOSITORY}/api:$COMMIT_SHA
+    args: [push, ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_API_REPOSITORY}/api:$COMMIT_SHA]
 
   - id: push-web
     name: gcr.io/cloud-builders/docker
-    args:
-      - push
-      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_WEB_REPOSITORY}/web:$COMMIT_SHA
+    args: [push, ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_WEB_REPOSITORY}/web:$COMMIT_SHA]
 
   - id: migrate
     name: gcr.io/google.com/cloudsdktool/cloud-sdk
@@ -48,7 +36,6 @@ steps:
       - --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_API_REPOSITORY}/api:$COMMIT_SHA
       - --region=${_REGION}
       - --service-account=${_MIGRATION_SERVICE_ACCOUNT}
-      - --set-env-vars=DATABASE_URL=secret:DATABASE_URL:1
       - --set-secrets=DATABASE_URL=DATABASE_URL:1
       - --set-cloudsql-instances=$PROJECT_ID:${_REGION}:${_DB_INSTANCE}
       - --command=alembic
