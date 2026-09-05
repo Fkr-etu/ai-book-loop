@@ -3,12 +3,15 @@ from __future__ import annotations
 import json
 import logging
 import sqlite3
+import time
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
 import psycopg
+
+from book_loop.workflow.chapter_graph import ChapterWorkflow
 
 
 logger = logging.getLogger("book_loop.observability")
@@ -64,18 +67,7 @@ class ObservabilityStore:
         event_id = str(uuid.uuid4())
         occurred_at = datetime.now(timezone.utc).isoformat()
         metadata = json.dumps(event.metadata, ensure_ascii=False, sort_keys=True)
-        params = (
-            event_id,
-            event.event_type,
-            occurred_at,
-            event.workflow_run_id,
-            event.book_id,
-            event.chapter_number,
-            event.attempt,
-            event.duration_ms,
-            event.status,
-            metadata,
-        )
+        params = (event_id, event.event_type, occurred_at, event.workflow_run_id, event.book_id, event.chapter_number, event.attempt, event.duration_ms, event.status, metadata)
         if self._postgres:
             self._connection.execute(
                 """INSERT INTO observability_events
@@ -91,15 +83,79 @@ class ObservabilityStore:
                 params,
             )
         self._connection.commit()
-        logger.info(json.dumps({"event": event.event_type, "event_id": event_id, "occurred_at": occurred_at, **{k: v for k, v in {
-            "workflow_run_id": event.workflow_run_id,
-            "book_id": event.book_id,
-            "chapter_number": event.chapter_number,
-            "attempt": event.attempt,
-            "duration_ms": event.duration_ms,
-            "status": event.status,
-        }.items() if v is not None}, "metadata": event.metadata}, ensure_ascii=False, sort_keys=True))
+        logger.info(json.dumps({"event": event.event_type, "event_id": event_id, "occurred_at": occurred_at, **{k: v for k, v in {"workflow_run_id": event.workflow_run_id, "book_id": event.book_id, "chapter_number": event.chapter_number, "attempt": event.attempt, "duration_ms": event.duration_ms, "status": event.status}.items() if v is not None}, "metadata": event.metadata}, ensure_ascii=False, sort_keys=True))
         return event_id
 
     def close(self) -> None:
         self._connection.close()
+
+
+class InstrumentedChapterWorkflow(ChapterWorkflow):
+    """Add low-cardinality workflow telemetry without changing workflow semantics."""
+
+    def __init__(self, *, observability: ObservabilityStore, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self.observability = observability
+        self._active_run_id: str | None = None
+        self._active_book_id: str | None = None
+        self._active_chapter: int | None = None
+
+    def _record_step(self, event_type: str, state, started: float, *, status: str | None = None, metadata: dict[str, Any] | None = None) -> None:
+        self.observability.record(
+            ObservabilityEvent(
+                event_type=event_type,
+                workflow_run_id=self._active_run_id,
+                book_id=self._active_book_id,
+                chapter_number=self._active_chapter,
+                attempt=getattr(state, "attempt", None),
+                duration_ms=max(0, int((time.perf_counter() - started) * 1000)),
+                status=status,
+                metadata=metadata or {},
+            )
+        )
+
+    def _write(self, state):
+        started = time.perf_counter()
+        result = super()._write(state)
+        self._record_step("chapter_generated", state, started, status="ok", metadata={"draft_chars": len(result["draft"])})
+        return result
+
+    def _review(self, state):
+        started = time.perf_counter()
+        result = super()._review(state)
+        self._record_step("chapter_reviewed", state, started, status=result["decision"], metadata={"review_score": result["review_score"], "issue_count": len(result["review"].issues)})
+        return result
+
+    def _correct(self, state):
+        started = time.perf_counter()
+        self.observability.record(ObservabilityEvent("correction_started", self._active_run_id, self._active_book_id, self._active_chapter, state.attempt))
+        result = super()._correct(state)
+        self._record_step("correction_completed", state, started, status="ok", metadata={"draft_chars": len(result["draft"])})
+        return result
+
+    def _summarize(self, state):
+        started = time.perf_counter()
+        result = super()._summarize(state)
+        self._record_step("chapter_approved", state, started, status="approved")
+        return result
+
+    def run(self, *, book, chapter_number: int, idempotency_key: str | None = None):
+        started = time.perf_counter()
+        key = idempotency_key or str(uuid.uuid4())
+        self._active_book_id = book.id
+        self._active_chapter = chapter_number
+        run = self.workflow_store.get_or_create(book_id=book.id, chapter_number=chapter_number, idempotency_key=key) if self.workflow_store else None
+        self._active_run_id = run.id if run else None
+        self.observability.record(ObservabilityEvent("workflow_started", self._active_run_id, book.id, chapter_number, run.attempt if run else 0, metadata={"idempotency_key": key}))
+        try:
+            result = super().run(book=book, chapter_number=chapter_number, idempotency_key=key)
+            status = "completed" if result.summary is not None else "needs_review"
+            self.observability.record(ObservabilityEvent("workflow_finished", self._active_run_id, book.id, chapter_number, result.attempt, max(0, int((time.perf_counter() - started) * 1000)), status))
+            return result
+        except Exception as exc:
+            self.observability.record(ObservabilityEvent("workflow_failed", self._active_run_id, book.id, chapter_number, metadata={"error_type": type(exc).__name__}))
+            raise
+        finally:
+            self._active_run_id = None
+            self._active_book_id = None
+            self._active_chapter = None
