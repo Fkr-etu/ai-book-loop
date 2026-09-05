@@ -24,46 +24,55 @@ function emptyBook(): BookState {
     constraints: [],
     outlineApproved: false,
     chapters: [],
-    characters: [],
-    loreItems: [],
-    graphNodes: [],
-    graphEdges: [],
-    reviews: [],
   };
 }
 
-function unsupported(feature: string): never {
-  throw new Error(`${feature} n'est pas encore exposé par l'API backend.`);
+function unsupported(feature: string): Promise<never> {
+  return Promise.reject(new Error(`${feature} n'est pas encore disponible via l'API réelle.`));
 }
 
-export class TypedBookApiAdapter implements BookApi {
-  async getBook(id: string): Promise<BookState> {
-    if (!id || id === EMPTY_BOOK_ID) return emptyBook();
+function toCanonicalContext(context: Awaited<ReturnType<typeof realApiClient.getChapterContext>>): CanonicalContextResponse {
+  const globalOutline = context.globalOutline?.chapters
+    .map((chapter) => `## Chapitre ${chapter.number}: ${chapter.title}\nObjectif: ${chapter.objective}\n${chapter.synopsis}`)
+    .join("\n\n") ?? "";
+
+  return {
+    authorIdea: context.authorIdea,
+    theme: context.theme,
+    lore: context.lore,
+    globalOutline,
+    constraints: context.constraints,
+    previousSummaries: context.previousSummaries,
+    currentObjective: context.currentObjective,
+    formattedContext: context.formattedContext,
+  };
+}
+
+export class RealBookApi implements BookApi {
+  async getBook(id = EMPTY_BOOK_ID): Promise<BookState> {
+    if (id === EMPTY_BOOK_ID) return emptyBook();
     return adaptBackendBook(await realApiClient.getBook(id));
   }
 
   async createBook(book: Partial<BookState>): Promise<BookState> {
-    return adaptBackendBook(
-      await realApiClient.createBook({
-        title: book.title || "Nouveau livre",
-        theme: book.theme || "",
-        author_idea: book.authorIdea || "",
-        lore: book.lore || "",
-        constraints: book.constraints || [],
-      })
-    );
+    return adaptBackendBook(await realApiClient.createBook({
+      title: book.title || "Nouveau Livre",
+      theme: book.theme || "",
+      author_idea: book.authorIdea || "",
+      lore: book.lore,
+      constraints: book.constraints,
+    }));
   }
 
   async updateBook(id: string, updates: Partial<BookState>): Promise<BookState> {
-    if (!id || id === EMPTY_BOOK_ID) return this.createBook(updates);
-
-    const payload: Record<string, unknown> = {};
-    if (updates.title !== undefined) payload.title = updates.title;
-    if (updates.theme !== undefined) payload.theme = updates.theme;
-    if (updates.authorIdea !== undefined) payload.author_idea = updates.authorIdea;
-    if (updates.lore !== undefined) payload.lore = updates.lore;
-    if (updates.constraints !== undefined) payload.constraints = updates.constraints;
-    return adaptBackendBook(await realApiClient.updateBook(id, payload));
+    if (id === EMPTY_BOOK_ID) return this.createBook(updates);
+    return adaptBackendBook(await realApiClient.updateBook(id, {
+      ...(updates.title !== undefined ? { title: updates.title } : {}),
+      ...(updates.theme !== undefined ? { theme: updates.theme } : {}),
+      ...(updates.authorIdea !== undefined ? { author_idea: updates.authorIdea } : {}),
+      ...(updates.lore !== undefined ? { lore: updates.lore } : {}),
+      ...(updates.constraints !== undefined ? { constraints: updates.constraints } : {}),
+    }));
   }
 
   async generateOutline(id: string): Promise<BookState> {
@@ -74,18 +83,19 @@ export class TypedBookApiAdapter implements BookApi {
     return adaptBackendBook(await realApiClient.approveOutline(id));
   }
 
-  async addChapter(id: string, _title: string, _objective: string): Promise<BookState> {
+  async addChapter(id: string, title: string, objective: string): Promise<BookState> {
     const current = await realApiClient.getBook(id);
     const nextNumber = current.chapters.length + 1;
-    return adaptBackendBook(await realApiClient.addChapter(id, nextNumber));
+    const updated = await realApiClient.addChapter(id, nextNumber);
+    return adaptBackendBook(updated);
   }
 
-  async generateChapter(id: string, chapterNumber: number) {
+  async generateChapter(id: string, chapterNumber: number): Promise<{ book: BookState; versionNumber: number; content: string }> {
     const result = await realApiClient.generateChapter(id, chapterNumber);
     return { book: adaptBackendBook(result.book), versionNumber: result.versionNumber, content: result.content };
   }
 
-  async reviewChapter(id: string, chapterNumber: number, versionNumber?: number, draftText?: string) {
+  async reviewChapter(id: string, chapterNumber: number, versionNumber?: number, draftText?: string): Promise<{ book: BookState; review: SceneReview }> {
     const result = await realApiClient.reviewChapter(id, chapterNumber, versionNumber, draftText);
     return { book: adaptBackendBook(result.book), review: result.review as SceneReview };
   }
@@ -99,8 +109,7 @@ export class TypedBookApiAdapter implements BookApi {
   }
 
   async getCanonicalContext(id: string, chapterNumber: number): Promise<CanonicalContextResponse> {
-    const context = await realApiClient.getChapterContext(id, chapterNumber);
-    return context as CanonicalContextResponse;
+    return toCanonicalContext(await realApiClient.getChapterContext(id, chapterNumber));
   }
 
   async createCharacter(_id: string, _char: Omit<Character, "id">): Promise<BookState> {
@@ -123,39 +132,28 @@ export class TypedBookApiAdapter implements BookApi {
   }
 
   async ingestDocument(id: string, name: string, content: string, sourceType?: string): Promise<IngestionResult> {
-    return (await realApiClient.ingestDocument(id, name, content, sourceType)) as IngestionResult;
+    return realApiClient.ingestDocument(id, name, content, sourceType);
   }
 
   async listAssertions(id: string): Promise<Assertion[]> {
-    return (await realApiClient.listAssertions(id)) as Assertion[];
+    return realApiClient.listAssertions(id) as Promise<Assertion[]>;
   }
 
   async reviewAssertion(id: string, assertionId: string, decision: "accept" | "reject" | "defer", rationale?: string): Promise<void> {
-    await realApiClient.reviewAssertion(id, assertionId, { decision, rationale });
+    return realApiClient.reviewAssertion(id, assertionId, decision, rationale);
   }
 
-  async registerUser(email: string, pass: string, name?: string): Promise<UserProfile> {
-    const result = await realApiClient.register(email, pass, name);
-    return { ...result.user, plan: "standard" };
+  async loginUser(email: string, password: string): Promise<UserProfile> {
+    return realApiClient.login(email, password) as Promise<UserProfile>;
   }
 
-  async loginUser(email: string, pass: string): Promise<UserProfile> {
-    const result = await realApiClient.login(email, pass);
-    return { ...result.user, plan: "standard" };
-  }
-
-  async logoutUser(): Promise<void> {
-    await realApiClient.logout();
+  async registerUser(email: string, password: string, name: string): Promise<UserProfile> {
+    return realApiClient.register(email, password, name) as Promise<UserProfile>;
   }
 
   async getCurrentUser(): Promise<UserProfile | null> {
-    try {
-      const result = await realApiClient.getCurrentUser();
-      return { ...result.user, plan: "standard" };
-    } catch {
-      return null;
-    }
+    return realApiClient.getCurrentUser() as Promise<UserProfile | null>;
   }
 }
 
-export const typedBookApi = new TypedBookApiAdapter();
+export const typedBookApi = new RealBookApi();
