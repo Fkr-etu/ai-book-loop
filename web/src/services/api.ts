@@ -1,27 +1,47 @@
-import { BookState, Chapter, Character, LoreItem, SceneReview, UserProfile, CanonicalContextResponse, SourceDocument, Assertion, IngestionResult } from "@/types";
+import {
+  BookState,
+  Chapter,
+  Character,
+  LoreItem,
+  SceneReview,
+  UserProfile,
+  CanonicalContextResponse,
+  SourceDocument,
+  Assertion,
+  IngestionResult
+} from "@/types";
 import { initialProjectData } from "@/lib/mockData";
 
 const STORAGE_KEY = "manuscript_studio_project";
-function loadStorageProject(): BookState { if (typeof window === "undefined") return initialProjectData; try { const raw = localStorage.getItem(STORAGE_KEY); return raw ? JSON.parse(raw) : initialProjectData; } catch { return initialProjectData; } }
+
+function loadStorageProject(): BookState {
+  if (typeof window === "undefined") return initialProjectData;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : initialProjectData;
+  } catch {
+    return initialProjectData;
+  }
+}
 function saveStorageProject(state: BookState): void { if (typeof window !== "undefined") { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch {} } }
 
-export interface BookApi {
-  getBook(id?: string): Promise<BookState>; createBook(book: Partial<BookState>): Promise<BookState>; updateBook(id: string, updates: Partial<BookState>): Promise<BookState>; generateOutline(id: string): Promise<BookState>; approveOutline(id: string): Promise<BookState>; addChapter(id: string, title: string, objective: string): Promise<BookState>; generateChapter(id: string, chapterNumber: number): Promise<{ book: BookState; versionNumber: number; content: string }>; reviewChapter(id: string, chapterNumber: number, versionNumber?: number, draftText?: string): Promise<{ book: BookState; review: SceneReview }>; approveChapter(id: string, chapterNumber: number): Promise<BookState>; rejectChapter(id: string, chapterNumber: number): Promise<BookState>; getCanonicalContext(id: string, chapterNumber: number): Promise<CanonicalContextResponse>; createCharacter(id: string, char: Omit<Character, "id">): Promise<BookState>; updateCharacter(id: string, charId: string, updates: Partial<Character>): Promise<BookState>; deleteCharacter(id: string, charId: string): Promise<BookState>; createLoreItem(id: string, item: Omit<LoreItem, "id">): Promise<BookState>; updateLoreItem(id: string, loreId: string, updates: Partial<LoreItem>): Promise<BookState>; deleteLoreItem(id: string, loreId: string): Promise<BookState>; ingestDocument(id: string, name: string, content: string, sourceType?: string): Promise<IngestionResult>; listAssertions(id: string): Promise<Assertion[]>; reviewAssertion(id: string, assertionId: string, decision: "accept" | "reject" | "defer", rationale?: string): Promise<void>; registerUser(email: string, pass: string, name?: string): Promise<UserProfile>; loginUser(email: string, pass: string): Promise<UserProfile>; logoutUser(): Promise<void>; getCurrentUser(): Promise<UserProfile | null>;
-}
+export interface BookApi { getBook(id?: string): Promise<BookState>; createBook(book: Partial<BookState>): Promise<BookState>; updateBook(id: string, updates: Partial<BookState>): Promise<BookState>; generateOutline(id: string): Promise<BookState>; approveOutline(id: string): Promise<BookState>; addChapter(id: string, title: string, objective: string): Promise<BookState>; generateChapter(id: string, chapterNumber: number): Promise<{ book: BookState; versionNumber: number; content: string }>; reviewChapter(id: string, chapterNumber: number, versionNumber?: number, draftText?: string): Promise<{ book: BookState; review: SceneReview }>; approveChapter(id: string, chapterNumber: number): Promise<BookState>; rejectChapter(id: string, chapterNumber: number): Promise<BookState>; getCanonicalContext(id: string, chapterNumber: number): Promise<CanonicalContextResponse>; createCharacter(id: string, char: Omit<Character, "id">): Promise<BookState>; updateCharacter(id: string, charId: string, updates: Partial<Character>): Promise<BookState>; deleteCharacter(id: string, charId: string): Promise<BookState>; createLoreItem(id: string, item: Omit<LoreItem, "id">): Promise<BookState>; updateLoreItem(id: string, loreId: string, updates: Partial<LoreItem>): Promise<BookState>; deleteLoreItem(id: string, loreId: string): Promise<BookState>; ingestDocument(id: string, name: string, content: string, sourceType?: string): Promise<IngestionResult>; listAssertions(id: string): Promise<Assertion[]>; reviewAssertion(id: string, assertionId: string, decision: "accept" | "reject" | "defer", rationale?: string): Promise<void>; registerUser(email: string, pass: string, name?: string): Promise<UserProfile>; loginUser(email: string, pass: string): Promise<UserProfile>; logoutUser(): Promise<void>; getCurrentUser(): Promise<UserProfile | null>; }
 
 export class MockBookApi implements BookApi {
   async getBook(): Promise<BookState> { return loadStorageProject(); }
-  async createBook(book: Partial<BookState>): Promise<BookState> { const value = { ...initialProjectData, id: `proj-${Date.now()}`, title: book.title || "Nouveau Livre", theme: book.theme || "Dark Fantasy", authorIdea: book.authorIdea || "", lore: book.lore || "", constraints: book.constraints || [], outlineApproved: false, chapters: [] }; saveStorageProject(value); return value; }
-  async updateBook(id: string, updates: Partial<BookState>): Promise<BookState> { const value = { ...loadStorageProject(), ...updates }; saveStorageProject(value); return value; }
+  async createBook(book: Partial<BookState>): Promise<BookState> { const newBook: BookState = { ...initialProjectData, id: `proj-${Date.now()}`, title: book.title || "Nouveau Livre", theme: book.theme || "Dark Fantasy", authorIdea: book.authorIdea || "", lore: book.lore || "", constraints: book.constraints || [], outlineApproved: false, chapters: [] }; saveStorageProject(newBook); return newBook; }
+  async updateBook(id: string, updates: Partial<BookState>): Promise<BookState> { const updated = { ...loadStorageProject(), ...updates }; saveStorageProject(updated); return updated; }
   async generateOutline(): Promise<BookState> { return loadStorageProject(); }
   async approveOutline(): Promise<BookState> { return loadStorageProject(); }
   async addChapter(id: string, title: string, objective: string): Promise<BookState> { const book = loadStorageProject(); const number = (book.chapters || []).length + 1; book.chapters = [...(book.chapters || []), { id: `ch-${number}`, number, title, objective, status: "draft", currentVersion: 0, versions: [], scenes: [] }]; saveStorageProject(book); return book; }
-  async generateChapter(id: string, chapterNumber: number): Promise<{ book: BookState; versionNumber: number; content: string }> { const book = loadStorageProject(); const ch = (book.chapters || []).find(c => c.number === chapterNumber); if (!ch) throw new Error(`Chapitre ${chapterNumber} introuvable.`); const versionNumber = (ch.currentVersion || 0) + 1; const content = `[Version ${versionNumber}] Chapitre ${chapterNumber}.`; ch.currentVersion = versionNumber; ch.status = "approved"; saveStorageProject(book); return { book, versionNumber, content }; }
-  async reviewChapter(): Promise<{ book: BookState; review: SceneReview }> { const book = loadStorageProject(); const review: SceneReview = { id: `rev-${Date.now()}`, score: 9, scoreStyle: 9, scoreCoherence: 9, approved: true, issues: [], suggestions: [], critique: "Mock review", timestamp: "À l'instant" }; return { book, review }; }
+  async generateChapter(id: string, chapterNumber: number): Promise<{ book: BookState; versionNumber: number; content: string }> { const book = loadStorageProject(); const ch = (book.chapters || []).find(c => c.number === chapterNumber); if (!ch) throw new Error(`Chapitre ${chapterNumber} introuvable.`); const versionNumber = (ch.currentVersion || 0) + 1; const content = `[Version ${versionNumber}] Chapitre ${chapterNumber}.`; ch.currentVersion = versionNumber; saveStorageProject(book); return { book, versionNumber, content }; }
+  async reviewChapter(): Promise<{ book: BookState; review: SceneReview }> { const book = loadStorageProject(); const review: SceneReview = { id: `rev-${Date.now()}`, score: 9, scoreStyle: 9, scoreCoherence: 9.5, approved: true, issues: [], suggestions: [], critique: "Mock review", timestamp: "À l'instant" }; return { book, review }; }
   async approveChapter(): Promise<BookState> { return loadStorageProject(); } async rejectChapter(): Promise<BookState> { return loadStorageProject(); }
   async getCanonicalContext(): Promise<CanonicalContextResponse> { const book = loadStorageProject(); return { authorIdea: book.authorIdea, theme: book.theme, lore: book.lore, globalOutline: book.outline || "", constraints: book.constraints || [], previousSummaries: "", currentObjective: "", formattedContext: book.authorIdea }; }
-  async createCharacter(id: string, char: Omit<Character, "id">): Promise<BookState> { const book = loadStorageProject(); book.characters = [...(book.characters || []), { ...char, id: `char-${Date.now()}` }]; saveStorageProject(book); return book; } async updateCharacter(id: string, charId: string, updates: Partial<Character>): Promise<BookState> { return loadStorageProject(); } async deleteCharacter(): Promise<BookState> { return loadStorageProject(); }
-  async createLoreItem(id: string, item: Omit<LoreItem, "id">): Promise<BookState> { const book = loadStorageProject(); book.loreItems = [...(book.loreItems || []), { ...item, id: `lore-${Date.now()}` }]; saveStorageProject(book); return book; } async updateLoreItem(): Promise<BookState> { return loadStorageProject(); } async deleteLoreItem(): Promise<BookState> { return loadStorageProject(); }
+  async createCharacter(id: string, char: Omit<Character, "id">): Promise<BookState> { const book = loadStorageProject(); const newChar = { ...char, id: `char-${Date.now()}` }; book.characters = [...(book.characters || []), newChar]; saveStorageProject(book); return book; }
+  async updateCharacter(): Promise<BookState> { return loadStorageProject(); } async deleteCharacter(): Promise<BookState> { return loadStorageProject(); }
+  async createLoreItem(id: string, item: Omit<LoreItem, "id">): Promise<BookState> { const book = loadStorageProject(); const newItem = { ...item, id: `lore-${Date.now()}` }; book.loreItems = [...(book.loreItems || []), newItem]; saveStorageProject(book); return book; }
+  async updateLoreItem(): Promise<BookState> { return loadStorageProject(); } async deleteLoreItem(): Promise<BookState> { return loadStorageProject(); }
   async ingestDocument(id: string, name: string, content: string, sourceType = "markdown"): Promise<IngestionResult> { const source: SourceDocument = { id: `doc-${Date.now()}`, book_id: id, name, source_type: sourceType, content, content_hash: "mockhash", version: 1 }; return { source_document: source, already_ingested: false, assertions: [] }; }
   async listAssertions(): Promise<Assertion[]> { return []; } async reviewAssertion(): Promise<void> {} async registerUser(email: string, pass: string, name?: string): Promise<UserProfile> { return { id: "usr-001", email, name: name || "Auteur MS", plan: "pro" }; } async loginUser(email: string): Promise<UserProfile> { return { id: "usr-001", email, name: "Valerius de Cendres", plan: "pro" }; } async logoutUser(): Promise<void> {} async getCurrentUser(): Promise<UserProfile | null> { return { id: "usr-001", email: "auteur@manuscript.studio", name: "Valerius de Cendres", plan: "pro" }; }
 }
