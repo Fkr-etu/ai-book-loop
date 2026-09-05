@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-import sqlite3
+from typing import Any
 
 from book_loop.domain.models import (
     Assertion,
@@ -18,124 +18,8 @@ from book_loop.domain.models import (
 )
 
 
-class SQLiteBookRepository:
-    def __init__(self, database_url: str) -> None:
-        self._path = database_url.removeprefix("sqlite:///")
-        self._connection = sqlite3.connect(self._path, check_same_thread=False)
-        self._connection.row_factory = sqlite3.Row
-        self._connection.executescript(
-            """
-            CREATE TABLE IF NOT EXISTS books (id TEXT PRIMARY KEY, data TEXT NOT NULL);
-            CREATE TABLE IF NOT EXISTS chapter_versions (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                book_id TEXT NOT NULL,
-                chapter_number INTEGER NOT NULL,
-                version INTEGER NOT NULL,
-                draft TEXT NOT NULL,
-                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(book_id, chapter_number, version)
-            );
-            CREATE TABLE IF NOT EXISTS reviews (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                book_id TEXT NOT NULL,
-                chapter_number INTEGER NOT NULL,
-                version INTEGER NOT NULL,
-                score INTEGER NOT NULL,
-                approved INTEGER NOT NULL,
-                issues TEXT NOT NULL,
-                suggestions TEXT NOT NULL,
-                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-            );
-            CREATE TABLE IF NOT EXISTS users (
-                id TEXT PRIMARY KEY,
-                email TEXT UNIQUE NOT NULL,
-                password_hash TEXT NOT NULL,
-                name TEXT NOT NULL DEFAULT '',
-                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-            );
-            CREATE TABLE IF NOT EXISTS source_documents (
-                id TEXT PRIMARY KEY,
-                book_id TEXT NOT NULL,
-                name TEXT NOT NULL,
-                source_type TEXT NOT NULL,
-                content TEXT NOT NULL,
-                content_hash TEXT NOT NULL,
-                metadata TEXT NOT NULL,
-                version INTEGER NOT NULL,
-                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(book_id, content_hash)
-            );
-            CREATE TABLE IF NOT EXISTS document_chunks (
-                id TEXT PRIMARY KEY,
-                source_document_id TEXT NOT NULL,
-                content TEXT NOT NULL,
-                sequence INTEGER NOT NULL,
-                start_offset INTEGER NOT NULL,
-                end_offset INTEGER NOT NULL,
-                metadata TEXT NOT NULL
-            );
-            CREATE TABLE IF NOT EXISTS assertions (
-                id TEXT PRIMARY KEY,
-                source_document_id TEXT NOT NULL,
-                chunk_id TEXT NOT NULL,
-                statement TEXT NOT NULL,
-                subject TEXT NOT NULL,
-                predicate TEXT NOT NULL,
-                object TEXT NOT NULL,
-                confidence REAL NOT NULL,
-                status TEXT NOT NULL,
-                evidence_id TEXT NOT NULL
-            );
-            CREATE TABLE IF NOT EXISTS evidence (
-                id TEXT PRIMARY KEY,
-                assertion_id TEXT NOT NULL,
-                source_document_id TEXT NOT NULL,
-                chunk_id TEXT NOT NULL,
-                start_offset INTEGER NOT NULL,
-                end_offset INTEGER NOT NULL,
-                excerpt TEXT NOT NULL
-            );
-            CREATE TABLE IF NOT EXISTS conflicts (
-                id TEXT PRIMARY KEY,
-                book_id TEXT NOT NULL,
-                left_assertion_id TEXT NOT NULL,
-                right_assertion_id TEXT NOT NULL,
-                status TEXT NOT NULL,
-                resolution_assertion_id TEXT,
-                UNIQUE(left_assertion_id, right_assertion_id)
-            );
-            CREATE TABLE IF NOT EXISTS review_decisions (
-                id TEXT PRIMARY KEY,
-                assertion_id TEXT NOT NULL,
-                decision TEXT NOT NULL,
-                reviewer_id TEXT,
-                rationale TEXT NOT NULL,
-                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-            );
-            CREATE TABLE IF NOT EXISTS canonical_facts (
-                id TEXT PRIMARY KEY,
-                book_id TEXT NOT NULL,
-                assertion_id TEXT NOT NULL,
-                statement TEXT NOT NULL,
-                subject TEXT NOT NULL,
-                predicate TEXT NOT NULL,
-                object TEXT NOT NULL,
-                decision_id TEXT NOT NULL,
-                version INTEGER NOT NULL,
-                active INTEGER NOT NULL,
-                previous_fact_id TEXT,
-                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(book_id, subject, predicate, version)
-            );
-            """
-        )
-        columns = {row[1] for row in self._connection.execute("PRAGMA table_info(canonical_facts)").fetchall()}
-        if "previous_fact_id" not in columns:
-            self._connection.execute("ALTER TABLE canonical_facts ADD COLUMN previous_fact_id TEXT")
-        self._connection.execute(
-            "CREATE UNIQUE INDEX IF NOT EXISTS uq_active_canonical_fact ON canonical_facts(book_id, subject, predicate) WHERE active = 1"
-        )
-        self._connection.commit()
+class BookRepositoryMixin:
+    """Persistence operations shared by the PostgreSQL repository adapter."""
 
     def save(self, book: BookState) -> None:
         data = json.dumps(book.model_dump(mode="json"))
@@ -170,7 +54,7 @@ class SQLiteBookRepository:
     def save_review(self, book_id: str, chapter_number: int, version: int, review: SceneReview) -> None:
         self._connection.execute(
             "INSERT INTO reviews(book_id, chapter_number, version, score, approved, issues, suggestions) VALUES(?, ?, ?, ?, ?, ?, ?)",
-            (book_id, chapter_number, version, review.score, int(review.approved), json.dumps(review.issues), json.dumps(review.suggestions)),
+            (book_id, chapter_number, version, review.score, review.approved, json.dumps(review.issues), json.dumps(review.suggestions)),
         )
         self._connection.commit()
 
@@ -211,20 +95,14 @@ class SQLiteBookRepository:
 
     def list_evidence(self, *, book_id: str) -> list[Evidence]:
         rows = self._connection.execute(
-            "SELECT e.* FROM evidence e JOIN source_documents s ON s.id = e.source_document_id WHERE s.book_id = ? ORDER BY e.rowid",
+            "SELECT e.* FROM evidence e JOIN source_documents s ON s.id = e.source_document_id WHERE s.book_id = ? ORDER BY e.id",
             (book_id,),
         ).fetchall()
-        return [
-            Evidence(
-                id=row["id"], assertion_id=row["assertion_id"], source_document_id=row["source_document_id"],
-                chunk_id=row["chunk_id"], start_offset=row["start_offset"], end_offset=row["end_offset"], excerpt=row["excerpt"],
-            )
-            for row in rows
-        ]
+        return [Evidence(id=row["id"], assertion_id=row["assertion_id"], source_document_id=row["source_document_id"], chunk_id=row["chunk_id"], start_offset=row["start_offset"], end_offset=row["end_offset"], excerpt=row["excerpt"]) for row in rows]
 
     def list_assertions(self, *, book_id: str) -> list[Assertion]:
         rows = self._connection.execute(
-            "SELECT a.* FROM assertions a JOIN source_documents s ON s.id = a.source_document_id WHERE s.book_id = ? ORDER BY a.rowid",
+            "SELECT a.* FROM assertions a JOIN source_documents s ON s.id = a.source_document_id WHERE s.book_id = ? ORDER BY a.id",
             (book_id,),
         ).fetchall()
         return [self._assertion_from_row(row) for row in rows]
@@ -243,14 +121,8 @@ class SQLiteBookRepository:
         self._connection.commit()
 
     def list_conflicts(self, *, book_id: str) -> list[Conflict]:
-        rows = self._connection.execute("SELECT * FROM conflicts WHERE book_id = ? ORDER BY rowid", (book_id,)).fetchall()
-        return [
-            Conflict(
-                id=row["id"], book_id=row["book_id"], left_assertion_id=row["left_assertion_id"],
-                right_assertion_id=row["right_assertion_id"], status=row["status"], resolution_assertion_id=row["resolution_assertion_id"],
-            )
-            for row in rows
-        ]
+        rows = self._connection.execute("SELECT * FROM conflicts WHERE book_id = ? ORDER BY id", (book_id,)).fetchall()
+        return [Conflict(id=row["id"], book_id=row["book_id"], left_assertion_id=row["left_assertion_id"], right_assertion_id=row["right_assertion_id"], status=row["status"], resolution_assertion_id=row["resolution_assertion_id"]) for row in rows]
 
     def resolve_conflict(self, left_assertion_id: str, right_assertion_id: str, resolution_assertion_id: str) -> None:
         left, right = sorted((left_assertion_id, right_assertion_id))
@@ -268,17 +140,8 @@ class SQLiteBookRepository:
         self._connection.commit()
 
     def list_review_decisions(self, *, assertion_id: str) -> list[ReviewDecision]:
-        rows = self._connection.execute(
-            "SELECT * FROM review_decisions WHERE assertion_id = ? ORDER BY rowid",
-            (assertion_id,),
-        ).fetchall()
-        return [
-            ReviewDecision(
-                id=row["id"], assertion_id=row["assertion_id"], decision=row["decision"],
-                reviewer_id=row["reviewer_id"], rationale=row["rationale"], created_at=row["created_at"],
-            )
-            for row in rows
-        ]
+        rows = self._connection.execute("SELECT * FROM review_decisions WHERE assertion_id = ? ORDER BY id", (assertion_id,)).fetchall()
+        return [ReviewDecision(id=row["id"], assertion_id=row["assertion_id"], decision=row["decision"], reviewer_id=row["reviewer_id"], rationale=row["rationale"], created_at=row["created_at"]) for row in rows]
 
     def next_canonical_version(self, *, book_id: str, subject: str, predicate: str) -> int:
         row = self._connection.execute(
@@ -289,7 +152,7 @@ class SQLiteBookRepository:
 
     def deactivate_canonical_facts(self, *, book_id: str, subject: str, predicate: str) -> None:
         self._connection.execute(
-            "UPDATE canonical_facts SET active = 0 WHERE book_id = ? AND subject = ? AND predicate = ? AND active = 1",
+            "UPDATE canonical_facts SET active = FALSE WHERE book_id = ? AND subject = ? AND predicate = ? AND active = TRUE",
             (book_id, subject, predicate),
         )
         self._connection.commit()
@@ -297,22 +160,16 @@ class SQLiteBookRepository:
     def save_canonical_fact(self, fact: CanonicalFact) -> None:
         self._connection.execute(
             "INSERT INTO canonical_facts(id, book_id, assertion_id, statement, subject, predicate, object, decision_id, version, active, previous_fact_id) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (fact.id, fact.book_id, fact.assertion_id, fact.statement, fact.subject, fact.predicate, fact.object, fact.decision_id, fact.version, int(fact.active), fact.previous_fact_id),
+            (fact.id, fact.book_id, fact.assertion_id, fact.statement, fact.subject, fact.predicate, fact.object, fact.decision_id, fact.version, fact.active, fact.previous_fact_id),
         )
         self._connection.commit()
 
     def list_active_canonical_facts(self, *, book_id: str) -> list[CanonicalFact]:
-        rows = self._connection.execute(
-            "SELECT * FROM canonical_facts WHERE book_id = ? AND active = 1 ORDER BY subject, predicate, version",
-            (book_id,),
-        ).fetchall()
+        rows = self._connection.execute("SELECT * FROM canonical_facts WHERE book_id = ? AND active = TRUE ORDER BY subject, predicate, version", (book_id,)).fetchall()
         return [self._canonical_fact_from_row(row) for row in rows]
 
     def list_canonical_fact_history(self, *, book_id: str, subject: str, predicate: str) -> list[CanonicalFact]:
-        rows = self._connection.execute(
-            "SELECT * FROM canonical_facts WHERE book_id = ? AND subject = ? AND predicate = ? ORDER BY version",
-            (book_id, subject, predicate),
-        ).fetchall()
+        rows = self._connection.execute("SELECT * FROM canonical_facts WHERE book_id = ? AND subject = ? AND predicate = ? ORDER BY version", (book_id, subject, predicate)).fetchall()
         return [self._canonical_fact_from_row(row) for row in rows]
 
     def set_assertion_status(self, assertion_id: str, status: AssertionStatus) -> None:
@@ -322,33 +179,19 @@ class SQLiteBookRepository:
         self._connection.commit()
 
     @staticmethod
-    def _source_from_row(row: sqlite3.Row) -> SourceDocument:
-        return SourceDocument(
-            id=row["id"], book_id=row["book_id"], name=row["name"], source_type=row["source_type"],
-            content=row["content"], content_hash=row["content_hash"], metadata=json.loads(row["metadata"]), version=row["version"],
-        )
+    def _source_from_row(row: Any) -> SourceDocument:
+        return SourceDocument(id=row["id"], book_id=row["book_id"], name=row["name"], source_type=row["source_type"], content=row["content"], content_hash=row["content_hash"], metadata=json.loads(row["metadata"]), version=row["version"])
 
     @staticmethod
-    def _assertion_from_row(row: sqlite3.Row) -> Assertion:
-        return Assertion(
-            id=row["id"], source_document_id=row["source_document_id"], chunk_id=row["chunk_id"],
-            statement=row["statement"], subject=row["subject"], predicate=row["predicate"], object=row["object"],
-            confidence=row["confidence"], status=row["status"], evidence_id=row["evidence_id"],
-        )
+    def _assertion_from_row(row: Any) -> Assertion:
+        return Assertion(id=row["id"], source_document_id=row["source_document_id"], chunk_id=row["chunk_id"], statement=row["statement"], subject=row["subject"], predicate=row["predicate"], object=row["object"], confidence=row["confidence"], status=row["status"], evidence_id=row["evidence_id"])
 
     @staticmethod
-    def _canonical_fact_from_row(row: sqlite3.Row) -> CanonicalFact:
-        return CanonicalFact(
-            id=row["id"], book_id=row["book_id"], assertion_id=row["assertion_id"], statement=row["statement"],
-            subject=row["subject"], predicate=row["predicate"], object=row["object"], decision_id=row["decision_id"],
-            version=row["version"], active=bool(row["active"]), previous_fact_id=row["previous_fact_id"],
-        )
+    def _canonical_fact_from_row(row: Any) -> CanonicalFact:
+        return CanonicalFact(id=row["id"], book_id=row["book_id"], assertion_id=row["assertion_id"], statement=row["statement"], subject=row["subject"], predicate=row["predicate"], object=row["object"], decision_id=row["decision_id"], version=row["version"], active=bool(row["active"]), previous_fact_id=row["previous_fact_id"])
 
     def create_user(self, user: User) -> User:
-        self._connection.execute(
-            "INSERT INTO users(id, email, password_hash, name) VALUES(?, ?, ?, ?)",
-            (user.id, user.email.lower().strip(), user.password_hash, user.name),
-        )
+        self._connection.execute("INSERT INTO users(id, email, password_hash, name) VALUES(?, ?, ?, ?)", (user.id, user.email.lower().strip(), user.password_hash, user.name))
         self._connection.commit()
         return self.get_user_by_email(user.email)  # type: ignore
 

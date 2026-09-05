@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     llm_provider: str = "gemini"
     llm_model: str = "gemini-3.6-flash"
     gemini_api_key: str = ""
-    database_url: str = "sqlite:///./book_loop.db"
+    database_url: str = "postgresql://book_loop:book_loop@localhost:5432/book_loop"
     max_retries: int = 3
     review_threshold: int = 7
     linguistic_checker: str = "disabled"

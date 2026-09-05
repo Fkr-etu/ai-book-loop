@@ -1,21 +1,18 @@
 from __future__ import annotations
 
+import os
+
 from fastapi.testclient import TestClient
 
 from book_loop.api.app import create_app
 from book_loop.infrastructure.config import Settings
 from book_loop.infrastructure.container import Container
-from book_loop.infrastructure.database.repository import SQLiteBookRepository
+from book_loop.infrastructure.database.postgres import PostgresBookRepository
 from book_loop.domain.models import User
-from book_loop.infrastructure.auth import (
-    COOKIE_NAME,
-    create_access_token,
-    decode_access_token,
-    hash_password,
-    verify_password,
-)
+from book_loop.infrastructure.auth import COOKIE_NAME, create_access_token, decode_access_token, hash_password, verify_password
 
 TEST_SECRET = "test-secret-key-for-auth"
+DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://book_loop:book_loop@localhost:5432/book_loop_test")
 
 
 def test_password_hashing():
@@ -35,15 +32,9 @@ def test_jwt_token():
     assert "email" not in decoded
 
 
-def test_user_repository_crud(tmp_path):
-    db_path = f"sqlite:///{tmp_path}/test.db"
-    repo = SQLiteBookRepository(db_path)
-    user = User(
-        id="usr-test-1",
-        email="AUTHOR@example.com",
-        password_hash=hash_password("password123"),
-        name="Auteur Test",
-    )
+def test_user_repository_crud():
+    repo = PostgresBookRepository(DATABASE_URL)
+    user = User(id="usr-test-1", email="AUTHOR@example.com", password_hash=hash_password("password123"), name="Auteur Test")
     created = repo.create_user(user)
     assert created.id == "usr-test-1"
     assert created.email == "author@example.com"
@@ -51,22 +42,15 @@ def test_user_repository_crud(tmp_path):
     assert repo.get_user_by_id("usr-test-1") is not None
 
 
-def test_auth_endpoints_flow(tmp_path):
-    settings = Settings(database_url=f"sqlite:///{tmp_path}/test.db", auth_secret_key=TEST_SECRET)
+def test_auth_endpoints_flow():
+    settings = Settings(database_url=DATABASE_URL, auth_secret_key=TEST_SECRET)
     client = TestClient(create_app(Container(settings=settings)))
-
     assert client.get("/api/auth/me").status_code == 401
-
-    payload = {
-        "email": "newauthor@manuscript.studio",
-        "password": "securePassword123",
-        "name": "Nouveau Romancier",
-    }
+    payload = {"email": "newauthor@manuscript.studio", "password": "securePassword123", "name": "Nouveau Romancier"}
     response = client.post("/api/auth/register", json=payload)
     assert response.status_code == 201
     assert COOKIE_NAME in response.cookies
     assert client.get("/api/auth/me").status_code == 200
-
     assert client.post("/api/auth/register", json=payload).status_code == 400
     assert client.post("/api/auth/logout").status_code == 200
     assert client.get("/api/auth/me").status_code == 401
