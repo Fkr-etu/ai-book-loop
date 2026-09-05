@@ -26,6 +26,7 @@ from book_loop.application.use_cases.update_book import UpdateBook
 from book_loop.application.use_cases.update_outline import UpdateOutline
 from book_loop.infrastructure.config import Settings
 from book_loop.infrastructure.database.repository import SQLiteBookRepository
+from book_loop.infrastructure.database.workflow_store import SQLiteWorkflowRunStore
 from book_loop.infrastructure.llm.assertion_extractor import LLMAssertionExtractor
 from book_loop.infrastructure.llm.factory import create_llm
 from book_loop.infrastructure.linguistic.languagetool import LanguageToolChecker
@@ -39,6 +40,7 @@ class Container:
     def __init__(self, settings: Settings | None = None) -> None:
         self.settings = settings or Settings()
         self.repository = SQLiteBookRepository(self.settings.database_url)
+        self.workflow_store = SQLiteWorkflowRunStore(self.settings.database_url)
         self.llm = create_llm(self.settings)
 
         self.outline_agent = OutlineAgent(self.llm)
@@ -61,12 +63,11 @@ class Container:
             linguistic_language=self.settings.linguistic_language,
             max_retries=self.settings.max_retries,
             review_threshold=self.settings.review_threshold,
+            workflow_store=self.workflow_store,
         )
 
     def _contextualize_linguistic_diagnostics(self, chapter: str, diagnostics):
-        return self.linguistic_contextualizer.review(
-            chapter=chapter, diagnostics=diagnostics
-        )
+        return self.linguistic_contextualizer.review(chapter=chapter, diagnostics=diagnostics)
 
     def _linguistic_validator(self, book):
         mode = self.settings.linguistic_checker.strip().lower()
@@ -88,9 +89,7 @@ class Container:
                 )
             )
         if not checkers:
-            raise ValueError(
-                "Unsupported LINGUISTIC_CHECKER value; use disabled, languagetool, spacy, canon, both or all"
-            )
+            raise ValueError("Unsupported LINGUISTIC_CHECKER value; use disabled, languagetool, spacy, canon, both or all")
         return LinguisticValidationService(checkers)
 
     def create_book(self) -> CreateBook:
@@ -118,25 +117,14 @@ class Container:
         return GenerateChapter(self.chapter_workflow)
 
     def review_chapter(self) -> ReviewChapter:
-        return ReviewChapter(
-            repository=self.repository,
-            reviewer=self.reviewer_agent,
-            context_builder=self.context_builder,
-            linter=self.linter,
-            max_retries=self.settings.max_retries,
-            threshold=self.settings.review_threshold,
-        )
+        return ReviewChapter(repository=self.repository, reviewer=self.reviewer_agent, context_builder=self.context_builder, linter=self.linter, max_retries=self.settings.max_retries, threshold=self.settings.review_threshold)
 
     def approve_chapter(self) -> ApproveChapter:
         return ApproveChapter(self.repository)
 
     def approve_chapter_and_sync_canon(self) -> ApproveChapterAndSyncCanon:
         extractor = LLMAssertionExtractor(self.llm)
-        return ApproveChapterAndSyncCanon(
-            book_repository=self.repository,
-            knowledge_repository=self.repository,
-            extractor=extractor,
-        )
+        return ApproveChapterAndSyncCanon(book_repository=self.repository, knowledge_repository=self.repository, extractor=extractor)
 
     def reject_chapter(self) -> RejectChapter:
         return RejectChapter(self.repository)
@@ -147,11 +135,7 @@ class Container:
 
     def extract_chapter_assertions(self) -> ExtractChapterAssertions:
         extractor = LLMAssertionExtractor(self.llm)
-        return ExtractChapterAssertions(
-            book_repository=self.repository,
-            knowledge_repository=self.repository,
-            extractor=extractor,
-        )
+        return ExtractChapterAssertions(book_repository=self.repository, knowledge_repository=self.repository, extractor=extractor)
 
     def review_assertion(self) -> ReviewAssertion:
         return ReviewAssertion(self.repository)
