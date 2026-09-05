@@ -1,85 +1,156 @@
-# Guide de Déploiement Production : Vercel (Frontend) + GCP Cloud Run (Backend) + Supabase (PostgreSQL)
+# Guide de déploiement production — GCP uniquement
 
-Ce guide détaille le processus complet et les bonnes pratiques DevOps pour déployer l'application **AI Book Loop / Manuscript Studio**.
+Ce guide décrit le déploiement cible de **AI Book Loop / Manuscript Studio** sur une seule plateforme : Google Cloud.
 
----
+## 1. Architecture cible
 
-## 1. Audit & Bonnes Pratiques Architecture DevOps
+```text
+GitHub
+  │
+  ▼
+Cloud Build
+  ├── Artifact Registry
+  │     ├── book-loop-api
+  │     └── book-loop-web
+  │
+  ├── Cloud Run
+  │     ├── book-loop-api (FastAPI)
+  │     └── book-loop-web (Next.js)
+  │
+  └── Cloud Run Job
+        └── book-loop-migrate (Alembic)
 
-### A. Communication Cross-Domain & Cookies d'Authentification
-- Le frontend étant hébergé sur Vercel (`*.vercel.app`) et le backend sur Cloud Run (`*.a.run.app`), les domaines sont distincts.
-- **Cookies JWT** : pour autoriser l'envoi du cookie de session d'un domaine à un autre, définissez sur Cloud Run :
-  - `AUTH_COOKIE_SECURE=true` (requis pour HTTPS)
-  - `AUTH_COOKIE_SAMESITE=none` (requis pour l'envoi cross-origin)
-  - `CORS_ALLOWED_ORIGINS=["https://votre-app.vercel.app"]`.
+Cloud SQL PostgreSQL
+Secret Manager
+Cloud Logging
+```
 
-### B. Sécurité du Conteneur Cloud Run
-- Le `Dockerfile` fourni utilise un **multi-stage build** et s'exécute sous un utilisateur non-root (`appuser`).
-- Uvicorn est configuré avec `--proxy-headers` et `--forwarded-allow-ips='*'` pour transmettre correctement les en-têtes HTTPS à FastAPI derrière Cloud Run.
-- L'application expose `GET /health` comme endpoint de liveness léger, sans dépendance à Gemini ou à une session utilisateur.
+Les composants sont volontairement regroupés en `europe-west1` afin de limiter la complexité et les coûts réseau.
 
----
+## 2. Choix MVP pragmatiques
 
-## 2. Étapes de Déploiement
+- Cloud Run avec `min=0` pour API et frontend.
+- `max=3` instances au départ pour éviter une dérive accidentelle des coûts.
+- 512 MiB et 1 vCPU par service au départ.
+- Cloud SQL PostgreSQL en petite instance shared-core, sans haute disponibilité.
+- Pas de Load Balancer, GKE, Memorystore, Cloud NAT ou architecture réseau complexe au MVP.
+- Artifact Registry dans la même région que Cloud Run.
+- Secrets dans Secret Manager ; aucun secret dans Git.
+- Alembic exécuté par un Cloud Run Job **avant** le déploiement applicatif.
 
-### Étape 1 : Base de Données — Supabase (PostgreSQL)
-1. Créez un projet sur Supabase.
-2. Dans **Project Settings** > **Database**, récupérez l'URI de connexion **Connection Pooler** (Mode Transaction - port 6543) :
-   `postgresql://postgres.[PROJECT_ID]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres?sslmode=require`
+La capacité pourra être augmentée sans changer l'architecture applicative.
 
-### Étape 2 : Backend API — GCP Cloud Run (Python FastAPI)
+## 3. Préparer le projet GCP
 
-1. Authentifiez-vous sur Google Cloud :
-   ```bash
-   gcloud auth login
-   gcloud config set project [VOTRE_PROJECT_ID_GCP]
-   ```
-2. Activez les services requis :
-   ```bash
-   gcloud services enable run.googleapis.com cloudbuild.googleapis.com
-   ```
-3. Buildez l'image Docker multi-stage avec Cloud Build :
-   ```bash
-   gcloud builds submit --tag gcr.io/[VOTRE_PROJECT_ID_GCP]/book-loop-api:latest .
-   ```
-4. Déployez le conteneur sur Cloud Run avec les noms de variables réellement consommés par `Settings` :
-   ```bash
-   gcloud run deploy book-loop-api \
-     --image gcr.io/[VOTRE_PROJECT_ID_GCP]/book-loop-api:latest \
-     --platform managed \
-     --region europe-west1 \
-     --allow-unauthenticated \
-     --set-env-vars '^||^DATABASE_URL=postgresql://...||GEMINI_API_KEY=...||AUTH_SECRET_KEY=...||AUTH_COOKIE_SECURE=true||AUTH_COOKIE_SAMESITE=none||CORS_ALLOWED_ORIGINS=["https://votre-app.vercel.app"]'
-   ```
+```bash
+gcloud auth login
+gcloud config set project [PROJECT_ID]
 
-   Le séparateur `||` évite les collisions avec les virgules présentes dans les valeurs JSON et permet de conserver l'URL PostgreSQL telle quelle.
+gcloud services enable \
+  run.googleapis.com \
+  cloudbuild.googleapis.com \
+  artifactregistry.googleapis.com \
+  sqladmin.googleapis.com \
+  secretmanager.googleapis.com
+```
 
-5. Vérifiez le backend avant de configurer Vercel :
-   ```bash
-   curl https://book-loop-api-xxx-ew.a.run.app/health
-   ```
-   Résultat attendu :
-   ```json
-   {"status":"ok"}
-   ```
-6. Copiez l'URL HTTPS attribuée par Cloud Run.
+Créer le dépôt Artifact Registry :
 
-### Étape 3 : Frontend UI — Vercel (Next.js)
+```bash
+gcloud artifacts repositories create book-loop \
+  --repository-format=docker \
+  --location=europe-west1 \
+  --description="AI Book Loop container images"
+```
 
-1. Connectez le projet sur Vercel.
-2. Définissez :
-   - **Root Directory** : `web`
-   - **Framework Preset** : Next.js
-3. Ajoutez :
-   - `NEXT_PUBLIC_API_URL` = URL HTTPS du backend Cloud Run
-4. Déployez.
+## 4. Cloud SQL PostgreSQL
 
----
+Créer une petite instance PostgreSQL dans `europe-west1` adaptée au MVP, sans HA.
 
-## 3. Vérification & Tests
+Créer ensuite la base et l'utilisateur applicatif. La valeur complète de connexion doit être stockée dans Secret Manager sous `book-loop-database-url`.
 
-1. **Liveness Cloud Run** : `GET /health` doit retourner HTTP 200 et `{"status":"ok"}`.
-2. **OpenAPI** : ouvrez `/docs` sur l'URL Cloud Run.
-3. **Authentification** : testez register → login → `/api/auth/me` depuis le frontend Vercel.
-4. **Persistance** : vérifiez la création d'un livre dans Supabase PostgreSQL.
-5. **Cross-origin** : vérifiez que le cookie de session est bien conservé entre Vercel et Cloud Run.
+Pour une connexion Cloud Run via Cloud SQL, la valeur recommandée est une URL PostgreSQL utilisant le socket Cloud SQL, par exemple :
+
+```text
+postgresql+psycopg://BOOK_USER:BOOK_PASSWORD@/book_loop?host=/cloudsql/PROJECT_ID:europe-west1:INSTANCE_NAME
+```
+
+Le compte de service d'exécution Cloud Run doit disposer de `roles/cloudsql.client`.
+
+## 5. Secrets
+
+Créer au minimum :
+
+- `book-loop-database-url`
+- `book-loop-gemini-api-key`
+- `book-loop-jwt-secret`
+
+Puis donner au compte de service d'exécution le rôle `roles/secretmanager.secretAccessor` sur ces secrets.
+
+Le compte de service utilisé par Cloud Build doit également pouvoir déployer Cloud Run, écrire dans Artifact Registry et exécuter le job de migration.
+
+## 6. Déploiement automatisé
+
+`cloudbuild.yaml` construit les deux images, pousse les images dans Artifact Registry, exécute les migrations Alembic puis déploie les services Cloud Run.
+
+Ordre :
+
+1. build API ;
+2. push API ;
+3. migration Alembic ;
+4. déploiement API ;
+5. récupération de l'URL API ;
+6. build frontend avec `NEXT_PUBLIC_API_URL` ;
+7. push frontend ;
+8. déploiement frontend ;
+9. mise à jour de `CORS_ORIGINS` avec l'URL Cloud Run du frontend.
+
+Les migrations ne sont donc pas lancées au démarrage de chaque instance Cloud Run.
+
+## 7. Déclenchement recommandé
+
+Pour conserver le comportement de livraison défini précédemment :
+
+- branches de fonctionnalité : CI uniquement ;
+- Pull Requests : CI uniquement ;
+- `main` : CI uniquement ;
+- branche `release` : Cloud Build → production.
+
+Configurer dans Cloud Build un trigger GitHub sur `release` pointant vers `cloudbuild.yaml`.
+
+## 8. Vérification post-déploiement
+
+```bash
+gcloud run services describe book-loop-api --region=europe-west1
+gcloud run services describe book-loop-web --region=europe-west1
+```
+
+Vérifier ensuite :
+
+- `GET /health` de l'API retourne HTTP 200 ;
+- `/docs` est accessible sur l'API ;
+- le frontend charge correctement ;
+- register → login → `/api/auth/me` fonctionne ;
+- la création d'un livre persiste dans Cloud SQL ;
+- une migration Alembic est bien enregistrée dans `alembic_version`.
+
+## 9. Sécurité et coûts
+
+Ne jamais placer `DATABASE_URL`, `GEMINI_API_KEY` ou `JWT_SECRET_KEY` dans `cloudbuild.yaml`, `.env` committé ou les images.
+
+Le pipeline est conçu pour un projet sans client : aucune instance Cloud Run minimale, aucune HA PostgreSQL et aucun composant réseau coûteux ne sont activés par défaut.
+
+Le principal coût fixe est Cloud SQL. Cloud Run, Artifact Registry et Cloud Build restent proportionnels à l'utilisation pour un trafic faible.
+
+## 10. Évolution future
+
+Lorsque Book aura de la traction :
+
+1. augmenter la taille Cloud SQL ;
+2. activer les backups/PITR et la HA si nécessaire ;
+3. augmenter les limites Cloud Run ;
+4. ajouter un domaine personnalisé et HTTPS applicatif ;
+5. ajouter monitoring/alerting plus poussé ;
+6. uniquement si nécessaire, introduire des composants réseau ou de scaling supplémentaires.
+
+Cette migration d'infrastructure ne modifie pas la roadmap fonctionnelle de Book.
