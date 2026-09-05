@@ -52,6 +52,10 @@ class _PostgresConnectionAdapter:
         if self._transaction_depth == 0:
             self._connection.commit()
 
+    def rollback(self) -> None:
+        if self._transaction_depth == 0:
+            self._connection.rollback()
+
     @contextmanager
     def transaction(self) -> Iterator[None]:
         outermost = self._transaction_depth == 0
@@ -98,6 +102,7 @@ class PostgresBookRepository(BookRepositoryMixin):
         )
         self._connection._connection.execute("ALTER TABLE canonical_facts ADD COLUMN IF NOT EXISTS previous_fact_id TEXT")
         self._connection._connection.execute("CREATE UNIQUE INDEX IF NOT EXISTS uq_active_canonical_fact ON canonical_facts(book_id, subject, predicate) WHERE active = TRUE")
+        self._connection._connection.execute("CREATE UNIQUE INDEX IF NOT EXISTS uq_conflict_assertion_pair ON conflicts(left_assertion_id, right_assertion_id)")
         self._connection.commit()
 
     @contextmanager
