@@ -77,7 +77,7 @@ class PostgresBookRepository(SQLiteBookRepository):
                 chapter_number INTEGER NOT NULL,
                 version INTEGER NOT NULL,
                 score DOUBLE PRECISION NOT NULL,
-                approved INTEGER NOT NULL,
+                approved BOOLEAN NOT NULL,
                 issues TEXT NOT NULL,
                 suggestions TEXT NOT NULL,
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -158,10 +158,24 @@ class PostgresBookRepository(SQLiteBookRepository):
                 object TEXT NOT NULL,
                 decision_id TEXT NOT NULL,
                 version INTEGER NOT NULL,
-                active INTEGER NOT NULL,
+                active BOOLEAN NOT NULL,
+                previous_fact_id TEXT,
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE(book_id, subject, predicate, version)
             );
+            """
+        )
+        # Existing PostgreSQL installations created by PR #72 may already have
+        # canonical_facts without the C1 history pointer. Keep startup upgrades
+        # backwards compatible until a formal migration system is introduced.
+        self._connection._connection.execute(
+            "ALTER TABLE canonical_facts ADD COLUMN IF NOT EXISTS previous_fact_id TEXT"
+        )
+        self._connection._connection.execute(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS uq_active_canonical_fact
+            ON canonical_facts(book_id, subject, predicate)
+            WHERE active = TRUE
             """
         )
         self._connection.commit()
