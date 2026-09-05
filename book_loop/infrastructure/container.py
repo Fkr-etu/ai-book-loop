@@ -28,8 +28,6 @@ from book_loop.application.use_cases.update_book import UpdateBook
 from book_loop.application.use_cases.update_outline import UpdateOutline
 from book_loop.infrastructure.config import Settings
 from book_loop.infrastructure.database.postgres import PostgresBookRepository, PostgresWorkflowRunStore
-from book_loop.infrastructure.database.repository import SQLiteBookRepository
-from book_loop.infrastructure.database.workflow_store import SQLiteWorkflowRunStore
 from book_loop.infrastructure.llm.assertion_extractor import LLMAssertionExtractor
 from book_loop.infrastructure.llm.factory import create_llm
 from book_loop.infrastructure.linguistic.languagetool import LanguageToolChecker
@@ -42,14 +40,10 @@ class Container:
 
     def __init__(self, settings: Settings | None = None) -> None:
         self.settings = settings or Settings()
-        if self.settings.database_url.startswith(("postgresql://", "postgres://", "postgresql+psycopg://")):
-            self.repository = PostgresBookRepository(self.settings.database_url)
-            self.workflow_store = PostgresWorkflowRunStore(self.settings.database_url)
-        elif self.settings.database_url.startswith("sqlite:///"):
-            self.repository = SQLiteBookRepository(self.settings.database_url)
-            self.workflow_store = SQLiteWorkflowRunStore(self.settings.database_url)
-        else:
-            raise ValueError("Unsupported DATABASE_URL; use sqlite:///... or postgresql://...")
+        if not self.settings.database_url.startswith(("postgresql://", "postgres://", "postgresql+psycopg://")):
+            raise ValueError("Unsupported DATABASE_URL; PostgreSQL is required (postgresql://...)")
+        self.repository = PostgresBookRepository(self.settings.database_url)
+        self.workflow_store = PostgresWorkflowRunStore(self.settings.database_url)
         self.llm = create_llm(self.settings)
 
         self.outline_agent = OutlineAgent(self.llm)
