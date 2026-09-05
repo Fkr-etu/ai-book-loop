@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 from threading import Lock
+from time import monotonic
 from typing import Literal
 from uuid import uuid4
 
@@ -27,6 +28,7 @@ from book_loop.domain.models import (
 )
 from book_loop.domain.workflow import ChapterWorkflowRun, WorkflowRunStatus, WorkflowStep
 from book_loop.domain.protocols import BookRepository
+from book_loop.infrastructure.observability import ObservabilityEvent, ObservabilityStore
 
 
 @dataclass
@@ -40,6 +42,7 @@ class ChapterWorkflowState:
     decision: str | None = None
     summary: str | None = None
     idempotency_key: str = ""
+    workflow_run_id: str = ""
     step: str = WorkflowStep.WRITE.value
 
 
@@ -49,7 +52,7 @@ class ChapterWorkflow:
     _locks: dict[str, Lock] = {}
     _locks_guard = Lock()
 
-    def __init__(self, *, repository: BookRepository, writer: WriterAgent, reviewer: ReviewerAgent, summarizer: SummarizerAgent, context_builder: ContextBuilder, linter: ChapterLinter, corrector: CorrectorAgent | None = None, linguistic_validator_factory: Callable[[BookState], LinguisticValidationService] | None = None, linguistic_contextualizer: Callable[[str, list[Diagnostic]], list[Diagnostic]] | None = None, linguistic_language: str = "fr", max_retries: int = 3, review_threshold: int = 7, workflow_store=None) -> None:
+    def __init__(self, *, repository: BookRepository, writer: WriterAgent, reviewer: ReviewerAgent, summarizer: SummarizerAgent, context_builder: ContextBuilder, linter: ChapterLinter, corrector: CorrectorAgent | None = None, linguistic_validator_factory: Callable[[BookState], LinguisticValidationService] | None = None, linguistic_contextualizer: Callable[[str, list[Diagnostic]], list[Diagnostic]] | None = None, linguistic_language: str = "fr", max_retries: int = 3, review_threshold: int = 7, workflow_store=None, observability: ObservabilityStore | None = None) -> None:
         if max_retries <= 0:
             raise ValueError("max_retries must be positive")
         if not linguistic_language.strip():
@@ -67,11 +70,27 @@ class ChapterWorkflow:
         self.max_retries = max_retries
         self.review_threshold = review_threshold
         self.workflow_store = workflow_store
+        self.observability = observability
 
     @classmethod
     def _lock_for(cls, key: str) -> Lock:
         with cls._locks_guard:
             return cls._locks.setdefault(key, Lock())
+
+    def _emit(self, event_type: str, state: ChapterWorkflowState, *, status: str = "completed", duration_ms: int | None = None, **metadata) -> None:
+        if self.observability is None:
+            return
+        self.observability.record(ObservabilityEvent(event_type=event_type, workflow_run_id=state.workflow_run_id or None, book_id=state.book.id, chapter_number=state.chapter_number, attempt=state.attempt, duration_ms=duration_ms, status=status, metadata=metadata))
+
+    def _timed(self, event_type: str, state: ChapterWorkflowState, action: Callable[[], dict], **metadata) -> dict:
+        started = monotonic()
+        try:
+            result = action()
+        except Exception as exc:
+            self._emit(event_type, state, status="error", duration_ms=int((monotonic() - started) * 1000), error_type=type(exc).__name__, error=str(exc), **metadata)
+            raise
+        self._emit(event_type, state, duration_ms=int((monotonic() - started) * 1000), **metadata)
+        return result
 
     def _next_attempt(self, state: ChapterWorkflowState) -> int:
         attempt = state.attempt + 1
@@ -82,12 +101,15 @@ class ChapterWorkflow:
                 return attempt
             attempt += 1
 
-    def _write(self, state: ChapterWorkflowState) -> dict:
+    def _write_impl(self, state: ChapterWorkflowState) -> dict:
         context = self.context_builder.for_chapter(state.book, state.chapter_number)
         draft = self.writer.write(context=context)
         attempt = self._next_attempt(state)
         self.repository.save_chapter_version(state.book.id, state.chapter_number, attempt, draft)
         return {"draft": draft, "attempt": attempt}
+
+    def _write(self, state: ChapterWorkflowState) -> dict:
+        return self._timed("ChapterGenerated", state, lambda: self._write_impl(state))
 
     @staticmethod
     def _review_from_linguistic_diagnostics(diagnostics: list[Diagnostic], *, unavailable_error: str | None = None) -> SceneReview:
@@ -115,7 +137,7 @@ class ChapterWorkflow:
             return self._review_from_linguistic_diagnostics(blocking), diagnostics
         return None, diagnostics
 
-    def _review(self, state: ChapterWorkflowState) -> dict:
+    def _review_impl(self, state: ChapterWorkflowState) -> dict:
         context = self.context_builder.for_chapter(state.book, state.chapter_number)
         lint = self.linter.lint(state.draft)
         diagnostics: list[Diagnostic] = []
@@ -131,7 +153,12 @@ class ChapterWorkflow:
         decision = decide(review, attempt=state.attempt, max_retries=self.max_retries, threshold=self.review_threshold)
         return {"decision": decision.value, "review_score": review.score, "review": review}
 
-    def _correct(self, state: ChapterWorkflowState) -> dict:
+    def _review(self, state: ChapterWorkflowState) -> dict:
+        result = self._timed("ChapterReviewed", state, lambda: self._review_impl(state))
+        self._emit("ChapterApproved" if result["decision"] == ReviewDecision.ACCEPT.value else "IssueDetected", state, status="approved" if result["decision"] == ReviewDecision.ACCEPT.value else "detected", decision=result["decision"], review_score=result["review_score"], issue_count=len(result["review"].issues))
+        return result
+
+    def _correct_impl(self, state: ChapterWorkflowState) -> dict:
         if state.review is None:
             raise ValueError("A review is required before correction")
         context = self.context_builder.for_chapter(state.book, state.chapter_number)
@@ -140,7 +167,11 @@ class ChapterWorkflow:
         self.repository.save_chapter_version(state.book.id, state.chapter_number, attempt, draft)
         return {"draft": draft, "attempt": attempt}
 
-    def _summarize(self, state: ChapterWorkflowState) -> dict:
+    def _correct(self, state: ChapterWorkflowState) -> dict:
+        self._emit("CorrectionStarted", state, status="started")
+        return self._timed("CorrectionCompleted", state, lambda: self._correct_impl(state))
+
+    def _summarize_impl(self, state: ChapterWorkflowState) -> dict:
         context = self.context_builder.for_chapter(state.book, state.chapter_number)
         summary = self.summarizer.summarize(context=context, chapter=state.draft)
         book = self.repository.get(state.book.id)
@@ -150,6 +181,9 @@ class ChapterWorkflow:
         chapter.summary = summary
         self.repository.save(book)
         return {"summary": summary}
+
+    def _summarize(self, state: ChapterWorkflowState) -> dict:
+        return self._timed("ChapterApproved", state, lambda: self._summarize_impl(state), phase="summarize")
 
     def _route(self, state: ChapterWorkflowState) -> Literal["correct", "summarize", "end"]:
         if state.decision == ReviewDecision.ACCEPT.value:
@@ -172,13 +206,14 @@ class ChapterWorkflow:
         return graph.compile()
 
     def _state_from_run(self, book: BookState, run: ChapterWorkflowRun) -> ChapterWorkflowState:
-        return ChapterWorkflowState(book=book, chapter_number=run.chapter_number, attempt=run.attempt, draft=run.draft, review_score=run.review.score if run.review else None, review=run.review, decision=run.decision, summary=run.summary, idempotency_key=run.idempotency_key, step=run.step.value)
+        return ChapterWorkflowState(book=book, chapter_number=run.chapter_number, attempt=run.attempt, draft=run.draft, review_score=run.review.score if run.review else None, review=run.review, decision=run.decision, summary=run.summary, idempotency_key=run.idempotency_key, workflow_run_id=run.id, step=run.step.value)
 
     def _checkpoint(self, run: ChapterWorkflowRun) -> None:
         self.workflow_store.save(run)
 
     def _run_stepwise(self, *, book: BookState, run: ChapterWorkflowRun) -> ChapterWorkflowState:
         state = self._state_from_run(book, run)
+        self._emit("WorkflowStarted", state, status="started")
         while run.status == WorkflowRunStatus.RUNNING:
             if run.step == WorkflowStep.WRITE:
                 if run.attempt == 0:
@@ -188,8 +223,14 @@ class ChapterWorkflow:
                     draft = self.repository.get_chapter_version(book.id, run.chapter_number, run.attempt)
                 except KeyError:
                     context = self.context_builder.for_chapter(book, run.chapter_number)
-                    draft = self.writer.write(context=context)
+                    started = monotonic()
+                    try:
+                        draft = self.writer.write(context=context)
+                    except Exception as exc:
+                        self._emit("ChapterGenerated", state, status="error", duration_ms=int((monotonic() - started) * 1000), error_type=type(exc).__name__, error=str(exc))
+                        raise
                     self.repository.save_chapter_version(book.id, run.chapter_number, run.attempt, draft)
+                    self._emit("ChapterGenerated", state, duration_ms=int((monotonic() - started) * 1000))
                 run.draft = draft
                 run.step = WorkflowStep.REVIEW
                 self._checkpoint(run)
@@ -216,8 +257,15 @@ class ChapterWorkflow:
                     draft = self.repository.get_chapter_version(book.id, run.chapter_number, next_attempt)
                 except KeyError:
                     context = self.context_builder.for_chapter(book, run.chapter_number)
-                    draft = self.corrector.correct(context=context, draft=run.draft, review=run.review)
+                    started = monotonic()
+                    self._emit("CorrectionStarted", state, status="started")
+                    try:
+                        draft = self.corrector.correct(context=context, draft=run.draft, review=run.review)
+                    except Exception as exc:
+                        self._emit("CorrectionCompleted", state, status="error", duration_ms=int((monotonic() - started) * 1000), error_type=type(exc).__name__, error=str(exc))
+                        raise
                     self.repository.save_chapter_version(book.id, run.chapter_number, next_attempt, draft)
+                    self._emit("CorrectionCompleted", state, duration_ms=int((monotonic() - started) * 1000))
                 run.draft = draft
                 run.review = None
                 run.decision = None
@@ -236,6 +284,7 @@ class ChapterWorkflow:
                 self.repository.save(updated_book)
                 run.status = WorkflowRunStatus.COMPLETED
                 self._checkpoint(run)
+                self._emit("WorkflowCompleted", self._state_from_run(book, run), status="completed")
                 continue
         return self._state_from_run(book, run)
 
