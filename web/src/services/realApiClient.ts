@@ -127,6 +127,10 @@ export class RealApiClient {
     });
   }
 
+  async logout(): Promise<void> {
+    await this.request<{ message: string }>("/api/auth/logout", { method: "POST" });
+  }
+
   listBooks(): Promise<BackendBook[]> {
     return this.request<BackendBook[]>("/api/books");
   }
