@@ -35,7 +35,11 @@ class _PostgresConnectionAdapter:
     """Small DB-API compatibility layer for repository parameter style."""
 
     def __init__(self, database_url: str) -> None:
-        self._connection = psycopg.connect(_normalize_postgres_url(database_url), row_factory=dict_row)
+        self._connection = psycopg.connect(
+            _normalize_postgres_url(database_url),
+            row_factory=dict_row,
+            autocommit=True,
+        )
         self._transaction_depth = 0
 
     def execute(self, sql: str, params: tuple[Any, ...] = ()):
@@ -87,7 +91,7 @@ class PostgresBookRepository(BookRepositoryMixin):
             CREATE TABLE IF NOT EXISTS document_chunks (id TEXT PRIMARY KEY, source_document_id TEXT NOT NULL, content TEXT NOT NULL, sequence INTEGER NOT NULL, start_offset INTEGER NOT NULL, end_offset INTEGER NOT NULL, metadata TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS assertions (id TEXT PRIMARY KEY, source_document_id TEXT NOT NULL, chunk_id TEXT NOT NULL, statement TEXT NOT NULL, subject TEXT NOT NULL, predicate TEXT NOT NULL, object TEXT NOT NULL, confidence DOUBLE PRECISION NOT NULL, status TEXT NOT NULL, evidence_id TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS evidence (id TEXT PRIMARY KEY, assertion_id TEXT NOT NULL, source_document_id TEXT NOT NULL, chunk_id TEXT NOT NULL, start_offset INTEGER NOT NULL, end_offset INTEGER NOT NULL, excerpt TEXT NOT NULL);
-            CREATE TABLE IF NOT EXISTS conflicts (id TEXT PRIMARY KEY, book_id TEXT NOT NULL, left_assertion_id TEXT NOT NULL, right_assertion_id TEXT NOT NULL, status TEXT NOT NULL, resolution_assertion_id TEXT, UNIQUE(left_assertion_id, right_assertion_id));
+            CREATE TABLE IF NOT EXISTS conflicts (id TEXT PRIMARY KEY, book_id TEXT NOT NULL, left_assertion_id TEXT NOT NULL, right_assertion_id TEXT NOT NULL, status TEXT NOT NULL, resolution_assertion_id TEXT);
             CREATE TABLE IF NOT EXISTS review_decisions (id TEXT PRIMARY KEY, assertion_id TEXT NOT NULL, decision TEXT NOT NULL, reviewer_id TEXT, rationale TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
             CREATE TABLE IF NOT EXISTS canonical_facts (id TEXT PRIMARY KEY, book_id TEXT NOT NULL, assertion_id TEXT NOT NULL, statement TEXT NOT NULL, subject TEXT NOT NULL, predicate TEXT NOT NULL, object TEXT NOT NULL, decision_id TEXT NOT NULL, version INTEGER NOT NULL, active BOOLEAN NOT NULL, previous_fact_id TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE(book_id, subject, predicate, version));
             """
