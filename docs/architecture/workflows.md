@@ -9,7 +9,7 @@ CreateBook
   -> AddChapter (sequentially)
   -> GenerateChapter
   -> review / validation
-  -> canonical summary
+  -> accepted summary
   -> next chapter
 ```
 
@@ -17,9 +17,9 @@ The application owns state transitions and approval rules. The LLM proposes cont
 
 ## Chapter generation loop
 
-A generation run is scoped to one chapter. The workflow receives the persisted book state and chapter number, builds bounded context, and coordinates the Writer → validation → Reviewer → Retry/Summary loop.
+A generation run is scoped to one chapter. The workflow receives persisted book state and chapter number, builds bounded context, and coordinates the Writer → deterministic validation → Reviewer → Retry/Summary loop.
 
-Current implementation is `ChapterWorkflow`, orchestrated with LangGraph. LangGraph is an orchestration adapter: domain models, ports and application rules must remain usable without importing LangGraph APIs.
+`ChapterWorkflow.run()` is the production execution path. It uses a durable workflow-run checkpoint store and a small persisted state machine. `build()` remains available as a LangGraph-compatible representation, but it is not the mechanism used by `run()` to provide restartability.
 
 ```text
                     persisted BookState
@@ -31,38 +31,37 @@ Current implementation is `ChapterWorkflow`, orchestrated with LangGraph. LangGr
                          Writer
                            |
                            v
-                    draft / candidate
+                    persisted version
                            |
                            v
-                 deterministic ChapterLinter
+          deterministic lint + linguistic validation
                            |
-                  +--------+--------+
-                  |                 |
-                invalid           valid
-                  |                 |
-                  v                 v
-              retry/end          Reviewer
-                                    |
-                              ReviewDecision
-                           +--------+--------+
-                           |        |         |
-                         retry    accept   needs_review
-                           |        |         |
-                           |        v         v
-                           |     Summarizer   END
-                           |        |
-                           +--------+
-                                    |
-                                    v
-                             persisted summary
+                    +------+------+
+                    |             |
+                  blocking      valid
+                    |             |
+                    v             v
+               retry/review    Reviewer
+                                  |
+                            ReviewDecision
+                         +----------+----------+
+                         |          |           |
+                       retry      accept    needs_review
+                         |          |           |
+                         v          v           v
+                      Correct    Summarizer     END
+                         |          |
+                         +-----> REVIEW
                                     |
                                     v
                              chapter approved
 ```
 
+Each meaningful state transition is checkpointed. A workflow run is identified by `(book_id, chapter_number, idempotency_key)`.
+
 ### 1. Context construction
 
-`ContextBuilder` creates the prompt context from persisted canonical/book state. For the current chapter it includes:
+`ContextBuilder` creates prompt context from persisted book state and approved Canon context when configured. For the current chapter it includes:
 
 - author's original idea;
 - theme;
@@ -77,36 +76,37 @@ Rejected drafts are not used as canonical continuity context. Accepted chapter s
 
 ### 2. Writing
 
-`WriterAgent` receives the built context and proposes the chapter draft. Each generated attempt is persisted through `save_chapter_version(book_id, chapter_number, attempt, draft)` before review.
+The workflow reserves the next attempt number and checkpoints it **before** invoking the Writer. `WriterAgent` then proposes the chapter draft.
 
-The attempt number starts at `1` for the first generated draft and increments for every retry.
+The generated attempt is persisted before review. If the process crashes after the version is persisted but before the next workflow checkpoint, recovery sees the existing version and reuses it instead of calling the Writer again.
 
-Free-form generation deliberately uses Gemini's normal text output. Structured-output constraints are reserved for capabilities whose result is consumed as typed application data.
+The first attempt is version `1`; each retry/correction creates the next available persisted version.
 
 ### 3. Deterministic validation
 
-`ChapterLinter` runs before the LLM reviewer. A lint failure is treated as a retryable failure while the retry budget remains; after the budget is exhausted the workflow ends in `needs_review` rather than looping indefinitely.
+`ChapterLinter` runs before the LLM reviewer. Linguistic validation also runs before the reviewer when configured.
 
-This layer is intentionally deterministic and is not delegated to the LLM.
+- Blocking linguistic `ERROR` diagnostics prevent the LLM reviewer from being called.
+- Non-blocking diagnostics are passed to the reviewer as structured input.
+- Canon diagnostics are not sent through the linguistic contextualizer.
+- Lint/validation failures follow the application's bounded retry policy.
+
+This layer is intentionally deterministic wherever possible and is not delegated to the LLM.
 
 ### 4. Native structured LLM output
 
-The Gemini adapter exposes two provider capabilities:
+The Gemini adapter exposes:
 
 - `generate()` for free-form text generation;
 - `generate_structured()` for typed responses constrained by a JSON Schema derived from a Pydantic model.
 
-The Interactions API `response_format` is used for structured calls, so Gemini is constrained by the schema before the response reaches the application. The JSON is then validated again with Pydantic. This replaces prompt-only JSON conventions and ad-hoc parsing as the primary mechanism.
-
-Gemini 3 generation is configured per capability rather than globally. Structured reviewer/extractor calls use an explicit `thinking_level` and output-token bound, while free-form writing keeps Gemini's model defaults. Sampling parameters such as temperature are intentionally not overridden for Gemini 3.x.
+Structured reviewer/extractor results are validated by the provider boundary and again by Pydantic before entering application logic. Prompt-only JSON conventions and ad-hoc regex repair are not the primary mechanism.
 
 ### 5. LLM review and decision policy
 
-For a lint-valid draft, `ReviewerAgent` requests a native structured `SceneReview`. The provider validates the JSON against the schema before returning the typed model.
+For a validation-clean draft, `ReviewerAgent` requests a native structured `SceneReview`. The reviewer evaluates author-intent fidelity, continuity, coherence and writing quality. It cannot directly mutate the book or Canon.
 
-The reviewer is instructed to evaluate only author-intent fidelity, continuity, coherence and writing quality. It cannot directly mutate the book or Canon.
-
-`application.policies.review.decide()` converts the review result into one of three workflow decisions:
+`application.policies.review.decide()` converts the review into:
 
 - `accept` — the draft meets the configured review threshold;
 - `retry` — the draft is rejected and attempts remain;
@@ -116,57 +116,64 @@ The configured `review_threshold` and `max_retries` are application policy, not 
 
 ### 6. Structured assertion extraction
 
-Canon extraction also uses native structured output. `LLMAssertionExtractor` requests an `ExtractedAssertions` Pydantic wrapper containing `ExtractedAssertion` items.
+Canon extraction uses native structured output. `LLMAssertionExtractor` requests an `ExtractedAssertions` wrapper containing `ExtractedAssertion` items.
 
-The adapter validates assertion offsets against the actual source chunk after schema validation. Invalid ranges are rejected before assertions enter the application persistence path.
+The adapter validates assertion offsets against the source chunk after schema validation. Extractors can propose assertions and evidence locations, but cannot promote anything into `CanonicalFact`. Human/application review remains authoritative.
 
-The extractor can propose assertions and evidence locations, but it cannot promote anything into `CanonicalFact`. Human/application review remains authoritative.
+### 7. Retry and correction
 
-### 7. Retry
+A retry moves the run to `correct`. `CorrectorAgent` receives the current draft and persisted review, and the resulting corrected draft is stored as a new immutable chapter version.
 
-A retry returns to `WriterAgent` with the same chapter context and creates a new persisted version. Retries are bounded by `max_retries`; there is no unbounded model-call loop.
+The review/decision fields are cleared before returning to `review`, preventing a previous decision from being reused for the corrected version.
 
-Structured-output failures are provider/application failures and can be handled by the same bounded retry/error policy without attempting to repair malformed JSON with regexes.
+Retries are bounded by `max_retries`; there is no unbounded model-call loop.
 
-The persisted attempt/review history is retained so a failed generation remains observable rather than silently replacing previous drafts.
+### 8. Summary and chapter approval
 
-### 8. Summary and canonicalization
-
-When the review decision is `accept`, `SummarizerAgent` produces the chapter summary. The workflow then updates the persisted chapter with:
+When the review decision is `accept`, `SummarizerAgent` produces the chapter summary. The workflow then persists:
 
 - `status = approved`;
 - `current_version = accepted attempt`;
 - `summary = generated summary`.
 
-That summary becomes canonical continuity data for later chapters.
+The accepted summary becomes continuity data for later chapters. Rejected attempts remain in history but do not become canonical continuity memory.
 
-The current implementation therefore treats a reviewed-and-accepted draft as the source from which continuity is summarized; the summary, not the rejected attempts, is what is carried forward by `ContextBuilder`.
+### 9. Restart and idempotency
 
-## Author approval gates
+`GenerateChapter` accepts an optional `idempotency_key`. When omitted, it derives a stable key from the book, chapter and next expected version. An explicit key is available for request-level idempotency.
+
+The durable run store persists the current step, attempt, draft, review, decision, summary and terminal status. A repeated call with the same key returns a completed/terminal run without invoking agents again.
+
+If a process restarts while a run is still `running`, a later call with the same key resumes from the persisted step. Persisted chapter versions are reused when present, which closes the main crash window around version creation.
+
+The current implementation serializes duplicate execution within a process. It does **not** yet provide a cross-process lease/claim protocol, so horizontally concurrent workers require a stronger coordination mechanism before production-scale parallel execution.
+
+### 10. Author approval gates
 
 The outline must be explicitly approved before a chapter can be generated. This is a deterministic application rule and must remain outside the LLM.
 
 The chapter-generation workflow refuses to run when `outline_approved` is false.
 
-## Sequential chapter progression
+### 11. Sequential chapter progression
 
-Chapter generation is intentionally scoped to a single chapter. The application is responsible for adding chapters in sequence and for validating the outline before generation. The loop itself does not decide which chapter comes next.
+Chapter generation is scoped to a single chapter. The application is responsible for adding chapters in sequence and validating the outline before generation. The loop does not decide which chapter comes next.
 
-## Failure and observability
+### 12. Failure and observability
 
-A generation run can terminate in two ways without producing a canonical summary:
+A generation run can terminate without producing an accepted summary when:
 
-1. deterministic lint failures exhaust the retry budget;
-2. the LLM reviewer rejects the draft until the retry budget is exhausted.
+1. deterministic validation failures exhaust the retry budget;
+2. the LLM reviewer rejects the draft until the retry budget is exhausted;
+3. a run is marked `needs_review` for human/application handling.
 
-Structured-output/schema failures are also surfaced as explicit provider/application errors rather than being silently normalized into data.
+Provider/schema failures are surfaced as explicit errors. Persisted chapter versions, reviews and workflow-run checkpoints provide the current audit trail.
 
-In all cases, persisted chapter versions and reviews provide the audit trail available to the current repository implementation.
+One recovery limitation remains: review persistence and workflow-run checkpointing are currently separate writes. A crash in that small interval can cause the Reviewer to be invoked again on resume. A future atomic transaction or review lookup/idempotency constraint should close that gap.
 
 ## Architecture boundary
 
-Agents encapsulate LLM-facing capabilities; they do not own business orchestration. Application services/policies own context construction and review decisions. The workflow coordinates these capabilities.
+Agents encapsulate LLM-facing capabilities; they do not own business orchestration. Application services/policies own context construction and review decisions. The workflow coordinates these capabilities and persists execution state.
 
-The Gemini-specific features remain inside `infrastructure/llm`. The application depends only on the provider port and Pydantic/domain contracts.
+Gemini-specific features remain inside `infrastructure/llm`. The application depends only on provider ports and Pydantic/domain contracts.
 
-LangGraph currently implements the state-machine execution, but it must remain replaceable. The domain and application layers must not depend on LangGraph-specific state or APIs.
+LangGraph is an optional orchestration representation, not a domain dependency and not the current durable execution mechanism.
