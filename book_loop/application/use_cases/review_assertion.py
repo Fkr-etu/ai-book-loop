@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import nullcontext
 from uuid import uuid4
 
 from book_loop.domain.models import AssertionStatus, CanonicalFact, ReviewDecision, ReviewDecisionType
@@ -20,6 +21,29 @@ class ReviewAssertion:
         decision: ReviewDecisionType,
         reviewer_id: str | None = None,
         rationale: str = "",
+    ) -> ReviewDecision:
+        transaction = getattr(self.repository, "transaction", None)
+        context = transaction() if transaction is not None else nullcontext()
+        with context:
+            lock_assertion = getattr(self.repository, "lock_assertion", None)
+            if lock_assertion is not None:
+                lock_assertion(assertion_id)
+            return self._execute_in_transaction(
+                book_id=book_id,
+                assertion_id=assertion_id,
+                decision=decision,
+                reviewer_id=reviewer_id,
+                rationale=rationale,
+            )
+
+    def _execute_in_transaction(
+        self,
+        *,
+        book_id: str,
+        assertion_id: str,
+        decision: ReviewDecisionType,
+        reviewer_id: str | None,
+        rationale: str,
     ) -> ReviewDecision:
         assertions = {item.id: item for item in self.repository.list_assertions(book_id=book_id)}
         assertion = assertions.get(assertion_id)
