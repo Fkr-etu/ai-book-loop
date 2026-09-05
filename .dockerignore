@@ -9,9 +9,9 @@ __pycache__
 .coverage
 htmlcov
 web/
-node_modules/
 tests/
 test-results/
 *.db
 *.sqlite3
-EOF
+.env
+.env.*
