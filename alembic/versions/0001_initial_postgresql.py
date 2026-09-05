@@ -15,12 +15,12 @@ depends_on = None
 def upgrade() -> None:
     op.execute(
         """
-        CREATE TABLE books (
+        CREATE TABLE IF NOT EXISTS books (
             id TEXT PRIMARY KEY,
             data TEXT NOT NULL
         );
 
-        CREATE TABLE chapter_versions (
+        CREATE TABLE IF NOT EXISTS chapter_versions (
             id BIGSERIAL PRIMARY KEY,
             book_id TEXT NOT NULL,
             chapter_number INTEGER NOT NULL,
@@ -30,7 +30,7 @@ def upgrade() -> None:
             UNIQUE(book_id, chapter_number, version)
         );
 
-        CREATE TABLE reviews (
+        CREATE TABLE IF NOT EXISTS reviews (
             id BIGSERIAL PRIMARY KEY,
             book_id TEXT NOT NULL,
             chapter_number INTEGER NOT NULL,
@@ -42,7 +42,7 @@ def upgrade() -> None:
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         );
 
-        CREATE TABLE users (
+        CREATE TABLE IF NOT EXISTS users (
             id TEXT PRIMARY KEY,
             email TEXT UNIQUE NOT NULL,
             password_hash TEXT NOT NULL,
@@ -50,7 +50,7 @@ def upgrade() -> None:
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         );
 
-        CREATE TABLE source_documents (
+        CREATE TABLE IF NOT EXISTS source_documents (
             id TEXT PRIMARY KEY,
             book_id TEXT NOT NULL,
             name TEXT NOT NULL,
@@ -63,7 +63,7 @@ def upgrade() -> None:
             UNIQUE(book_id, content_hash)
         );
 
-        CREATE TABLE document_chunks (
+        CREATE TABLE IF NOT EXISTS document_chunks (
             id TEXT PRIMARY KEY,
             source_document_id TEXT NOT NULL,
             content TEXT NOT NULL,
@@ -73,7 +73,7 @@ def upgrade() -> None:
             metadata TEXT NOT NULL
         );
 
-        CREATE TABLE assertions (
+        CREATE TABLE IF NOT EXISTS assertions (
             id TEXT PRIMARY KEY,
             source_document_id TEXT NOT NULL,
             chunk_id TEXT NOT NULL,
@@ -86,7 +86,7 @@ def upgrade() -> None:
             evidence_id TEXT NOT NULL
         );
 
-        CREATE TABLE evidence (
+        CREATE TABLE IF NOT EXISTS evidence (
             id TEXT PRIMARY KEY,
             assertion_id TEXT NOT NULL,
             source_document_id TEXT NOT NULL,
@@ -96,7 +96,7 @@ def upgrade() -> None:
             excerpt TEXT NOT NULL
         );
 
-        CREATE TABLE conflicts (
+        CREATE TABLE IF NOT EXISTS conflicts (
             id TEXT PRIMARY KEY,
             book_id TEXT NOT NULL,
             left_assertion_id TEXT NOT NULL,
@@ -105,7 +105,7 @@ def upgrade() -> None:
             resolution_assertion_id TEXT
         );
 
-        CREATE TABLE review_decisions (
+        CREATE TABLE IF NOT EXISTS review_decisions (
             id TEXT PRIMARY KEY,
             assertion_id TEXT NOT NULL,
             decision TEXT NOT NULL,
@@ -114,7 +114,7 @@ def upgrade() -> None:
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         );
 
-        CREATE TABLE canonical_facts (
+        CREATE TABLE IF NOT EXISTS canonical_facts (
             id TEXT PRIMARY KEY,
             book_id TEXT NOT NULL,
             assertion_id TEXT NOT NULL,
@@ -130,7 +130,7 @@ def upgrade() -> None:
             UNIQUE(book_id, subject, predicate, version)
         );
 
-        CREATE TABLE workflow_runs (
+        CREATE TABLE IF NOT EXISTS workflow_runs (
             id TEXT PRIMARY KEY,
             book_id TEXT NOT NULL,
             chapter_number INTEGER NOT NULL,
@@ -142,23 +142,24 @@ def upgrade() -> None:
             UNIQUE(book_id, chapter_number, idempotency_key)
         );
 
-        CREATE TABLE observability_events (
+        CREATE TABLE IF NOT EXISTS observability_events (
             id TEXT PRIMARY KEY,
             event_type TEXT NOT NULL,
-            run_id TEXT,
+            occurred_at TEXT NOT NULL,
+            workflow_run_id TEXT,
             book_id TEXT,
             chapter_number INTEGER,
-            step TEXT,
             attempt INTEGER,
-            metadata TEXT NOT NULL,
-            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            duration_ms INTEGER,
+            status TEXT,
+            metadata TEXT NOT NULL
         );
 
-        CREATE UNIQUE INDEX uq_active_canonical_fact
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_active_canonical_fact
             ON canonical_facts(book_id, subject, predicate)
             WHERE active = TRUE;
 
-        CREATE UNIQUE INDEX uq_conflict_assertion_pair
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_conflict_assertion_pair
             ON conflicts(left_assertion_id, right_assertion_id);
         """
     )
@@ -167,18 +168,18 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.execute(
         """
-        DROP TABLE observability_events;
-        DROP TABLE workflow_runs;
-        DROP TABLE canonical_facts;
-        DROP TABLE review_decisions;
-        DROP TABLE conflicts;
-        DROP TABLE evidence;
-        DROP TABLE assertions;
-        DROP TABLE document_chunks;
-        DROP TABLE source_documents;
-        DROP TABLE users;
-        DROP TABLE reviews;
-        DROP TABLE chapter_versions;
-        DROP TABLE books;
+        DROP TABLE IF EXISTS observability_events;
+        DROP TABLE IF EXISTS workflow_runs;
+        DROP TABLE IF EXISTS canonical_facts;
+        DROP TABLE IF EXISTS review_decisions;
+        DROP TABLE IF EXISTS conflicts;
+        DROP TABLE IF EXISTS evidence;
+        DROP TABLE IF EXISTS assertions;
+        DROP TABLE IF EXISTS document_chunks;
+        DROP TABLE IF EXISTS source_documents;
+        DROP TABLE IF EXISTS users;
+        DROP TABLE IF EXISTS reviews;
+        DROP TABLE IF EXISTS chapter_versions;
+        DROP TABLE IF EXISTS books;
         """
     )
