@@ -79,12 +79,12 @@ export default function LoreGraphPage() {
     <StudioLayout>
       <div className="flex flex-col h-[calc(100vh-61px)]">
         {/* Graph Header */}
-        <div className="p-6 bg-white border-b border-[#c6c6cd]/30 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="p-4 sm:p-6 bg-white border-b border-[#c6c6cd]/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <span className="text-xs font-mono font-bold text-[#b87500] uppercase tracking-wider flex items-center gap-1">
               <GitFork className="w-3.5 h-3.5" /> Cartographie Narrative Interactive
             </span>
-            <h1 className="font-playfair text-2xl font-bold text-[#0b1c30]">
+            <h1 className="font-playfair text-xl sm:text-2xl font-bold text-[#0b1c30]">
               Graphe de Relations Lore & Personnages
             </h1>
             <p className="text-xs text-[#45464d] mt-1">
@@ -92,7 +92,7 @@ export default function LoreGraphPage() {
             </p>
           </div>
 
-          <div className="flex items-center gap-3 text-xs font-mono">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs font-mono">
             <div className="flex items-center gap-1.5 px-3 py-1 bg-[#0b1c30] text-[#ffddb8] rounded border border-[#b87500]">
               <Users className="w-3.5 h-3.5" />
               <span>Personnages (Noir)</span>
@@ -105,7 +105,7 @@ export default function LoreGraphPage() {
         </div>
 
         {/* Canvas Area */}
-        <div className="flex-1 bg-[#f8f5f0] relative">
+        <div className="flex-1 bg-[#f8f5f0] relative min-h-[350px]">
           <ReactFlow
             nodes={nodes}
             edges={edges}

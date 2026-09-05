@@ -107,14 +107,14 @@ export default function LorePage() {
 
   return (
     <StudioLayout>
-      <div className="p-6 md:p-10 max-w-6xl mx-auto space-y-8">
+      <div className="p-4 sm:p-6 md:p-10 max-w-6xl mx-auto space-y-6 md:space-y-8">
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#c6c6cd]/30 pb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#c6c6cd]/30 pb-6">
           <div>
             <span className="text-xs font-mono font-bold text-[#b87500] uppercase tracking-wider block mb-1">
               Bible du Monde & Ingestion Source
             </span>
-            <h1 className="font-playfair text-3xl font-bold text-[#0b1c30]">
+            <h1 className="font-playfair text-2xl sm:text-3xl font-bold text-[#0b1c30]">
               Ancrage du Lore & Codex
             </h1>
             <p className="text-xs text-[#45464d] mt-1">
@@ -122,10 +122,10 @@ export default function LorePage() {
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
             <button
               onClick={() => setShowIngestForm(!showIngestForm)}
-              className="px-3.5 py-2 bg-[#eff4ff] text-[#0b1c30] border border-[#c6c6cd]/40 text-xs font-bold rounded hover:bg-[#e5eeff] transition-colors flex items-center gap-2 cursor-pointer"
+              className="px-3.5 py-2 bg-[#eff4ff] text-[#0b1c30] border border-[#c6c6cd]/40 text-xs font-bold rounded hover:bg-[#e5eeff] transition-colors flex items-center justify-center gap-2 cursor-pointer flex-1 sm:flex-none"
             >
               <Upload className="w-4 h-4 text-[#b87500]" />
               <span>Ingérer un Document Source</span>
@@ -133,7 +133,7 @@ export default function LorePage() {
 
             <button
               onClick={() => setIsAdding(!isAdding)}
-              className="px-4 py-2 bg-[#0b1c30] text-[#ffddb8] text-xs font-bold rounded hover:bg-[#131b2e] transition-colors flex items-center gap-2 shadow-xs shrink-0 cursor-pointer"
+              className="px-4 py-2 bg-[#0b1c30] text-[#ffddb8] text-xs font-bold rounded hover:bg-[#131b2e] transition-colors flex items-center justify-center gap-2 shadow-xs shrink-0 cursor-pointer flex-1 sm:flex-none"
             >
               <Plus className="w-4 h-4" />
               <span>Ajouter une Entrée Lore</span>
@@ -145,9 +145,9 @@ export default function LorePage() {
         {showIngestForm && (
           <form
             onSubmit={handleIngestSubmit}
-            className="p-6 bg-white rounded-xl border border-[#0b1c30]/40 shadow-sm space-y-4 animate-fadeIn"
+            className="p-4 sm:p-6 bg-white rounded-xl border border-[#0b1c30]/40 shadow-xs space-y-4 animate-fadeIn"
           >
-            <div className="flex items-center justify-between border-b border-[#c6c6cd]/20 pb-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-[#c6c6cd]/20 pb-3 gap-1">
               <h2 className="text-xs font-mono font-bold text-[#0b1c30] uppercase flex items-center gap-2">
                 <FileText className="w-4 h-4 text-[#b87500]" /> Ingestion de Document Source (Extraction d'Assertions)
               </h2>
@@ -201,8 +201,8 @@ export default function LorePage() {
 
         {/* Assertions Review Section */}
         {assertions.length > 0 && (
-          <div className="p-5 bg-white rounded-xl border border-[#c6c6cd]/40 shadow-xs space-y-4">
-            <div className="flex items-center justify-between border-b border-[#c6c6cd]/20 pb-3">
+          <div className="p-4 sm:p-5 bg-white rounded-xl border border-[#c6c6cd]/40 shadow-xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-[#c6c6cd]/20 pb-3 gap-1">
               <span className="text-xs font-mono font-bold text-[#0b1c30] uppercase flex items-center gap-1.5">
                 <Database className="w-4 h-4 text-[#b87500]" /> Assertions Extraites à Revoir ({assertions.length})
               </span>
@@ -220,7 +220,7 @@ export default function LorePage() {
                 return (
                   <div key={ast.id} className="py-3 flex flex-col md:flex-row md:items-center justify-between gap-3 first:pt-0 last:pb-0">
                     <div className="space-y-1">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <span className="text-xs font-bold text-[#0b1c30]">
                           {ast.statement}
                         </span>
@@ -273,7 +273,7 @@ export default function LorePage() {
         {isAdding && (
           <form
             onSubmit={handleAdd}
-            className="p-6 bg-white rounded-xl border border-[#b87500]/40 shadow-sm space-y-4 animate-fadeIn"
+            className="p-4 sm:p-6 bg-white rounded-xl border border-[#b87500]/40 shadow-xs space-y-4 animate-fadeIn"
           >
             <h2 className="text-sm font-mono font-bold text-[#0b1c30] uppercase">
               Proposer une Nouvelle Fiche Lore (Proposé par Défaut)
@@ -324,8 +324,8 @@ export default function LorePage() {
         )}
 
         {/* Status & Category Filters */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#c6c6cd]/20 pb-3">
-          <div className="flex items-center gap-2 overflow-x-auto">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-[#c6c6cd]/20 pb-3">
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 lg:pb-0">
             {[
               { id: "all", label: "Toutes les catégories" },
               { id: "artifact", label: "Artefacts & Reliques" },
@@ -347,8 +347,8 @@ export default function LorePage() {
             ))}
           </div>
 
-          <div className="flex items-center gap-2 font-mono text-xs">
-            <span className="text-[#76777d] uppercase font-bold">Statut Canon:</span>
+          <div className="flex items-center gap-2 font-mono text-xs overflow-x-auto pb-1 lg:pb-0">
+            <span className="text-[#76777d] uppercase font-bold shrink-0">Statut:</span>
             {[
               { id: "all", label: "Tous" },
               { id: "canonical", label: "Canonique" },
@@ -358,7 +358,7 @@ export default function LorePage() {
               <button
                 key={s.id}
                 onClick={() => setFilterStatus(s.id)}
-                className={`px-2.5 py-1 rounded text-[11px] font-bold cursor-pointer ${
+                className={`px-2.5 py-1 rounded text-[11px] font-bold cursor-pointer whitespace-nowrap ${
                   filterStatus === s.id
                     ? "bg-[#b87500] text-white"
                     : "bg-white text-[#45464d] border border-[#c6c6cd]/40"
@@ -371,7 +371,7 @@ export default function LorePage() {
         </div>
 
         {/* Grid of Lore Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredItems.map((item) => {
             const isCanon = item.canonStatus === "canonical";
             const isProposed = item.canonStatus === "proposed";
@@ -383,12 +383,12 @@ export default function LorePage() {
                 className="p-5 bg-white rounded-xl border border-[#c6c6cd]/40 shadow-xs space-y-3 flex flex-col justify-between"
               >
                 <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-[#ffddb8] text-[#2a1700] font-bold">
+                  <div className="flex items-center justify-between mb-2 gap-2">
+                    <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-[#ffddb8] text-[#2a1700] font-bold shrink-0">
                       {item.category}
                     </span>
                     <span
-                      className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full flex items-center gap-1 ${
+                      className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0 ${
                         isCanon
                           ? "bg-[#d3e4fe] text-[#0b1c30]"
                           : isRejected

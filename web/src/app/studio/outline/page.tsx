@@ -51,14 +51,14 @@ export default function OutlinePage() {
 
   return (
     <StudioLayout>
-      <div className="p-6 md:p-10 max-w-5xl mx-auto space-y-8">
+      <div className="p-4 sm:p-6 md:p-10 max-w-5xl mx-auto space-y-6 md:space-y-8">
         {/* Page Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#c6c6cd]/30 pb-6">
           <div>
             <span className="text-xs font-mono font-bold text-[#b87500] uppercase tracking-wider block mb-1">
               Structure Narrative & Canon
             </span>
-            <h1 className="font-playfair text-3xl font-bold text-[#0b1c30]">
+            <h1 className="font-playfair text-2xl sm:text-3xl font-bold text-[#0b1c30]">
               Éditeur de Plan Global
             </h1>
             <p className="text-xs text-[#45464d] mt-1">
@@ -66,11 +66,11 @@ export default function OutlinePage() {
             </p>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
             <button
               onClick={() => store.generateOutline()}
               disabled={store.loading}
-              className="px-3.5 py-2 bg-[#eff4ff] text-[#0b1c30] text-xs font-semibold rounded border border-[#c6c6cd]/40 hover:bg-[#e5eeff] flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              className="px-3.5 py-2 bg-[#eff4ff] text-[#0b1c30] text-xs font-semibold rounded border border-[#c6c6cd]/40 hover:bg-[#e5eeff] flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 flex-1 md:flex-none"
             >
               <Sparkles className="w-3.5 h-3.5 text-[#b87500]" />
               <span>{store.loading ? "Génération..." : "Générer le plan IA"}</span>
@@ -81,15 +81,15 @@ export default function OutlinePage() {
                 onClick={() => store.approveOutline()}
                 disabled={store.loading || !project.outline}
                 data-testid="approve-outline-btn"
-                className="px-4 py-2 bg-[#b87500] text-white text-xs font-bold rounded hover:bg-[#9a6200] transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer disabled:opacity-50"
+                className="px-4 py-2 bg-[#b87500] text-white text-xs font-bold rounded hover:bg-[#9a6200] transition-colors flex items-center justify-center gap-1.5 shadow-xs cursor-pointer disabled:opacity-50 flex-1 md:flex-none"
               >
                 <Check className="w-4 h-4" />
                 <span>Approuver le plan</span>
               </button>
             ) : (
-              <div className="px-3.5 py-2 bg-[#d3e4fe] text-[#0b1c30] text-xs font-bold rounded flex items-center gap-1.5 border border-[#0b1c30]/20">
+              <div className="px-3.5 py-2 bg-[#d3e4fe] text-[#0b1c30] text-xs font-bold rounded flex items-center justify-center gap-1.5 border border-[#0b1c30]/20 flex-1 md:flex-none">
                 <CheckCircle2 className="w-4 h-4 text-[#0b1c30]" />
-                <span>Plan Approuvé par l'Auteur</span>
+                <span>Plan Approuvé</span>
               </div>
             )}
 
@@ -102,7 +102,7 @@ export default function OutlinePage() {
                   : ""
               }
               data-testid="add-chapter-btn"
-              className="px-4 py-2 bg-[#0b1c30] text-[#ffddb8] text-xs font-bold rounded hover:bg-[#131b2e] transition-colors flex items-center gap-2 shadow-xs cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              className="px-4 py-2 bg-[#0b1c30] text-[#ffddb8] text-xs font-bold rounded hover:bg-[#131b2e] transition-colors flex items-center justify-center gap-2 shadow-xs cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed w-full sm:w-auto"
             >
               <Plus className="w-4 h-4" />
               <span>Nouveau Chapitre</span>
@@ -142,14 +142,14 @@ export default function OutlinePage() {
 
         {/* Outline Raw Text Preview */}
         {project.outline && (
-          <div className="p-5 bg-white rounded-xl border border-[#c6c6cd]/40 shadow-xs space-y-2">
-            <div className="text-xs font-mono font-bold text-[#0b1c30] uppercase flex items-center justify-between">
+          <div className="p-4 sm:p-5 bg-white rounded-xl border border-[#c6c6cd]/40 shadow-xs space-y-2">
+            <div className="text-xs font-mono font-bold text-[#0b1c30] uppercase flex flex-wrap items-center justify-between gap-1">
               <span>Aperçu du Plan Global Proposé</span>
               <span className="text-[10px] text-[#b87500]">
                 {project.outlineApproved ? "Statut: Approuvé" : "Statut: En Attente d'Approbation"}
               </span>
             </div>
-            <pre className="text-xs font-merriweather text-[#0f172a] whitespace-pre-wrap leading-relaxed bg-[#f8f5f0] p-4 rounded border border-[#c6c6cd]/20">
+            <pre className="text-xs font-merriweather text-[#0f172a] whitespace-pre-wrap leading-relaxed bg-[#f8f5f0] p-3 sm:p-4 rounded border border-[#c6c6cd]/20 overflow-x-auto">
               {project.outline}
             </pre>
           </div>
@@ -159,7 +159,7 @@ export default function OutlinePage() {
         {isAddingChapter && project.outlineApproved && (
           <form
             onSubmit={handleCreateChapter}
-            className="p-5 bg-white rounded-xl border border-[#b87500]/40 shadow-sm space-y-4 animate-fadeIn"
+            className="p-4 sm:p-5 bg-white rounded-xl border border-[#b87500]/40 shadow-xs space-y-4 animate-fadeIn"
           >
             <h3 className="text-xs font-mono font-bold text-[#0b1c30] uppercase">
               Ajouter un Chapitre au Plan
@@ -207,14 +207,14 @@ export default function OutlinePage() {
               className="bg-white rounded-xl border border-[#c6c6cd]/40 shadow-xs overflow-hidden"
             >
               {/* Chapter Card Header */}
-              <div className="p-5 bg-[#f8f9ff] border-b border-[#c6c6cd]/20 flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <div className="p-4 sm:p-5 bg-[#f8f9ff] border-b border-[#c6c6cd]/20 flex flex-col md:flex-row md:items-center justify-between gap-3">
                 <div className="flex items-start gap-3">
                   <div className="w-8 h-8 rounded bg-[#0b1c30] text-[#ffddb8] font-mono font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">
                     {chapter.number}
                   </div>
                   <div>
-                    <div className="flex items-center gap-2">
-                      <h2 className="font-playfair text-lg font-bold text-[#0b1c30]">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="font-playfair text-base sm:text-lg font-bold text-[#0b1c30]">
                         {chapter.title}
                       </h2>
                       <span
@@ -233,11 +233,11 @@ export default function OutlinePage() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
                   <button
                     onClick={() => store.generateChapter(chapter.number)}
                     disabled={!project.outlineApproved || store.loading}
-                    className="px-3 py-1.5 text-xs font-semibold bg-[#0b1c30] text-white rounded hover:bg-[#131b2e] flex items-center gap-1 disabled:opacity-40"
+                    className="px-3 py-1.5 text-xs font-semibold bg-[#0b1c30] text-white rounded hover:bg-[#131b2e] flex items-center gap-1 disabled:opacity-40 cursor-pointer"
                   >
                     <Sparkles className="w-3.5 h-3.5 text-[#ffddb8]" />
                     <span>Générer V{(chapter.currentVersion || 0) + 1}</span>
@@ -250,7 +250,7 @@ export default function OutlinePage() {
                       )
                     }
                     disabled={!project.outlineApproved}
-                    className="px-3 py-1.5 text-xs font-semibold bg-[#eff4ff] text-[#0b1c30] rounded border border-[#c6c6cd]/30 hover:bg-[#e5eeff] flex items-center gap-1 disabled:opacity-40"
+                    className="px-3 py-1.5 text-xs font-semibold bg-[#eff4ff] text-[#0b1c30] rounded border border-[#c6c6cd]/30 hover:bg-[#e5eeff] flex items-center gap-1 disabled:opacity-40 cursor-pointer"
                   >
                     <Plus className="w-3.5 h-3.5" />
                     <span>Ajouter une Scène</span>
@@ -311,12 +311,12 @@ export default function OutlinePage() {
                   (chapter.scenes || []).map((scene, idx) => (
                     <div
                       key={scene.id}
-                      className="py-3 flex items-start justify-between gap-4 first:pt-0 last:pb-0"
+                      className="py-3 flex flex-col sm:flex-row sm:items-start justify-between gap-3 first:pt-0 last:pb-0"
                     >
                       <div className="flex items-start gap-3">
                         <FileText className="w-4 h-4 text-[#b87500] shrink-0 mt-0.5" />
                         <div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex flex-wrap items-center gap-2">
                             <span className="text-xs font-bold text-[#0b1c30]">
                               Scène {chapter.number}.{idx + 1} — {scene.title}
                             </span>

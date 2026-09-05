@@ -63,14 +63,14 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-[#f8f5f0] text-[#0f172a] font-inter">
       <Navbar />
 
-      <main className="max-w-6xl mx-auto px-6 py-10 space-y-8">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6 md:py-10 space-y-8">
         {/* Header Hero */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#c6c6cd]/30 pb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#c6c6cd]/30 pb-6">
           <div>
             <span className="text-xs font-mono font-bold text-[#b87500] uppercase tracking-wider block mb-1 flex items-center gap-1.5">
               <Feather className="w-4 h-4 text-[#b87500]" /> Espace Auteur Pro
             </span>
-            <h1 className="font-playfair text-3xl font-bold text-[#0b1c30]">
+            <h1 className="font-playfair text-2xl md:text-3xl font-bold text-[#0b1c30]">
               Bibliothèque & Tableau de Bord
             </h1>
             <p className="text-xs text-[#45464d] mt-1">
@@ -80,7 +80,7 @@ export default function DashboardPage() {
 
           <Link
             href="/setup"
-            className="px-5 py-2.5 bg-[#0b1c30] text-[#ffddb8] font-bold text-xs rounded hover:bg-[#131b2e] transition-colors flex items-center gap-2 shadow-xs shrink-0"
+            className="px-5 py-2.5 bg-[#0b1c30] text-[#ffddb8] font-bold text-xs rounded hover:bg-[#131b2e] transition-colors flex items-center justify-center gap-2 shadow-xs shrink-0 w-full sm:w-auto"
           >
             <Plus className="w-4 h-4" />
             <span>Nouveau Livre</span>
@@ -88,7 +88,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Global Analytics Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="p-5 bg-white rounded-xl border border-[#c6c6cd]/40 shadow-xs space-y-1">
             <div className="text-[10px] font-mono text-[#76777d] uppercase font-bold">Livres Actifs</div>
             <div className="text-2xl font-bold text-[#0b1c30] font-mono">3 Romans</div>
@@ -128,14 +128,14 @@ export default function DashboardPage() {
               return (
                 <div
                   key={p.id}
-                  className={`p-6 bg-white rounded-xl border transition-all shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-6 ${
+                  className={`p-5 sm:p-6 bg-white rounded-xl border transition-all shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-6 ${
                     p.isCurrent
                       ? "border-[#b87500] ring-1 ring-[#b87500]/30"
                       : "border-[#c6c6cd]/40 hover:border-[#c6c6cd]"
                   }`}
                 >
                   <div className="space-y-2 flex-1">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span className="text-xs font-mono px-2 py-0.5 rounded bg-[#ffddb8] text-[#2a1700] font-bold">
                         {p.genre}
                       </span>
@@ -144,19 +144,19 @@ export default function DashboardPage() {
                           PROJET ACTIF
                         </span>
                       )}
-                      <span className="text-xs text-[#76777d] font-mono">
+                      <span className="text-xs text-[#76777d] font-mono ml-auto sm:ml-0">
                         {p.updatedAt}
                       </span>
                     </div>
 
-                    <h3 className="font-playfair text-2xl font-bold text-[#0b1c30]">
+                    <h3 className="font-playfair text-xl md:text-2xl font-bold text-[#0b1c30]">
                       {p.title}
                     </h3>
                     <p className="font-courier text-xs text-[#5f5e5b]">
                       {p.subtitle}
                     </p>
 
-                    <div className="pt-2 flex items-center gap-6 text-xs font-mono text-[#45464d]">
+                    <div className="pt-2 flex flex-wrap items-center gap-4 sm:gap-6 text-xs font-mono text-[#45464d]">
                       <span>{p.chaptersCount} Chapitres</span>
                       <span>
                         {p.words.toLocaleString()} / {p.targetWords.toLocaleString()} mots
@@ -176,7 +176,7 @@ export default function DashboardPage() {
                   <div className="flex items-center gap-3 shrink-0">
                     <Link
                       href="/studio"
-                      className="px-5 py-2.5 bg-[#0b1c30] text-white font-semibold text-xs rounded hover:bg-[#131b2e] transition-colors flex items-center gap-2 shadow-xs"
+                      className="w-full sm:w-auto px-5 py-2.5 bg-[#0b1c30] text-white font-semibold text-xs rounded hover:bg-[#131b2e] transition-colors flex items-center justify-center gap-2 shadow-xs"
                     >
                       <span>Ouvrir l'Atelier</span>
                       <ArrowRight className="w-3.5 h-3.5 text-[#ffddb8]" />
