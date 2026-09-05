@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import json
 import uuid
-from typing import Any
+from contextlib import contextmanager
+from typing import Any, Iterator
 
 import psycopg
 from psycopg.rows import dict_row
@@ -36,6 +37,7 @@ class _PostgresConnectionAdapter:
 
     def __init__(self, database_url: str) -> None:
         self._connection = psycopg.connect(_normalize_postgres_url(database_url), row_factory=dict_row)
+        self._transaction_depth = 0
 
     def execute(self, sql: str, params: tuple[Any, ...] = ()):
         sql = sql.replace("?", "%s")
@@ -45,10 +47,36 @@ class _PostgresConnectionAdapter:
         sql = sql.replace("ORDER BY e.rowid", "ORDER BY e.id")
         sql = sql.replace("ORDER BY a.rowid", "ORDER BY a.id")
         sql = sql.replace("ORDER BY rowid", "ORDER BY id")
+        sql = sql.replace("active = 1", "active = TRUE")
+        sql = sql.replace("active = 0", "active = FALSE")
+        if "INSERT INTO canonical_facts" in sql and len(params) >= 10:
+            normalized_params = list(params)
+            normalized_params[9] = bool(normalized_params[9])
+            params = tuple(normalized_params)
         return self._connection.execute(sql, params)
 
     def commit(self) -> None:
-        self._connection.commit()
+        if self._transaction_depth == 0:
+            self._connection.commit()
+
+    @contextmanager
+    def transaction(self) -> Iterator[None]:
+        """Group repository operations into one atomic PostgreSQL transaction."""
+        outermost = self._transaction_depth == 0
+        if outermost:
+            self._connection.execute("BEGIN")
+        self._transaction_depth += 1
+        try:
+            yield
+        except Exception:
+            self._transaction_depth -= 1
+            if outermost:
+                self._connection.rollback()
+            raise
+        else:
+            self._transaction_depth -= 1
+            if outermost:
+                self._connection.commit()
 
     def close(self) -> None:
         self._connection.close()
@@ -77,7 +105,7 @@ class PostgresBookRepository(SQLiteBookRepository):
                 chapter_number INTEGER NOT NULL,
                 version INTEGER NOT NULL,
                 score DOUBLE PRECISION NOT NULL,
-                approved INTEGER NOT NULL,
+                approved BOOLEAN NOT NULL,
                 issues TEXT NOT NULL,
                 suggestions TEXT NOT NULL,
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -158,13 +186,39 @@ class PostgresBookRepository(SQLiteBookRepository):
                 object TEXT NOT NULL,
                 decision_id TEXT NOT NULL,
                 version INTEGER NOT NULL,
-                active INTEGER NOT NULL,
+                active BOOLEAN NOT NULL,
+                previous_fact_id TEXT,
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE(book_id, subject, predicate, version)
             );
             """
         )
+        # Existing PostgreSQL installations created by PR #72 may already have
+        # canonical_facts without the C1 history pointer. Keep startup upgrades
+        # backwards compatible until a formal migration system is introduced.
+        self._connection._connection.execute(
+            "ALTER TABLE canonical_facts ADD COLUMN IF NOT EXISTS previous_fact_id TEXT"
+        )
+        self._connection._connection.execute(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS uq_active_canonical_fact
+            ON canonical_facts(book_id, subject, predicate)
+            WHERE active = TRUE
+            """
+        )
         self._connection.commit()
+
+    @contextmanager
+    def transaction(self) -> Iterator[None]:
+        with self._connection.transaction():
+            yield
+
+    def lock_assertion(self, assertion_id: str) -> None:
+        """Serialize concurrent reviews of the same assertion."""
+        self._connection.execute(
+            "SELECT id FROM assertions WHERE id = ? FOR UPDATE",
+            (assertion_id,),
+        ).fetchone()
 
 
 class PostgresWorkflowRunStore:
@@ -217,3 +271,6 @@ class PostgresWorkflowRunStore:
             (run.status.value, json.dumps(run.model_dump(mode="json")), run.id),
         )
         self._connection.commit()
+
+    def close(self) -> None:
+        self._connection.close()
