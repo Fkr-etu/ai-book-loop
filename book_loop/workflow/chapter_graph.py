@@ -116,9 +116,11 @@ class ChapterWorkflow:
             ],
         )
 
-    def _linguistic_review(self, state: ChapterWorkflowState) -> SceneReview | None:
+    def _linguistic_review(
+        self, state: ChapterWorkflowState
+    ) -> tuple[SceneReview | None, list[Diagnostic]]:
         if self.linguistic_validator_factory is None:
-            return None
+            return None, []
         result = self.linguistic_validator_factory(state.book).validate(
             state.draft, language=self.linguistic_language
         )
@@ -141,9 +143,12 @@ class ChapterWorkflow:
             diagnostics = contextualized + canon
 
         if result.status == LinguisticCheckStatus.CHECK_NOT_AVAILABLE:
-            return self._review_from_linguistic_diagnostics(
+            return (
+                self._review_from_linguistic_diagnostics(
+                    diagnostics,
+                    unavailable_error=result.error or "unknown checker failure",
+                ),
                 diagnostics,
-                unavailable_error=result.error or "unknown checker failure",
             )
         blocking = [
             diagnostic
@@ -151,12 +156,13 @@ class ChapterWorkflow:
             if diagnostic.severity == DiagnosticSeverity.ERROR
         ]
         if blocking:
-            return self._review_from_linguistic_diagnostics(blocking)
-        return None
+            return self._review_from_linguistic_diagnostics(blocking), diagnostics
+        return None, diagnostics
 
     def _review(self, state: ChapterWorkflowState) -> dict:
         context = self.context_builder.for_chapter(state.book, state.chapter_number)
         lint = self.linter.lint(state.draft)
+        diagnostics: list[Diagnostic] = []
         if not lint.valid:
             review = SceneReview(
                 score=0,
@@ -165,11 +171,15 @@ class ChapterWorkflow:
                 suggestions=["Remove all lint errors before the next review."],
             )
         else:
-            linguistic_review = self._linguistic_review(state)
+            linguistic_review, diagnostics = self._linguistic_review(state)
             if linguistic_review is not None:
                 review = linguistic_review
             else:
-                review = self.reviewer.review(context=context, draft=state.draft)
+                review = self.reviewer.review(
+                    context=context,
+                    draft=state.draft,
+                    diagnostics=diagnostics,
+                )
 
         self.repository.save_review(
             state.book.id, state.chapter_number, state.attempt, review
