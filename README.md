@@ -146,9 +146,6 @@ Start with [`AGENTS.md`](AGENTS.md). It contains the repository rules and points
 - [`docs/development/testing.md`](docs/development/testing.md) — testing strategy
 - [`docs/development/configuration.md`](docs/development/configuration.md) — configuration rules
 - [`docs/development/contributing.md`](docs/development/contributing.md) — contribution workflow
-- [`docs/development/testing.md`](docs/development/testing.md) — testing strategy
-- [`docs/development/configuration.md`](docs/development/configuration.md) — configuration rules
-- [`docs/development/contributing.md`](docs/development/contributing.md) — contribution workflow
 - [`docs/glossary.md`](docs/glossary.md) — project terminology
 
 ## Development principles
