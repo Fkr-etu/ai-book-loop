@@ -32,7 +32,7 @@ def test_observability_event_is_persisted_and_logged(caplog) -> None:
     ).fetchone()
 
     assert row is not None
-    assert tuple(row.values()) == (
+    assert tuple(row) == (
         "ChapterReviewed",
         "run-1",
         "book-1",
@@ -52,5 +52,5 @@ def test_observability_store_creates_schema_on_startup() -> None:
     tables = store._connection.execute(
         "SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname = 'public' AND tablename = 'observability_events'"
     ).fetchall()
-    assert [row["tablename"] for row in tables] == ["observability_events"]
+    assert [row[0] for row in tables] == ["observability_events"]
     store.close()
