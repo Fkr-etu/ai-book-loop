@@ -2,237 +2,254 @@
 
 ## Purpose
 
-This document defines a **starting pricing hypothesis** for Book. It is not a final price list. Pricing must be validated against real usage, retention, perceived value and LLM economics.
+This document defines the **pricing hypothesis** for Book Loop. It is not a final public price list.
+
+Pricing must follow the product positioning: customers pay for a reliable workflow that protects narrative coherence, not for access to a particular LLM or raw token volume.
+
+The commercial positioning is defined in [`positioning.md`](positioning.md).
+
+## Commercial thesis
+
+Book Loop is a **creator SaaS** for people who build long-lived narrative universes.
+
+The first wedge is authors. Adjacent validation targets are screenwriters and Game Masters. The common value is:
+
+> **Keep your universe coherent, even as it grows and changes.**
+
+The user is buying continuity protection and a trusted creation/review workflow.
+
+### What the customer is not buying
+
+- raw tokens;
+- a particular LLM vendor;
+- a generic chatbot;
+- unlimited one-click book generation;
+- a static story bible or wiki.
+
+LLM usage is an internal cost driver and should remain bounded internally, but it should not become the primary customer-facing abstraction.
 
 ## Market reference
 
-The current AI writing market already supports meaningful recurring subscriptions:
+The current market spans several categories:
 
-- Sudowrite: $10/month annual for Hobby & Student, $22/month annual for Professional, and $44/month annual for Max. The plans primarily differentiate by monthly AI credits.
-- NovelAI: $10, $15 and $25/month tiers, with the higher tiers increasing capabilities/context.
-- Novelcrafter positions itself as a broader novel-writing workspace with Codex, planning, review and access to multiple external AI providers; its site currently advertises plans starting at $4/month.
+### AI writing assistants
 
-The implication is that Book should not try to win by being the cheapest AI writing interface. The defensible value proposition is the **persistent agentic loop + continuity + review + canonical knowledge**, rather than raw generation volume.
+- **Sudowrite**: recurring plans differentiated heavily by AI usage/credits.
+- **NovelAI**: subscription tiers around writing generation and context/capability.
+- **Novelcrafter**: a broader novel-writing workspace with Codex, planning, review and multiple external AI providers.
+- **Squibler**: aggressive positioning around AI-assisted long-form/book generation.
 
-## Pricing thesis
+These products establish that creators will pay recurring subscriptions for AI-assisted writing. They also mean that Book Loop cannot differentiate simply through "AI writing", project memory, a story bible or access to several models.
 
-The user should pay for the **workflow and outcome**, not for the underlying tokens.
+### Worldbuilding / RPG tools
 
-Do not expose provider token pricing as the primary commercial unit. LLMs are an infrastructure input that we can optimize through routing and provider selection.
+- **World Anvil** and **Kanka** demonstrate willingness to pay for structured worldbuilding and campaign management.
+- **Campfire** demonstrates demand for structured worldbuilding features for writers.
 
-The commercial metric should therefore be something understandable to an author:
+These tools are primarily strong at storing and organizing a world. Book Loop should differentiate by checking how new content and changes affect the trusted Canon.
 
-- active projects / books;
-- AI-assisted chapters or workflow runs;
-- advanced review / continuity capacity;
-- later, collaboration and publishing-oriented features.
+### Screenwriting tools
 
-## Recommended initial price architecture
+Professional screenplay tools such as **Arc Studio** already cover authoring, formatting, collaboration and revision workflows.
+
+Book Loop should complement these tools before attempting to replace them. The differentiation is continuity and change review.
+
+## Pricing principles
+
+1. **Price the outcome, not the model.**
+2. **Keep the public model understandable.**
+3. **Use internal quotas even if the UX feels simple.**
+4. **Do not promise unlimited premium-model inference.**
+5. **Do not launch a complex credit economy before users understand the product.**
+6. **Do not price above established creator software without evidence of superior value.**
+7. **Do not compete by being the cheapest AI writer.**
+8. **Validate pricing through paid usage and retention, not competitor imitation.**
+
+## Working launch hypothesis
+
+Keep the initial offer deliberately simple.
 
 ### Free — €0
 
-Purpose: acquisition and product discovery.
+Purpose: let a creator experience the core loop and understand the Canon concept.
 
-Suggested limits:
+Possible envelope:
 
-- 1 project;
-- limited outline generation;
-- limited chapter workflow runs per month;
-- basic continuity/review demonstration;
-- no expectation of producing a complete book for free.
+- 1 active project;
+- bounded outline generation;
+- bounded chapter/workflow runs;
+- continuity/review demonstration;
+- no expectation of generating a complete book for free.
 
-The free tier should demonstrate the **loop**, not provide unlimited AI generation.
+The free tier must demonstrate the **loop**, not merely provide a crippled editor.
 
-### Creator — €12/month
+### Pro — approximately €19/month during paid beta
 
-Target: hobbyists and authors testing an AI-assisted workflow.
+This is the preferred early commercial experiment.
 
-Suggested envelope:
+Target: an author actively producing or revising a book or series.
 
-- several active projects;
-- enough AI usage for meaningful weekly writing;
-- outline + drafting + review + continuity;
-- standard model routing;
-- chapter/version history.
+Possible envelope:
 
-Annual target: approximately €120/year.
+- full Book Loop workflow;
+- meaningful but bounded workflow allowance;
+- Canon and continuity checks;
+- version and review history;
+- enough capacity for genuine recurring use;
+- stronger model routing where it materially improves quality.
 
-### Pro — €24/month
+The €19 price is an **early-adopter experiment**, not a permanent promise.
 
-**Recommended primary plan.**
+### Mature Creator tier — approximately €12/month
 
-Target: authors seriously writing and revising a book or series.
+If validation shows a meaningful lower-intensity audience, introduce a lighter tier.
 
-Suggested envelope:
+Target: hobbyists and creators using AI regularly but at lower workflow volume.
 
-- higher AI workflow allowance;
-- deeper context and continuity checks;
-- more revision/review cycles;
-- priority access to stronger models where justified;
-- richer canonical state;
-- export and project management capabilities.
+This tier should not exist merely to add a cheaper card. It needs a clear usage/value boundary that users understand.
 
-Annual target: approximately €240/year.
+### Mature Pro tier — approximately €24/month
 
-### Power / Studio — €49/month, later
+If the €19 beta demonstrates willingness to pay and healthy usage, move toward approximately €24/month for the main serious-creator plan.
 
-Do not launch this tier until usage patterns justify it.
+The justification is the workflow and continuity value, not model access.
 
-Target:
+### Power / Studio — approximately €49/month, later
+
+Do not launch this tier until real usage demonstrates demand for it.
+
+Potential target:
 
 - prolific authors;
-- multiple books / series;
+- multiple books or series;
 - very high workflow volume;
-- advanced model routing;
-- collaboration or professional workflow features.
+- professional creator workflows;
+- future collaboration capabilities.
 
-This tier exists to capture high willingness-to-pay without forcing the core Pro plan to subsidize extreme usage.
+A higher tier should capture heavy usage without forcing the core plan to subsidize extreme inference consumption.
 
-## Why €24/month is the current anchor
+## Do not publish a final price list yet
 
-The current competitive range for serious AI-assisted writing is broadly around $10–$60/month depending on usage and positioning. Sudowrite's Professional plan is $22/month on annual billing and $29/month monthly, while its Max plan reaches $44/$59.
+The current website pricing should **not be treated as authoritative**. In particular, previously displayed €24 / €59 / €179 plans and the registration page's €29 Pro offer are historical UI hypotheses, not validated commercial decisions.
 
-Book should therefore initially sit around **€24/month** rather than attempting either extreme:
+Do not advertise a 14-day free trial until the product actually implements the corresponding trial and billing lifecycle.
 
-- below €10 would communicate commodity / lightweight AI assistance;
-- €40–60+ would be difficult to justify before Book has demonstrated a substantially superior workflow;
-- ~€24 gives enough room for infrastructure and premium model usage while remaining inside the established author-software subscription range.
+Do not describe unavailable features such as multi-user billing, dedicated model infrastructure or enterprise support as included paid-plan functionality while those capabilities remain outside the MVP.
 
-The price should be validated by willingness-to-pay interviews and, more importantly, paid conversion rather than competitor imitation.
+## Unit economics
 
-## Unit economics model
+LLM inference is a cost input, not the customer value metric.
 
-Until production telemetry exists, use a transparent planning model rather than pretending to know exact per-user costs.
-
-### Planning assumptions
-
-A useful planning unit is a completed book workflow, not a raw LLM call:
-
-- 50k words ≈ 25 chapters at 2k words/chapter;
-- 80k words ≈ 40 chapters;
-- 120k words ≈ 60 chapters;
-- each chapter can involve writing, linting, review, retry/revision, summary and canonical extraction;
-- context grows over the life of a book, so later chapters can cost more than early chapters;
-- retries and premium-model escalation must be included in the budget.
-
-For a routing scenario using a majority low-cost model, some general-purpose model usage and a small premium-model share, an illustrative chapter envelope is approximately **$0.06 of LLM inference cost**, including a planning retry provision. This is an internal planning assumption, not a production measurement.
-
-| Book size | Approx. chapters | Illustrative LLM cost / book | Conservative 2× planning envelope |
-|---|---:|---:|---:|
-| 50k words | 25 | ~$1.50 | ~$3 |
-| 80k words | 40 | ~$2.40 | ~$5 |
-| 120k words | 60 | ~$3.60 | ~$7 |
-
-The 2× column exists to absorb uncertainty around context growth, retries, provider mix and usage patterns. It should be replaced by measured telemetry as soon as the product is used at scale.
-
-### What this means for subscriptions
-
-The important conclusion is that **LLM inference alone is unlikely to determine Book's price**. Product value, retention, infrastructure, support and extreme usage are more important commercial constraints.
-
-A practical initial usage envelope is therefore:
-
-| Plan | Public price hypothesis | Intended usage | Internal LLM cost target |
-|---|---:|---|---:|
-| Free | €0 | Product discovery | Strictly capped |
-| Creator | €12/mo | Light / regular writing | <~€4 normal usage |
-| Pro | €24/mo | Serious book / series workflow | ~€4–€10 normal usage |
-| Power / Studio | €49/mo | Heavy / prolific usage | ~€10–€20+ with stronger controls |
-
-These are **guardrails, not promises**. A user who generates several complete books every month should not receive unlimited premium-model inference inside the €12–€24 plans.
-
-## LLM economics and gross-margin guardrail
-
-Book is not a single LLM call. A chapter may trigger:
+A single chapter workflow can involve:
 
 ```text
 Writer
   ↓
-Linter
+Validation
   ↓
 Reviewer
   ↓
-Retry / revision
+Correction / retry
   ↓
 Summary
   ↓
 Canonical extraction
 ```
 
-Therefore the commercial model must budget for a **workflow multiplier**, retries, context growth and premium-model routing.
+Internal planning must account for:
 
-For planning purposes, use three internal cost envelopes until production telemetry exists:
+- workflow multiplication;
+- retries;
+- context growth over a project;
+- provider/model mix;
+- infrastructure;
+- storage;
+- extreme usage.
 
-| Usage profile | Indicative LLM cost target / month | Commercial implication |
-|---|---:|---|
-| Light author | < €2 | €12 plan has large margin headroom |
-| Regular author | €2–€8 | €24 plan is attractive |
-| Heavy author | €8–€20+ | needs quotas/routing or higher tier |
+The existing planning assumption of roughly $0.06 per completed chapter workflow is illustrative only and must not be treated as production economics. It should be replaced by measured data when real usage exists.
 
-These are planning envelopes, not measured production costs. Actual economics must come from telemetry.
+### Internal commercial guardrails
 
-### Guardrails
+- target healthy gross margin on normal paid usage;
+- keep premium-model usage bounded;
+- route deterministic/low-value work to inexpensive models where quality permits;
+- reserve stronger models for tasks where they create measurable value;
+- monitor cost per active creator and cost per completed workflow;
+- use limits to protect against extreme usage without making the public pricing model feel like an API bill.
 
-- Target at least ~70% gross margin on normal paid usage once infrastructure is mature.
-- Do not promise unlimited premium-model usage at launch.
-- Use quotas or credits internally even if the UX presents a simple workflow allowance.
-- Route cheap deterministic/extraction tasks to inexpensive models where quality is sufficient.
-- Reserve premium models for writing/review tasks where they create measurable user value.
-- Monitor cost per active user, cost per book, cost per accepted chapter and retry rate.
+## Natural commercial units to test
 
-## Recommended launch offer
+Do not assume words are the best unit.
 
-For an early paid beta, simplify the public offer instead of launching four tiers immediately:
+Test user comprehension and willingness to pay around:
 
-**Free** → experience the loop.
+1. **Active project** — one book, series or campaign in production.
+2. **Workflow capacity** — number of meaningful creation/review cycles.
+3. **Continuity capacity** — depth/frequency of Canon and review analysis.
+4. **Professional capabilities** — collaboration and advanced workflows later.
 
-**Pro €19/month** → full Book workflow with a generous but bounded usage allowance.
+The right abstraction may differ between authors, screenwriters and GMs, so the product should first validate whether a common creator plan is understandable.
 
-Then move toward the mature structure:
+## Pricing validation plan
 
-**Creator €12 → Pro €24 → Power €49** once actual usage supports segmentation.
+Pricing should be validated after the core promise is clear.
 
-The €19 beta price is deliberately positioned as an early-adopter offer, not as the permanent anchor.
+### Qualitative
 
-## What we should NOT sell yet
+Ask creators:
 
-- raw token packages as the main product;
-- unlimited premium model usage;
-- per-word pricing;
-- enterprise contracts for the Book MVP;
-- complex credit systems before users understand the product;
-- artificially cheap pricing intended to compete with generic LLM chat products.
+- What is the cost of an inconsistency today?
+- How much time do you spend checking continuity manually?
+- What do you currently use: ChatGPT, Claude, Novelcrafter, Sudowrite, World Anvil, Kanka, Campfire, spreadsheets, notes?
+- What would make you trust an automated Canon?
+- Would you pay for a system that catches a contradiction before it enters the next chapter/session?
+- Which pricing unit feels natural: project, workflow capacity, words, or something else?
 
-## Validation plan
+### Quantitative
 
-Pricing is validated only when users pay and continue using the product.
+Once real product usage exists, validate:
 
-Track:
+1. free → paid conversion;
+2. trial → paid conversion if a real trial exists;
+3. monthly retention / churn;
+4. completed workflows per paying creator;
+5. percentage hitting usage limits;
+6. LLM cost per paying creator;
+7. gross margin;
+8. upgrade/downgrade behavior;
+9. repeated use across chapters, revisions or sessions;
+10. willingness to pay at €12 / €19 / €24 / €49.
 
-1. Free → paid conversion.
-2. Trial → paid conversion.
-3. Monthly retention / churn.
-4. Chapters completed per paying user.
-5. AI workflow runs per paying user.
-6. LLM cost per paying user.
-7. Gross margin per plan.
-8. Percentage of users hitting usage limits.
-9. Upgrade/downgrade behavior.
-10. Qualitative willingness-to-pay feedback.
+## Decision gates
 
-### Pricing decision gates
+### Gate 1 — value
 
-- If most users never approach limits, increase value/features before reducing price.
-- If many users hit limits and retention is strong, add a higher tier rather than making the base plan unlimited.
-- If users refuse €19 despite strong product engagement, investigate value proposition before immediately lowering price.
-- If users happily pay €24–49 and ask for more capacity, pricing power exists.
-- If LLM cost threatens margins, improve routing/prompt efficiency before redesigning the entire product around cost.
+Creators must clearly understand that Book Loop protects narrative coherence.
+
+### Gate 2 — repeated use
+
+Users must return for multiple chapters, revisions or campaign sessions.
+
+### Gate 3 — differentiation
+
+Users should identify a meaningful advantage over a generic LLM plus their existing notes/tools.
+
+### Gate 4 — willingness to pay
+
+Real creators must pay or show strong purchase intent at the tested price.
+
+### Gate 5 — economics
+
+Actual usage must support healthy margins after LLM and infrastructure costs.
+
+Only after these gates should the pricing ladder become fixed.
 
 ## Strategic conclusion
 
-The initial hypothesis is:
+The current commercial hypothesis is intentionally simple:
 
-> **Book Pro should eventually cost around €24/month, with a €19/month early-adopter beta and a €12/month entry tier.**
+> **Free to understand the loop; approximately €19/month to use it seriously during the paid beta; move toward approximately €24/month for the mature core plan if the evidence supports it.**
 
-This is deliberately above commodity AI-chat pricing and below the most expensive author-focused AI subscriptions. The justification is not access to a particular LLM; it is the persistent **agentic writing → review → continuity → approval → canonical state** workflow.
+A €12 entry tier and €49 high-capacity tier are segmentation hypotheses, not launch requirements.
 
-As the Canon and regression engine become more valuable, pricing should increasingly reflect **knowledge integrity and workflow outcomes**, not tokens or raw text generation volume.
+The long-term pricing power should come from **trusted narrative consistency and workflow outcomes**, not from the number of tokens Book Loop can generate.
