@@ -77,6 +77,6 @@ def test_database_rejects_two_active_facts_for_same_subject_and_predicate(tmp_pa
     fact = repository.list_active_canonical_facts(book_id="book-1")[0]
     with pytest.raises(sqlite3.IntegrityError):
         repository._connection.execute(
-            "UPDATE canonical_facts SET active = 1 WHERE id != ?",
-            (fact.id,),
+            "INSERT INTO canonical_facts(id, book_id, assertion_id, statement, subject, predicate, object, decision_id, version, active, previous_fact_id) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            ("illegal-fact", "book-1", "assertion-2", "Alice is 33.", "Alice", "age", "33", "illegal-decision", fact.version + 1, 1, fact.id),
         )
