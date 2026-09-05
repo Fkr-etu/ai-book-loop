@@ -102,12 +102,12 @@ export default function StudioDeskPage() {
 
   return (
     <StudioLayout>
-      <div className="flex h-[calc(100vh-61px)] overflow-hidden">
+      <div className="flex flex-col lg:flex-row min-h-[calc(100vh-61px)] lg:h-[calc(100vh-61px)] overflow-y-auto lg:overflow-hidden">
         {/* CENTER WRITING CANVAS (Parchment Desk) */}
-        <div className="flex-1 overflow-y-auto bg-[#f8f5f0] p-6 md:p-10 flex flex-col items-center relative">
+        <div className="flex-1 overflow-y-auto bg-[#f8f5f0] p-4 sm:p-6 md:p-10 flex flex-col items-center relative">
           {/* Top Bar for Canvas */}
-          <div className="w-full max-w-[760px] mb-4 flex items-center justify-between text-xs border-b border-[#c6c6cd]/30 pb-3">
-            <div className="flex items-center gap-2 text-[#0b1c30] font-mono">
+          <div className="w-full max-w-[760px] mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs border-b border-[#c6c6cd]/30 pb-3">
+            <div className="flex flex-wrap items-center gap-2 text-[#0b1c30] font-mono">
               <select
                 value={selectedChapterNumber}
                 onChange={(e) => {
@@ -116,7 +116,7 @@ export default function StudioDeskPage() {
                   const ch = chaptersList.find((c) => c.number === num);
                   if (ch) setSelectedVerNum(ch.currentVersion || 1);
                 }}
-                className="font-bold text-xs bg-white border border-[#c6c6cd] rounded px-2 py-1"
+                className="font-bold text-xs bg-white border border-[#c6c6cd] rounded px-2 py-1 max-w-[200px] truncate"
               >
                 {chaptersList.map((ch) => (
                   <option key={ch.id} value={ch.number}>
@@ -138,7 +138,7 @@ export default function StudioDeskPage() {
               </span>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <span className="font-mono text-[#76777d] text-xs">
                 {wordCount} mots
               </span>
@@ -164,18 +164,18 @@ export default function StudioDeskPage() {
           </div>
 
           {/* Workflow Actions Bar */}
-          <div className="w-full max-w-[760px] mb-4 p-3 bg-white rounded-lg border border-[#c6c6cd]/30 shadow-xs flex items-center justify-between text-xs">
-            <div className="flex items-center gap-2">
+          <div className="w-full max-w-[760px] mb-4 p-3 bg-white rounded-lg border border-[#c6c6cd]/30 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+            <div className="flex flex-wrap items-center gap-2">
               <span className="font-mono text-[#76777d]">
                 Version courante: <strong>v{selectedVerNum}</strong>
               </span>
-              <span className="text-[#c6c6cd]">|</span>
+              <span className="text-[#c6c6cd] hidden sm:inline">|</span>
               <span className="text-[#45464d]">
                 Objectif: <em>{activeChapter?.objective || "Non spécifié"}</em>
               </span>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 shrink-0">
               <button
                 onClick={handleApproveChapter}
                 className="px-3 py-1 bg-[#b87500] text-white font-bold rounded hover:bg-[#9a6200] flex items-center gap-1 text-[11px] cursor-pointer"
@@ -193,9 +193,9 @@ export default function StudioDeskPage() {
           </div>
 
           {/* PARCHMENT SHEET */}
-          <div className="w-full max-w-[760px] bg-[#f8f5f0] min-h-[550px] p-8 md:p-12 shadow-sm border border-[#c6c6cd]/20 rounded relative flex flex-col">
+          <div className="w-full max-w-[760px] bg-[#f8f5f0] min-h-[450px] sm:min-h-[550px] p-5 sm:p-8 md:p-12 shadow-xs border border-[#c6c6cd]/20 rounded relative flex flex-col">
             <div className="mb-6 pb-4 border-b border-[#c6c6cd]/20">
-              <h1 className="font-playfair text-3xl font-bold text-[#0f172a] mb-2">
+              <h1 className="font-playfair text-2xl sm:text-3xl font-bold text-[#0f172a] mb-2">
                 {activeChapter?.title || "Chapitre Sans Titre"}
               </h1>
               <p className="font-courier text-xs text-[#5f5e5b]">
@@ -208,12 +208,12 @@ export default function StudioDeskPage() {
               value={editorContent}
               onChange={(e) => setEditorContent(e.target.value)}
               placeholder="Commencez à écrire votre récit ici ou générez une version avec l'IA..."
-              className="w-full flex-1 bg-transparent border-none outline-none font-merriweather text-base leading-[1.8] text-[#0f172a] resize-none focus:ring-0 selection:bg-[#ffddb8]"
-              rows={16}
+              className="w-full flex-1 bg-transparent border-none outline-none font-merriweather text-sm sm:text-base leading-[1.8] text-[#0f172a] resize-none focus:ring-0 selection:bg-[#ffddb8]"
+              rows={14}
             />
 
             {/* Subtle Footer watermark */}
-            <div className="mt-8 pt-4 border-t border-[#c6c6cd]/20 flex justify-between items-center text-[11px] font-mono text-[#76777d]">
+            <div className="mt-8 pt-4 border-t border-[#c6c6cd]/20 flex flex-wrap justify-between items-center text-[11px] font-mono text-[#76777d] gap-2">
               <span>Manuscript Studio — Parchment Canvas</span>
               <span>Canon State: {activeChapter?.status}</span>
             </div>
@@ -221,12 +221,12 @@ export default function StudioDeskPage() {
         </div>
 
         {/* RIGHT PANE: TABBED PANEL (Manuscript Insights / Version History / Context Inspector) */}
-        <div className="w-[360px] shrink-0 bg-[#f8f9ff] border-l border-[#c6c6cd]/30 h-full overflow-y-auto p-4 flex flex-col gap-4">
+        <div className="w-full lg:w-[360px] shrink-0 bg-[#f8f9ff] border-t lg:border-t-0 lg:border-l border-[#c6c6cd]/30 h-auto lg:h-full overflow-y-auto p-4 flex flex-col gap-4">
           {/* Tab Controls */}
           <div className="flex items-center gap-1 bg-[#e5eeff] p-1 rounded-lg border border-[#c6c6cd]/30 text-xs font-mono font-bold text-[#0b1c30]">
             <button
               onClick={() => setActiveTab("manuscript")}
-              className={`flex-1 py-1.5 rounded transition-all flex items-center justify-center gap-1 ${
+              className={`flex-1 py-1.5 rounded transition-all flex items-center justify-center gap-1 cursor-pointer ${
                 activeTab === "manuscript" ? "bg-white shadow-xs text-[#0b1c30]" : "text-[#76777d]"
               }`}
             >
@@ -235,7 +235,7 @@ export default function StudioDeskPage() {
 
             <button
               onClick={() => setActiveTab("history")}
-              className={`flex-1 py-1.5 rounded transition-all flex items-center justify-center gap-1 ${
+              className={`flex-1 py-1.5 rounded transition-all flex items-center justify-center gap-1 cursor-pointer ${
                 activeTab === "history" ? "bg-white shadow-xs text-[#0b1c30]" : "text-[#76777d]"
               }`}
             >
@@ -244,7 +244,7 @@ export default function StudioDeskPage() {
 
             <button
               onClick={() => setActiveTab("context")}
-              className={`flex-1 py-1.5 rounded transition-all flex items-center justify-center gap-1 ${
+              className={`flex-1 py-1.5 rounded transition-all flex items-center justify-center gap-1 cursor-pointer ${
                 activeTab === "context" ? "bg-white shadow-xs text-[#0b1c30]" : "text-[#76777d]"
               }`}
             >
@@ -324,7 +324,7 @@ export default function StudioDeskPage() {
             </div>
           )}
 
-          {/* TAB 2: VERSION HISTORY (Phase 5) */}
+          {/* TAB 2: VERSION HISTORY */}
           {activeTab === "history" && (
             <div className="space-y-3">
               <span className="text-xs font-mono font-bold text-[#76777d] uppercase tracking-wider block">
@@ -344,7 +344,7 @@ export default function StudioDeskPage() {
                       onClick={() => setSelectedVerNum(ver.versionNumber)}
                       className={`p-3.5 rounded-xl border transition-all cursor-pointer space-y-2 ${
                         isSel
-                          ? "bg-[#0b1c30] text-white border-[#0b1c30] shadow-sm"
+                          ? "bg-[#0b1c30] text-white border-[#0b1c30] shadow-xs"
                           : "bg-white text-[#0b1c30] border-[#c6c6cd]/40 hover:bg-[#eff4ff]"
                       }`}
                     >
@@ -390,7 +390,7 @@ export default function StudioDeskPage() {
             </div>
           )}
 
-          {/* TAB 3: CONTEXT INSPECTOR (Phase 7) */}
+          {/* TAB 3: CONTEXT INSPECTOR */}
           {activeTab === "context" && (
             <div className="space-y-3">
               <span className="text-xs font-mono font-bold text-[#76777d] uppercase tracking-wider block">

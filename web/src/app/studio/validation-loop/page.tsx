@@ -69,14 +69,14 @@ export default function ValidationLoopPage() {
 
   return (
     <StudioLayout>
-      <div className="p-6 md:p-10 max-w-5xl mx-auto space-y-8">
+      <div className="p-4 sm:p-6 md:p-10 max-w-5xl mx-auto space-y-6 md:space-y-8">
         {/* Header */}
-        <div className="border-b border-[#c6c6cd]/30 pb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="border-b border-[#c6c6cd]/30 pb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <span className="text-xs font-mono font-bold text-[#b87500] uppercase tracking-wider block mb-1 flex items-center gap-1.5">
               <ShieldCheck className="w-4 h-4 text-[#b87500]" /> Contrôle Métier & Qualité
             </span>
-            <h1 className="font-playfair text-3xl font-bold text-[#0b1c30]">
+            <h1 className="font-playfair text-2xl sm:text-3xl font-bold text-[#0b1c30]">
               Boucle de Validation (Linter + AI Review)
             </h1>
             <p className="text-xs text-[#45464d] mt-1">
@@ -84,16 +84,16 @@ export default function ValidationLoopPage() {
             </p>
           </div>
 
-          <div className="px-3.5 py-2 bg-[#0b1c30] text-[#ffddb8] font-mono text-xs font-bold rounded border border-[#b87500]">
+          <div className="px-3.5 py-2 bg-[#0b1c30] text-[#ffddb8] font-mono text-xs font-bold rounded border border-[#b87500] shrink-0 w-max">
             Tentative {attemptCount} / {maxAttempts}
           </div>
         </div>
 
         {/* Interactive Validation Simulator */}
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Left: Text Input for testing */}
-          <div className="md:col-span-7 space-y-4">
-            <div className="bg-white rounded-xl border border-[#c6c6cd]/40 p-5 shadow-xs space-y-3">
+          <div className="lg:col-span-7 space-y-4">
+            <div className="bg-white rounded-xl border border-[#c6c6cd]/40 p-4 sm:p-5 shadow-xs space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-mono font-bold text-[#0b1c30] uppercase">
                   Extrait à Tester (Chapitre {activeChapter?.number || 1})
@@ -107,10 +107,10 @@ export default function ValidationLoopPage() {
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
                 rows={10}
-                className="w-full p-4 font-merriweather text-sm leading-relaxed border border-[#c6c6cd]/50 rounded bg-[#f8f5f0] focus:border-[#b87500] focus:outline-none"
+                className="w-full p-3 sm:p-4 font-merriweather text-xs sm:text-sm leading-relaxed border border-[#c6c6cd]/50 rounded bg-[#f8f5f0] focus:border-[#b87500] focus:outline-none"
               />
 
-              <div className="flex justify-between items-center pt-2">
+              <div className="flex flex-col sm:flex-row justify-between items-center gap-3 pt-2">
                 <span className="text-[11px] text-[#76777d]">
                   Insérez "robot" ou "wifi" pour déclencher le rejet du linter déterministe.
                 </span>
@@ -118,7 +118,7 @@ export default function ValidationLoopPage() {
                   type="button"
                   onClick={handleRunLoop}
                   disabled={isEvaluating}
-                  className="px-4 py-2 bg-[#0b1c30] text-[#ffddb8] font-bold text-xs rounded hover:bg-[#131b2e] flex items-center gap-2 shadow-xs disabled:opacity-50 cursor-pointer"
+                  className="w-full sm:w-auto px-4 py-2 bg-[#0b1c30] text-[#ffddb8] font-bold text-xs rounded hover:bg-[#131b2e] flex items-center justify-center gap-2 shadow-xs disabled:opacity-50 cursor-pointer shrink-0"
                 >
                   <Sparkles className={`w-3.5 h-3.5 ${isEvaluating ? "animate-spin" : ""}`} />
                   <span>{isEvaluating ? "Évaluation..." : "Exécuter la Boucle"}</span>
@@ -160,7 +160,7 @@ export default function ValidationLoopPage() {
           </div>
 
           {/* Right: AI Review Results */}
-          <div className="md:col-span-5 space-y-4">
+          <div className="lg:col-span-5 space-y-4">
             <h2 className="text-xs font-mono font-bold text-[#76777d] uppercase tracking-wider">
               2. Critique & Review IA ({reviewsList.length})
             </h2>
@@ -169,7 +169,7 @@ export default function ValidationLoopPage() {
               {reviewsList.map((rev) => (
                 <div
                   key={rev.id || Math.random()}
-                  className={`p-5 rounded-xl bg-white border border-[#c6c6cd]/40 shadow-xs space-y-3 relative overflow-hidden border-l-4 ${
+                  className={`p-4 sm:p-5 rounded-xl bg-white border border-[#c6c6cd]/40 shadow-xs space-y-3 relative overflow-hidden border-l-4 ${
                     rev.approved ? "border-l-[#b87500]" : "border-l-[#ba1a1a]"
                   }`}
                 >

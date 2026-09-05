@@ -74,21 +74,21 @@ export default function PricingPage() {
     <div className="min-h-screen bg-[#f8f5f0] text-[#0f172a] font-inter selection:bg-[#ffddb8] selection:text-[#0f172a]">
       <Navbar />
 
-      <main className="max-w-6xl mx-auto px-6 py-12 space-y-12">
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8 md:py-12 space-y-8 md:space-y-12">
         {/* Header Hero */}
         <div className="text-center max-w-3xl mx-auto space-y-4">
           <span className="text-xs font-mono font-bold text-[#b87500] uppercase tracking-wider inline-flex items-center gap-1.5 px-3 py-1 bg-[#ffddb8]/40 rounded-full border border-[#b87500]/30">
             <Sparkles className="w-3.5 h-3.5 text-[#b87500]" /> Offres & Abonnements
           </span>
-          <h1 className="font-playfair text-4xl md:text-5xl font-bold text-[#0b1c30] tracking-tight">
+          <h1 className="font-playfair text-3xl sm:text-4xl md:text-5xl font-bold text-[#0b1c30] tracking-tight">
             Investissez dans la clarté de vos récits
           </h1>
-          <p className="text-sm md:text-base text-[#45464d] leading-relaxed">
+          <p className="text-xs sm:text-sm md:text-base text-[#45464d] leading-relaxed">
             Profitez de la puissance de l'IA sans compromettre la noblesse de votre prose. Sans engagement, annulez à tout moment.
           </p>
 
           {/* Billing Cycle Toggle */}
-          <div className="pt-4 flex items-center justify-center gap-3">
+          <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
             <span
               className={`text-xs font-semibold ${
                 billingCycle === "monthly" ? "text-[#0b1c30]" : "text-[#76777d]"
@@ -101,7 +101,7 @@ export default function PricingPage() {
               onClick={() =>
                 setBillingCycle(billingCycle === "monthly" ? "yearly" : "monthly")
               }
-              className="w-12 h-6 bg-[#0b1c30] rounded-full p-1 transition-colors relative"
+              className="w-12 h-6 bg-[#0b1c30] rounded-full p-1 transition-colors relative cursor-pointer"
             >
               <div
                 className={`w-4 h-4 bg-[#ffddb8] rounded-full transition-transform ${
@@ -123,20 +123,20 @@ export default function PricingPage() {
         </div>
 
         {/* Pricing Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 items-stretch">
           {plans.map((plan) => {
             const price = billingCycle === "yearly" ? plan.yearlyPrice : plan.monthlyPrice;
             return (
               <div
                 key={plan.id}
-                className={`rounded-2xl p-8 flex flex-col justify-between transition-all relative ${
+                className={`rounded-2xl p-6 sm:p-8 flex flex-col justify-between transition-all relative ${
                   plan.popular
                     ? "bg-[#0b1c30] text-white shadow-xl ring-2 ring-[#b87500]"
                     : "bg-white text-[#0b1c30] border border-[#c6c6cd]/40 shadow-xs hover:border-[#b87500]/50"
                 }`}
               >
                 {plan.popular && (
-                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-[#ffddb8] text-[#2a1700] text-[11px] font-mono font-bold px-3 py-1 rounded-full uppercase tracking-wider shadow-xs">
+                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-[#ffddb8] text-[#2a1700] text-[11px] font-mono font-bold px-3 py-1 rounded-full uppercase tracking-wider shadow-xs whitespace-nowrap">
                     Recommandé par les Auteurs
                   </div>
                 )}
@@ -144,7 +144,7 @@ export default function PricingPage() {
                 <div>
                   <div className="mb-6">
                     <h2
-                      className={`font-playfair text-2xl font-bold ${
+                      className={`font-playfair text-xl sm:text-2xl font-bold ${
                         plan.popular ? "text-white" : "text-[#0b1c30]"
                       }`}
                     >
@@ -161,7 +161,7 @@ export default function PricingPage() {
 
                   <div className="mb-6 pb-6 border-b border-[#c6c6cd]/20">
                     <div className="flex items-baseline gap-1">
-                      <span className="font-playfair text-4xl font-bold">
+                      <span className="font-playfair text-3xl sm:text-4xl font-bold">
                         {price}€
                       </span>
                       <span
@@ -212,8 +212,8 @@ export default function PricingPage() {
         </div>
 
         {/* Guarantee Banner */}
-        <div className="p-6 bg-white rounded-xl border border-[#c6c6cd]/40 shadow-xs flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
+        <div className="p-5 sm:p-6 bg-white rounded-xl border border-[#c6c6cd]/40 shadow-xs flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex flex-col sm:flex-row items-center sm:items-start text-center sm:text-left gap-4">
             <div className="w-12 h-12 rounded-full bg-[#eff4ff] text-[#0b1c30] flex items-center justify-center shrink-0">
               <ShieldCheck className="w-6 h-6 text-[#b87500]" />
             </div>
@@ -228,7 +228,7 @@ export default function PricingPage() {
           </div>
           <Link
             href="/studio"
-            className="px-4 py-2 border border-[#0b1c30] text-[#0b1c30] rounded text-xs font-semibold hover:bg-[#eff4ff] shrink-0"
+            className="w-full sm:w-auto px-4 py-2 border border-[#0b1c30] text-[#0b1c30] rounded text-xs font-semibold hover:bg-[#eff4ff] shrink-0 text-center"
           >
             Tester l'Atelier Gratuitement
           </Link>

@@ -12,11 +12,16 @@ import {
   CheckCircle2,
   Bookmark,
   Download,
-  LayoutDashboard
+  LayoutDashboard,
+  X
 } from "lucide-react";
 import { useProjectStore } from "@/lib/useProjectStore";
 
-export function Sidebar() {
+interface SidebarProps {
+  onCloseMobile?: () => void;
+}
+
+export function Sidebar({ onCloseMobile }: SidebarProps) {
   const pathname = usePathname();
   const { project } = useProjectStore();
 
@@ -73,9 +78,31 @@ export function Sidebar() {
     }
   ];
 
+  const handleNavClick = () => {
+    if (onCloseMobile) {
+      onCloseMobile();
+    }
+  };
+
   return (
-    <aside className="w-[280px] shrink-0 bg-[#eff4ff]/60 border-r border-[#c6c6cd]/30 h-[calc(100vh-61px)] sticky top-[61px] flex flex-col justify-between p-4 overflow-y-auto">
+    <aside className="w-full h-full flex flex-col justify-between p-4 overflow-y-auto">
       <div className="space-y-6">
+        {/* Mobile Header with Close Button */}
+        {onCloseMobile && (
+          <div className="flex items-center justify-between pb-2 border-b border-[#c6c6cd]/30 md:hidden">
+            <span className="font-playfair font-bold text-sm text-[#0b1c30]">
+              Navigation Studio
+            </span>
+            <button
+              onClick={onCloseMobile}
+              className="p-1 rounded text-[#45464d] hover:text-[#0b1c30] hover:bg-[#e5eeff]"
+              aria-label="Fermer le menu"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        )}
+
         {/* Active Project Banner */}
         <div className="p-3 bg-[#ffffff] rounded border border-[#c6c6cd]/40 shadow-xs">
           <div className="flex items-center justify-between text-[10px] font-mono uppercase text-[#45464d] mb-1">
@@ -100,7 +127,7 @@ export function Sidebar() {
         <div>
           <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-wider text-[#76777d] px-2 mb-2">
             <span>Espaces de Travail</span>
-            <Link href="/dashboard" className="text-[#0b1c30] hover:underline flex items-center gap-0.5">
+            <Link href="/dashboard" onClick={handleNavClick} className="text-[#0b1c30] hover:underline flex items-center gap-0.5">
               <LayoutDashboard className="w-3 h-3" /> Mes livres
             </Link>
           </div>
@@ -112,9 +139,10 @@ export function Sidebar() {
                 <Link
                   key={item.href}
                   href={item.href}
+                  onClick={handleNavClick}
                   className={`flex items-start gap-3 p-2.5 rounded transition-all text-left ${
                     isActive
-                      ? "bg-[#0b1c30] text-[#ffffff] shadow-sm"
+                      ? "bg-[#0b1c30] text-[#ffffff] shadow-xs"
                       : "text-[#0b1c30] hover:bg-[#e5eeff] text-[#45464d]"
                   }`}
                 >

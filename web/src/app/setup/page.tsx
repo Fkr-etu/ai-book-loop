@@ -63,7 +63,7 @@ export default function SetupPage() {
   return (
     <div className="min-h-screen bg-[#f8f5f0] text-[#0f172a] flex flex-col justify-between font-inter selection:bg-[#ffddb8] selection:text-[#0f172a]">
       {/* Top Header */}
-      <header className="px-8 py-4 bg-white/80 backdrop-blur border-b border-[#c6c6cd]/30 flex justify-between items-center sticky top-0 z-20">
+      <header className="px-4 sm:px-8 py-4 bg-white/80 backdrop-blur border-b border-[#c6c6cd]/30 flex flex-col sm:flex-row justify-between items-center gap-2 sticky top-0 z-20">
         <Link href="/studio" className="flex items-center gap-3">
           <div className="w-8 h-8 rounded bg-[#0b1c30] text-[#ffddb8] flex items-center justify-center">
             <Feather className="w-4 h-4" />
@@ -85,8 +85,8 @@ export default function SetupPage() {
         />
       </div>
 
-      <main className="flex-1 max-w-3xl w-full mx-auto p-6 md:p-10">
-        <div className="bg-white rounded-xl border border-[#c6c6cd]/30 shadow-sm p-8">
+      <main className="flex-1 max-w-3xl w-full mx-auto p-4 sm:p-6 md:p-10">
+        <div className="bg-white rounded-xl border border-[#c6c6cd]/30 shadow-xs p-5 sm:p-8">
           {/* STEP 1: Title, Genre, Theme */}
           {step === 1 && (
             <div className="space-y-6 animate-fadeIn">
@@ -94,7 +94,7 @@ export default function SetupPage() {
                 <span className="text-xs font-mono font-bold text-[#b87500] uppercase tracking-wider block mb-1">
                   Étape 1 • Fondations Narratives
                 </span>
-                <h1 className="font-playfair text-2xl font-bold text-[#0b1c30]">
+                <h1 className="font-playfair text-xl sm:text-2xl font-bold text-[#0b1c30]">
                   Titre, Genre & Thème du Livre
                 </h1>
                 <p className="text-xs text-[#45464d] mt-1">
@@ -177,7 +177,7 @@ export default function SetupPage() {
                 <span className="text-xs font-mono font-bold text-[#b87500] uppercase tracking-wider block mb-1">
                   Étape 2 • Ancrage du Lore & Bible du Monde
                 </span>
-                <h1 className="font-playfair text-2xl font-bold text-[#0b1c30]">
+                <h1 className="font-playfair text-xl sm:text-2xl font-bold text-[#0b1c30]">
                   Règles, Reliques et Lieux Canoniques
                 </h1>
                 <p className="text-xs text-[#45464d] mt-1">
@@ -227,7 +227,7 @@ export default function SetupPage() {
                   <button
                     type="button"
                     onClick={handleAddLore}
-                    className="bg-[#0b1c30] text-white text-xs font-semibold py-1.5 px-3 rounded hover:bg-[#131b2e] flex items-center justify-center gap-1"
+                    className="bg-[#0b1c30] text-white text-xs font-semibold py-1.5 px-3 rounded hover:bg-[#131b2e] flex items-center justify-center gap-1 cursor-pointer"
                   >
                     <Plus className="w-3.5 h-3.5" /> Ajouter
                   </button>
@@ -253,7 +253,7 @@ export default function SetupPage() {
                       className="p-3 bg-white rounded border border-[#c6c6cd]/40 flex items-start justify-between"
                     >
                       <div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <span className="text-xs font-bold text-[#0b1c30]">
                             {item.title}
                           </span>
@@ -279,7 +279,7 @@ export default function SetupPage() {
                 <span className="text-xs font-mono font-bold text-[#b87500] uppercase tracking-wider block mb-1">
                   Étape 3 • Directives de Rédaction & Style
                 </span>
-                <h1 className="font-playfair text-2xl font-bold text-[#0b1c30]">
+                <h1 className="font-playfair text-xl sm:text-2xl font-bold text-[#0b1c30]">
                   Ton, Voix Narrative & Verrouillage Canon
                 </h1>
                 <p className="text-xs text-[#45464d] mt-1">
@@ -314,7 +314,7 @@ export default function SetupPage() {
                       <span className="text-[#0b1c30]">
                         {typeof c === "string" ? c : (c as any).description}
                       </span>
-                      <span className="text-[10px] font-mono text-[#b87500] font-bold">
+                      <span className="text-[10px] font-mono text-[#b87500] font-bold shrink-0 ml-2">
                         VERROUILLÉ
                       </span>
                     </div>
@@ -357,7 +357,7 @@ export default function SetupPage() {
               <button
                 type="button"
                 onClick={handleFinishSetup}
-                className="px-6 py-2.5 text-xs font-bold bg-[#0b1c30] text-[#ffddb8] rounded hover:bg-[#131b2e] flex items-center gap-2 shadow-sm cursor-pointer"
+                className="px-6 py-2.5 text-xs font-bold bg-[#0b1c30] text-[#ffddb8] rounded hover:bg-[#131b2e] flex items-center gap-2 shadow-xs cursor-pointer"
               >
                 <Check className="w-4 h-4 text-[#ffddb8]" />
                 <span>Ouvrir l'Atelier de Rédaction</span>

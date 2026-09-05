@@ -62,14 +62,14 @@ export default function CharactersPage() {
 
   return (
     <StudioLayout>
-      <div className="p-6 md:p-10 max-w-6xl mx-auto space-y-8">
+      <div className="p-4 sm:p-6 md:p-10 max-w-6xl mx-auto space-y-6 md:space-y-8">
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#c6c6cd]/30 pb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#c6c6cd]/30 pb-6">
           <div>
             <span className="text-xs font-mono font-bold text-[#b87500] uppercase tracking-wider block mb-1">
               Psychologie & Motivation
             </span>
-            <h1 className="font-playfair text-3xl font-bold text-[#0b1c30]">
+            <h1 className="font-playfair text-2xl sm:text-3xl font-bold text-[#0b1c30]">
               Éditeur de Personnages Profonds
             </h1>
             <p className="text-xs text-[#45464d] mt-1">
@@ -79,7 +79,7 @@ export default function CharactersPage() {
 
           <button
             onClick={() => setIsCreating(!isCreating)}
-            className="px-4 py-2 bg-[#0b1c30] text-[#ffddb8] text-xs font-bold rounded hover:bg-[#131b2e] transition-colors flex items-center gap-2 shadow-xs shrink-0 cursor-pointer"
+            className="px-4 py-2 bg-[#0b1c30] text-[#ffddb8] text-xs font-bold rounded hover:bg-[#131b2e] transition-colors flex items-center justify-center gap-2 shadow-xs shrink-0 cursor-pointer w-full sm:w-auto"
           >
             <Plus className="w-4 h-4" />
             <span>Nouveau Personnage</span>
@@ -90,7 +90,7 @@ export default function CharactersPage() {
         {isCreating && (
           <form
             onSubmit={handleCreate}
-            className="p-6 bg-white rounded-xl border border-[#b87500]/40 shadow-sm space-y-4 animate-fadeIn"
+            className="p-4 sm:p-6 bg-white rounded-xl border border-[#b87500]/40 shadow-xs space-y-4 animate-fadeIn"
           >
             <h2 className="text-sm font-mono font-bold text-[#0b1c30] uppercase">
               Création d'un Profil de Personnage (Canon)
@@ -166,63 +166,65 @@ export default function CharactersPage() {
         )}
 
         {/* MAIN LAYOUT: LEFT CHARACTER CARDS - RIGHT DETAIL EDITOR */}
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Left Cards List */}
-          <div className="md:col-span-4 space-y-3">
+          <div className="lg:col-span-4 space-y-3">
             <span className="text-xs font-mono font-bold text-[#76777d] uppercase tracking-wider block">
               Casting du Récit ({charactersList.length})
             </span>
-            {charactersList.map((char) => {
-              const isSelected = activeChar?.id === char.id;
-              return (
-                <button
-                  key={char.id}
-                  onClick={() => setSelectedCharId(char.id)}
-                  className={`w-full p-4 rounded-xl text-left transition-all border cursor-pointer ${
-                    isSelected
-                      ? "bg-[#0b1c30] text-white border-[#0b1c30] shadow-sm"
-                      : "bg-white text-[#0b1c30] border-[#c6c6cd]/40 hover:bg-[#eff4ff]"
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="font-playfair text-base font-bold truncate">
-                      {char.name}
-                    </span>
-                    <span
-                      className={`text-[10px] font-mono px-2 py-0.5 rounded ${
-                        isSelected
-                          ? "bg-[#ffddb8] text-[#2a1700]"
-                          : "bg-[#d3e4fe] text-[#0b1c30]"
-                      }`}
-                    >
-                      {char.role}
-                    </span>
-                  </div>
-                  <p
-                    className={`text-xs font-mono truncate ${
-                      isSelected ? "text-[#7c839b]" : "text-[#5f5e5b]"
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-3">
+              {charactersList.map((char) => {
+                const isSelected = activeChar?.id === char.id;
+                return (
+                  <button
+                    key={char.id}
+                    onClick={() => setSelectedCharId(char.id)}
+                    className={`w-full p-4 rounded-xl text-left transition-all border cursor-pointer ${
+                      isSelected
+                        ? "bg-[#0b1c30] text-white border-[#0b1c30] shadow-xs"
+                        : "bg-white text-[#0b1c30] border-[#c6c6cd]/40 hover:bg-[#eff4ff]"
                     }`}
                   >
-                    {char.archetype}
-                  </p>
-                </button>
-              );
-            })}
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-playfair text-base font-bold truncate">
+                        {char.name}
+                      </span>
+                      <span
+                        className={`text-[10px] font-mono px-2 py-0.5 rounded ${
+                          isSelected
+                            ? "bg-[#ffddb8] text-[#2a1700]"
+                            : "bg-[#d3e4fe] text-[#0b1c30]"
+                        }`}
+                      >
+                        {char.role}
+                      </span>
+                    </div>
+                    <p
+                      className={`text-xs font-mono truncate ${
+                        isSelected ? "text-[#7c839b]" : "text-[#5f5e5b]"
+                      }`}
+                    >
+                      {char.archetype}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {/* Right Detail Card */}
           {activeChar && (
-            <div className="md:col-span-8 bg-white rounded-xl border border-[#c6c6cd]/40 p-6 shadow-xs space-y-6">
+            <div className="lg:col-span-8 bg-white rounded-xl border border-[#c6c6cd]/40 p-4 sm:p-6 shadow-xs space-y-6">
               <div className="flex items-start justify-between border-b border-[#c6c6cd]/30 pb-4">
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-full bg-[#0b1c30] text-[#ffddb8] font-playfair font-bold text-xl flex items-center justify-center">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-[#0b1c30] text-[#ffddb8] font-playfair font-bold text-lg sm:text-xl flex items-center justify-center shrink-0">
                     {activeChar.name.charAt(0)}
                   </div>
                   <div>
-                    <h2 className="font-playfair text-2xl font-bold text-[#0b1c30]">
+                    <h2 className="font-playfair text-xl sm:text-2xl font-bold text-[#0b1c30]">
                       {activeChar.name}
                     </h2>
-                    <div className="flex items-center gap-2 mt-1">
+                    <div className="flex flex-wrap items-center gap-2 mt-1">
                       <span className="text-xs font-mono text-[#b87500] font-bold">
                         {activeChar.role} • {activeChar.archetype}
                       </span>

@@ -42,13 +42,13 @@ export default function IntentionLabPage() {
 
   return (
     <StudioLayout>
-      <div className="p-6 md:p-10 max-w-5xl mx-auto space-y-8">
+      <div className="p-4 sm:p-6 md:p-10 max-w-5xl mx-auto space-y-6 md:space-y-8">
         {/* Header */}
         <div className="border-b border-[#c6c6cd]/30 pb-6">
           <span className="text-xs font-mono font-bold text-[#b87500] uppercase tracking-wider block mb-1 flex items-center gap-1.5">
             <Sliders className="w-4 h-4" /> Pilotage Créatif & Directives LLM
           </span>
-          <h1 className="font-playfair text-3xl font-bold text-[#0b1c30]">
+          <h1 className="font-playfair text-2xl sm:text-3xl font-bold text-[#0b1c30]">
             Laboratoire d'Intention
           </h1>
           <p className="text-xs text-[#45464d] mt-1">
@@ -59,7 +59,7 @@ export default function IntentionLabPage() {
         {/* Form Add Constraint */}
         <form
           onSubmit={handleAdd}
-          className="p-6 bg-white rounded-xl border border-[#b87500]/40 shadow-xs space-y-4"
+          className="p-4 sm:p-6 bg-white rounded-xl border border-[#b87500]/40 shadow-xs space-y-4"
         >
           <h2 className="text-xs font-mono font-bold text-[#0b1c30] uppercase flex items-center gap-2">
             <Plus className="w-4 h-4 text-[#b87500]" />
@@ -88,7 +88,7 @@ export default function IntentionLabPage() {
           <div className="flex justify-end">
             <button
               type="submit"
-              className="px-4 py-2 bg-[#0b1c30] text-[#ffddb8] text-xs font-bold rounded hover:bg-[#131b2e] flex items-center gap-1.5"
+              className="w-full sm:w-auto px-4 py-2 bg-[#0b1c30] text-[#ffddb8] text-xs font-bold rounded hover:bg-[#131b2e] flex items-center justify-center gap-1.5 cursor-pointer"
             >
               <Sparkles className="w-3.5 h-3.5" />
               <span>Injecter la Contrainte</span>
@@ -123,7 +123,7 @@ export default function IntentionLabPage() {
                     <ShieldAlert className="w-4 h-4" />
                   </div>
                   <div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span className="text-xs font-bold text-[#0b1c30]">
                         {c.type === "forbidden_word"
                           ? "Terme Interdit"
@@ -144,7 +144,7 @@ export default function IntentionLabPage() {
                 <button
                   type="button"
                   onClick={() => store.toggleConstraint && store.toggleConstraint(c.id)}
-                  className="p-1.5 text-[#0b1c30] hover:bg-[#eff4ff] rounded transition-colors shrink-0"
+                  className="p-1.5 text-[#0b1c30] hover:bg-[#eff4ff] rounded transition-colors shrink-0 cursor-pointer"
                   title="Activer/Désactiver"
                 >
                   {c.active ? (
