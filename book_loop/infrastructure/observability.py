@@ -87,7 +87,8 @@ class ObservabilityStore:
         )
         self._connection.commit()
         logger.info(
-            "workflow_event",
+            "workflow_event event_type=%s",
+            event.event_type,
             extra={
                 "event_type": event.event_type,
                 "workflow_run_id": event.workflow_run_id,
