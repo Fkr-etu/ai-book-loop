@@ -32,6 +32,7 @@ from book_loop.infrastructure.llm.assertion_extractor import LLMAssertionExtract
 from book_loop.infrastructure.llm.factory import create_llm
 from book_loop.infrastructure.linguistic.languagetool import LanguageToolChecker
 from book_loop.infrastructure.linguistic.spacy import SpacyFrenchChecker
+from book_loop.infrastructure.observability import ObservabilityStore
 from book_loop.workflow.chapter_graph import ChapterWorkflow
 
 
@@ -44,6 +45,7 @@ class Container:
             raise ValueError("Unsupported DATABASE_URL; PostgreSQL is required (postgresql://...)")
         self.repository = PostgresBookRepository(self.settings.database_url)
         self.workflow_store = PostgresWorkflowRunStore(self.settings.database_url)
+        self.observability = ObservabilityStore(self.settings.database_url)
         self.llm = create_llm(self.settings)
 
         self.outline_agent = OutlineAgent(self.llm)
@@ -67,6 +69,7 @@ class Container:
             max_retries=self.settings.max_retries,
             review_threshold=self.settings.review_threshold,
             workflow_store=self.workflow_store,
+            observability=self.observability,
         )
 
     def _contextualize_linguistic_diagnostics(self, chapter: str, diagnostics):
