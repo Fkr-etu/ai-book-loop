@@ -13,6 +13,14 @@ if not database_url:
 if not database_url.startswith(("postgresql://", "postgres://", "postgresql+psycopg://")):
     raise RuntimeError("DATABASE_URL must point to PostgreSQL")
 
+# SQLAlchemy's generic `postgresql://` URL selects psycopg2 by default.
+# The project standardizes on psycopg v3, so make the driver explicit for
+# Alembic while keeping the application DATABASE_URL backward-compatible.
+if database_url.startswith("postgresql://"):
+    database_url = "postgresql+psycopg://" + database_url[len("postgresql://"):]
+elif database_url.startswith("postgres://"):
+    database_url = "postgresql+psycopg://" + database_url[len("postgres://"):]
+
 config.set_main_option("sqlalchemy.url", database_url.replace("%", "%%"))
 
 
