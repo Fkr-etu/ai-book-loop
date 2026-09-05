@@ -24,6 +24,7 @@ class SequenceLLM:
         self.review_json = review_json
         self.correct_calls = 0
         self.review_calls = 0
+        self.review_prompts = []
 
     def generate(self, *, system_prompt: str, user_prompt: str) -> str:
         prompt = system_prompt.casefold()
@@ -35,8 +36,9 @@ class SequenceLLM:
         return "Initial draft."
 
     def generate_structured(self, *, system_prompt, user_prompt, schema, thinking_level="medium", max_output_tokens=None):
-        del system_prompt, user_prompt, thinking_level, max_output_tokens
+        del system_prompt, thinking_level, max_output_tokens
         self.review_calls += 1
+        self.review_prompts.append(user_prompt)
         return schema.model_validate_json(self.review_json)
 
 
@@ -156,3 +158,49 @@ def test_linguistic_checker_unavailable_is_fail_closed_when_enabled():
     assert result.decision == "needs_review"
     assert llm.review_calls == 0
     assert "Linguistic validation unavailable" in repository.reviews[0][3].issues[0]
+
+
+def test_non_blocking_linguistic_diagnostic_reaches_reviewer_without_retry():
+    book = make_book()
+    repository = Repository(book)
+    llm = SequenceLLM('{"score": 9, "approved": true, "issues": [], "suggestions": []}')
+    warning = Diagnostic(
+        category=DiagnosticCategory.SYNTAX,
+        severity=DiagnosticSeverity.WARNING,
+        source=DiagnosticSource.NLP,
+        message="Possible sentence fragment",
+        confidence=0.65,
+        rule_id="SPACY_FR_NO_VERB",
+        original_text="Le silence.",
+        suggestions=["Vérifier si le fragment est intentionnel"],
+    )
+
+    class WarningChecker:
+        def check(self, text, *, language="fr"):
+            del text, language
+            return LinguisticCheckResult(
+                status=LinguisticCheckStatus.ISSUES_FOUND,
+                checker="test",
+                diagnostics=[warning],
+            )
+
+    validator = LinguisticValidationService([WarningChecker()])
+    workflow = ChapterWorkflow(
+        repository=repository,
+        writer=WriterAgent(llm),
+        reviewer=ReviewerAgent(llm),
+        corrector=CorrectorAgent(llm),
+        summarizer=SummarizerAgent(llm),
+        context_builder=ContextBuilder(),
+        linter=ChapterLinter(),
+        linguistic_validator_factory=lambda _book: validator,
+    )
+
+    result = workflow.run(book=book, chapter_number=1)
+
+    assert result.decision == "accept"
+    assert result.attempt == 1
+    assert len(repository.versions) == 1
+    assert llm.review_calls == 1
+    assert "DETERMINISTIC DIAGNOSTICS" in llm.review_prompts[0]
+    assert "Possible sentence fragment" in llm.review_prompts[0]
