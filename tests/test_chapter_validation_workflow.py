@@ -26,7 +26,7 @@ class RecordingLLM:
 
     def generate(self, *, system_prompt, user_prompt):
         prompt = system_prompt.lower()
-        if "summar" in prompt:
+        if "canonical continuity editor" in prompt:
             return "Summary."
         if "writer" in prompt or "editor" in prompt:
             return next(self.drafts)
