@@ -1,55 +1,79 @@
-# Stratégie & options d'hébergement — AI Book Loop / Manuscript Studio
+# Stratégie d'hébergement — AI Book Loop / Manuscript Studio
 
-Ce document décrit les options d'hébergement compatibles avec l'architecture actuelle. **PostgreSQL est désormais la seule base de données supportée** par l'application ; SQLite n'est plus un backend de persistance.
+## 1. Architecture de référence
 
-## 1. Architecture actuelle
+**Google Cloud est désormais la plateforme de production de référence et la seule plateforme nécessaire au déploiement applicatif.**
 
-- **Frontend** : Next.js / TypeScript (`web/`).
-- **Backend** : FastAPI / Python (`book_loop/`).
-- **Workflow** : génération de chapitre durable et reprenable, avec état persistant.
-- **Persistance** : PostgreSQL via `DATABASE_URL`.
-- **LLM** : Google Gemini.
-
-Le choix PostgreSQL est volontaire : il permet d'utiliser les mêmes sémantiques SQL en développement, CI, staging et production, notamment pour les transactions, contraintes et opérations concurrentes du workflow et du Canon.
-
-## 2. Option recommandée : Vercel + Cloud Run + PostgreSQL managé
-
-| Composant | Service possible | Rôle |
+| Composant | Service | Rôle |
 | :--- | :--- | :--- |
-| Frontend | Vercel | Déploiement Next.js et CDN |
-| Backend | GCP Cloud Run | API FastAPI et workers HTTP |
-| Base de données | Neon / Supabase / Cloud SQL | PostgreSQL persistant |
+| Frontend | Cloud Run | Application Next.js |
+| Backend | Cloud Run | API FastAPI |
+| Base de données | Cloud SQL PostgreSQL | Persistance durable |
+| Images | Artifact Registry | Images Docker |
+| Secrets | Secret Manager | Secrets applicatifs |
+| Migrations | Cloud Run Job + Alembic | Évolution du schéma |
+| CI/CD | GitHub Actions + Cloud Build | Validation puis déploiement |
+| Observabilité | Cloud Logging / Monitoring | Logs et supervision |
 
-Cloud Run possède un système de fichiers éphémère : une base locale n'est donc pas adaptée au stockage durable de l'application. PostgreSQL élimine cette dépendance au disque local et permet de conserver les checkpoints de workflow et les données du Canon entre les redémarrages.
+La région de référence est `europe-west1`.
 
-Pour un faible trafic, un PostgreSQL managé avec une offre gratuite ou peu coûteuse peut convenir. Pour une charge plus importante, Cloud SQL ou une offre PostgreSQL managée équivalente fournit une capacité et une supervision supérieures.
+La description détaillée et les décisions associées sont documentées dans [`gcp-architecture.md`](./gcp-architecture.md).
 
-## 3. Alternative : VPS
+## 2. Pourquoi une plateforme unique
 
-Un VPS peut héberger le frontend, le backend et PostgreSQL avec Docker Compose. Cette option reste pertinente pour minimiser le coût fixe et garder un serveur actif en permanence.
+Le produit est encore au stade MVP. Une architecture multi-plateforme comme Vercel + Cloud Run + Supabase est techniquement viable mais ajoute des interfaces opérationnelles sans bénéfice nécessaire à ce stade.
 
-**PostgreSQL doit néanmoins rester la base utilisée par l'application** : on ne propose plus de variante SQLite sur VPS.
+Le regroupement sur GCP permet de :
 
-## 4. Configuration
+- réduire le nombre de plateformes à administrer ;
+- centraliser IAM, secrets, logs et déploiements ;
+- simplifier les problèmes de domaines et d'authentification ;
+- conserver une architecture capable d'évoluer avec le produit.
 
-La configuration applicative passe par une seule variable :
+Cette décision est pragmatique et pourra être réévaluée si un fournisseur spécialisé apporte un avantage réel et mesurable.
 
-```text
-DATABASE_URL=postgresql://user:password@host:5432/database
-```
+## 3. Philosophie de coût
 
-Les formes `postgres://`, `postgresql://` et `postgresql+psycopg://` sont acceptées par la composition root et le repository PostgreSQL.
+Le trafic initial pouvant être très faible, l'infrastructure est volontairement minimale :
 
-Le CI utilise PostgreSQL 16 afin de rapprocher au maximum les tests automatisés de la persistance de production.
+- Cloud Run scale-to-zero ;
+- petite instance Cloud SQL sans HA ;
+- pas de GKE ;
+- pas de Load Balancer dédié ;
+- pas de Redis/Memorystore ;
+- pas de réseau VPC complexe ;
+- une seule région.
 
-## 5. Suite technique
+Le coût fixe accepté est principalement celui de PostgreSQL persistant. Les services serverless doivent rester arrêtables lorsqu'ils ne sont pas utilisés.
 
-Avant C3 (Context Builder), la priorité est :
+## 4. Alternatives
 
-1. terminer la suppression des derniers usages SQLite ;
-2. stabiliser les tests PostgreSQL et la concurrence ;
-3. introduire **Alembic** pour les migrations de schéma ;
-4. documenter le bootstrap PostgreSQL local et les variables d'environnement ;
-5. puis poursuivre le Context Builder et l'enrichissement du pipeline Canon.
+### Vercel + Cloud Run + PostgreSQL managé
 
-Le passage à PostgreSQL ne modifie pas la roadmap fonctionnelle : il simplifie uniquement la couche d'infrastructure en supprimant un backend divergent.
+Écartée comme architecture de référence pour limiter le nombre de plateformes et la complexité cross-domain. Elle reste techniquement compatible avec le produit si une contrainte future le justifie.
+
+### VPS + Docker Compose
+
+Pertinent pour minimiser certains coûts fixes, mais implique davantage de responsabilités opérationnelles et de maintenance.
+
+### GKE / Kubernetes
+
+Écarté car surdimensionné pour le trafic et les besoins actuels.
+
+## 5. Persistance
+
+**PostgreSQL est la seule base supportée par l'application.**
+
+Cloud SQL est utilisé en production afin de conserver les checkpoints du workflow durable, les versions immuables de chapitres et le Canon entre les redémarrages des conteneurs.
+
+Alembic est la source de vérité des migrations de schéma.
+
+## 6. Déploiement
+
+Les branches et Pull Requests passent par le CI. La production est déclenchée explicitement par `release` : Cloud Build construit les images, publie dans Artifact Registry, exécute les migrations puis déploie les services Cloud Run.
+
+Aucun déploiement de production ne doit être déclenché simplement par l'ouverture ou la mise à jour d'une Pull Request.
+
+## 7. Évolution
+
+Le choix GCP ne modifie pas la roadmap fonctionnelle. L'infrastructure sera renforcée uniquement lorsque les besoins réels le justifieront : capacité PostgreSQL, haute disponibilité, réseau, limites Cloud Run ou architecture distribuée.
