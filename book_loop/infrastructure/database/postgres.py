@@ -47,6 +47,12 @@ class _PostgresConnectionAdapter:
         sql = sql.replace("ORDER BY e.rowid", "ORDER BY e.id")
         sql = sql.replace("ORDER BY a.rowid", "ORDER BY a.id")
         sql = sql.replace("ORDER BY rowid", "ORDER BY id")
+        sql = sql.replace("active = 1", "active = TRUE")
+        sql = sql.replace("active = 0", "active = FALSE")
+        if "INSERT INTO canonical_facts" in sql and len(params) >= 10:
+            normalized_params = list(params)
+            normalized_params[9] = bool(normalized_params[9])
+            params = tuple(normalized_params)
         return self._connection.execute(sql, params)
 
     def commit(self) -> None:
@@ -265,3 +271,6 @@ class PostgresWorkflowRunStore:
             (run.status.value, json.dumps(run.model_dump(mode="json")), run.id),
         )
         self._connection.commit()
+
+    def close(self) -> None:
+        self._connection.close()
