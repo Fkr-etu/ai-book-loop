@@ -28,121 +28,115 @@ export interface ReviewChapterResult {
   review: BackendSceneReview;
 }
 
-export interface ReviewAssertionInput {
-  decision: "accept" | "reject" | "defer";
-  rationale?: string;
+export interface BackendChapterContext {
+  authorIdea: string;
+  theme: string;
+  lore: string;
+  globalOutline: import("@/types/api").BackendOutline | null;
+  constraints: string[];
+  previousSummaries: string;
+  currentObjective: string;
+  formattedContext: string;
 }
 
-export class ApiError extends Error {
-  readonly status: number;
+export class RealApiError extends Error {
+  status: number | null;
 
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number | null = null) {
     super(message);
-    this.name = "ApiError";
+    this.name = "RealApiError";
     this.status = status;
   }
 }
 
+const RETRYABLE_STATUS = new Set([408, 429, 500, 502, 503, 504]);
+const MAX_RETRIES = 2;
 const REQUEST_TIMEOUT_MS = 30_000;
-const MAX_GET_RETRIES = 2;
+
+async function parseResponse(response: Response): Promise<unknown> {
+  const text = await response.text();
+  if (!text) return null;
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return text;
+  }
+}
+
+function errorMessage(payload: unknown, fallback: string): string {
+  if (typeof payload === "object" && payload !== null && "detail" in payload) {
+    const detail = (payload as { detail?: unknown }).detail;
+    if (typeof detail === "string") return detail;
+  }
+  return fallback;
+}
 
 export class RealApiClient {
-  constructor(private readonly baseUrl = API_BASE_URL) {}
+  private async request<T>(path: string, options: RequestInit = {}): Promise<T> {
+    const method = (options.method || "GET").toUpperCase();
+    const canRetry = method === "GET";
+    let attempt = 0;
 
-  private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    const method = options.method?.toUpperCase() || "GET";
-    const retryable = method === "GET";
-    let lastError: unknown;
-
-    for (let attempt = 0; attempt <= (retryable ? MAX_GET_RETRIES : 0); attempt += 1) {
+    while (true) {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-
       try {
-        const response = await fetch(`${this.baseUrl}${endpoint}`, {
+        const response = await fetch(`${API_BASE_URL}${path}`, {
           ...options,
-          credentials: "include",
           signal: controller.signal,
-          headers: {
-            "Content-Type": "application/json",
-            ...options.headers,
-          },
+          headers: { "Content-Type": "application/json", ...(options.headers || {}) },
         });
-
-        if (!response.ok) {
-          const message = await this.readError(response);
-          const error = new ApiError(message, response.status);
-          if (!retryable || response.status < 500 || attempt === MAX_GET_RETRIES) {
-            throw error;
-          }
-          lastError = error;
-        } else {
-          return (await response.json()) as T;
+        const payload = await parseResponse(response);
+        if (response.ok) return payload as T;
+        if (canRetry && attempt < MAX_RETRIES && RETRYABLE_STATUS.has(response.status)) {
+          attempt += 1;
+          continue;
         }
+        throw new RealApiError(errorMessage(payload, `Request failed with status ${response.status}`), response.status);
       } catch (error) {
-        lastError = error;
-        if (!retryable || attempt === MAX_GET_RETRIES) {
-          if (error instanceof ApiError) throw error;
-          if (error instanceof DOMException && error.name === "AbortError") {
-            throw new ApiError("La requête API a expiré.", 408);
-          }
-          throw new ApiError("Impossible de joindre l'API.", 0);
+        if (error instanceof RealApiError) throw error;
+        if (canRetry && attempt < MAX_RETRIES) {
+          attempt += 1;
+          continue;
         }
+        const message = error instanceof DOMException && error.name === "AbortError"
+          ? "La requête a expiré."
+          : "Impossible de joindre l'API.";
+        throw new RealApiError(message);
       } finally {
         clearTimeout(timeout);
       }
-
-      await new Promise((resolve) => setTimeout(resolve, 250 * 2 ** attempt));
     }
-
-    throw lastError instanceof Error ? lastError : new ApiError("Erreur API inconnue.", 0);
   }
 
-  private async readError(response: Response): Promise<string> {
-    const text = await response.text();
-    if (!text) return `Erreur API (${response.status}).`;
-    try {
-      const parsed = JSON.parse(text) as { detail?: unknown };
-      if (typeof parsed.detail === "string") return parsed.detail;
-      if (parsed.detail) return JSON.stringify(parsed.detail);
-    } catch {
-      // Keep the plain response body below.
-    }
-    return text;
+  getCurrentUser(): Promise<BackendUser | null> {
+    return this.request<BackendUser | null>("/api/auth/me");
   }
 
-  health(): Promise<{ status: string }> {
-    return this.request("/health");
-  }
-
-  getCurrentUser(): Promise<{ user: BackendUser }> {
-    return this.request("/api/auth/me");
-  }
-
-  login(email: string, password: string): Promise<{ user: BackendUser }> {
-    return this.request("/api/auth/login", {
+  async login(email: string, password: string): Promise<BackendUser> {
+    return this.request<BackendUser>("/api/auth/login", {
       method: "POST",
       body: JSON.stringify({ email, password }),
     });
   }
 
-  register(email: string, password: string, name = ""): Promise<{ user: BackendUser }> {
-    return this.request("/api/auth/register", {
+  async register(email: string, password: string, name: string): Promise<BackendUser> {
+    return this.request<BackendUser>("/api/auth/register", {
       method: "POST",
       body: JSON.stringify({ email, password, name }),
     });
   }
 
-  logout(): Promise<{ message: string }> {
-    return this.request("/api/auth/logout", { method: "POST" });
+  listBooks(): Promise<BackendBook[]> {
+    return this.request<BackendBook[]>("/api/books");
   }
 
   getBook(bookId: string): Promise<BackendBook> {
-    return this.request(`/api/books/${encodeURIComponent(bookId)}`);
+    return this.request<BackendBook>(`/api/books/${encodeURIComponent(bookId)}`);
   }
 
   createBook(input: CreateBookInput): Promise<BackendBook> {
-    return this.request("/api/books", {
+    return this.request<BackendBook>("/api/books", {
       method: "POST",
       body: JSON.stringify(input),
     });
@@ -171,9 +165,7 @@ export class RealApiClient {
   }
 
   generateChapter(bookId: string, chapterNumber: number): Promise<GenerateChapterResult> {
-    return this.request(`/api/books/${encodeURIComponent(bookId)}/chapters/${chapterNumber}/generate`, {
-      method: "POST",
-    });
+    return this.request(`/api/books/${encodeURIComponent(bookId)}/chapters/${chapterNumber}/generate`, { method: "POST" });
   }
 
   reviewChapter(bookId: string, chapterNumber: number, versionNumber?: number, draftText?: string): Promise<ReviewChapterResult> {
@@ -191,7 +183,7 @@ export class RealApiClient {
     return this.request(`/api/books/${encodeURIComponent(bookId)}/chapters/${chapterNumber}/reject`, { method: "POST" });
   }
 
-  getChapterContext(bookId: string, chapterNumber: number): Promise<Record<string, unknown>> {
+  getChapterContext(bookId: string, chapterNumber: number): Promise<BackendChapterContext> {
     return this.request(`/api/books/${encodeURIComponent(bookId)}/chapters/${chapterNumber}/context`);
   }
 
@@ -217,10 +209,10 @@ export class RealApiClient {
     return result.facts;
   }
 
-  reviewAssertion(bookId: string, assertionId: string, input: ReviewAssertionInput): Promise<unknown> {
-    return this.request(`/api/books/${encodeURIComponent(bookId)}/assertions/${encodeURIComponent(assertionId)}/review`, {
+  reviewAssertion(bookId: string, assertionId: string, decision: "accept" | "reject" | "defer", rationale = ""): Promise<void> {
+    return this.request<void>(`/api/books/${encodeURIComponent(bookId)}/assertions/${encodeURIComponent(assertionId)}/review`, {
       method: "POST",
-      body: JSON.stringify(input),
+      body: JSON.stringify({ decision, rationale }),
     });
   }
 }
