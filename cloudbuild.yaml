@@ -1,0 +1,140 @@
+steps:
+  - id: build-api
+    name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/book-loop-api:$COMMIT_SHA
+      - .
+
+  - id: push-api
+    name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/book-loop-api:$COMMIT_SHA
+
+  - id: migrate
+    name: gcr.io/google.com/cloudsdktool/google-cloud-cli
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        IMAGE="${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/book-loop-api:$COMMIT_SHA"
+        gcloud run jobs update book-loop-migrate \
+          --image "$IMAGE" \
+          --region "${_REGION}" \
+          --service-account "${_RUNTIME_SERVICE_ACCOUNT}" \
+          --set-cloudsql-instances "${_CLOUD_SQL_INSTANCE}" \
+          --set-secrets "DATABASE_URL=${_DATABASE_SECRET}:latest" \
+          --command alembic \
+          --args upgrade,head \
+          --max-retries 1 \
+          --task-timeout 10m \
+          --quiet || gcloud run jobs create book-loop-migrate \
+          --image "$IMAGE" \
+          --region "${_REGION}" \
+          --service-account "${_RUNTIME_SERVICE_ACCOUNT}" \
+          --set-cloudsql-instances "${_CLOUD_SQL_INSTANCE}" \
+          --set-secrets "DATABASE_URL=${_DATABASE_SECRET}:latest" \
+          --command alembic \
+          --args upgrade,head \
+          --max-retries 1 \
+          --task-timeout 10m \
+          --quiet
+        gcloud run jobs execute book-loop-migrate --region "${_REGION}" --wait --quiet
+
+  - id: deploy-api
+    name: gcr.io/google.com/cloudsdktool/google-cloud-cli
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        IMAGE="${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/book-loop-api:$COMMIT_SHA"
+        gcloud run deploy book-loop-api \
+          --image "$IMAGE" \
+          --region "${_REGION}" \
+          --service-account "${_RUNTIME_SERVICE_ACCOUNT}" \
+          --set-cloudsql-instances "${_CLOUD_SQL_INSTANCE}" \
+          --set-secrets "DATABASE_URL=${_DATABASE_SECRET}:latest,GEMINI_API_KEY=${_GEMINI_SECRET}:latest,JWT_SECRET_KEY=${_JWT_SECRET}:latest" \
+          --set-env-vars "AUTH_COOKIE_SECURE=true,AUTH_COOKIE_SAMESITE=none,CORS_ORIGINS=${_CORS_ORIGINS}" \
+          --min 0 \
+          --max 3 \
+          --cpu 1 \
+          --memory 512Mi \
+          --port 8080 \
+          --allow-unauthenticated \
+          --quiet
+
+  - id: get-api-url
+    name: gcr.io/google.com/cloudsdktool/google-cloud-cli
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        gcloud run services describe book-loop-api --region "${_REGION}" --format='value(status.url)' > /workspace/api_url
+
+  - id: build-web
+    name: gcr.io/cloud-builders/docker
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        API_URL="$(cat /workspace/api_url)"
+        docker build \
+          --build-arg "NEXT_PUBLIC_API_URL=$$API_URL" \
+          -t ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/book-loop-web:$COMMIT_SHA \
+          web
+
+  - id: push-web
+    name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/book-loop-web:$COMMIT_SHA
+
+  - id: deploy-web
+    name: gcr.io/google.com/cloudsdktool/google-cloud-cli
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - book-loop-web
+      - --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/book-loop-web:$COMMIT_SHA
+      - --region=${_REGION}
+      - --service-account=${_RUNTIME_SERVICE_ACCOUNT}
+      - --min=0
+      - --max=3
+      - --cpu=1
+      - --memory=512Mi
+      - --port=8080
+      - --allow-unauthenticated
+      - --quiet
+
+  - id: refresh-api-cors
+    name: gcr.io/google.com/cloudsdktool/google-cloud-cli
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        WEB_URL="$(gcloud run services describe book-loop-web --region "${_REGION}" --format='value(status.url)')"
+        gcloud run services update book-loop-api \
+          --region "${_REGION}" \
+          --update-env-vars "CORS_ORIGINS=$$WEB_URL" \
+          --quiet
+
+images:
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/book-loop-api:$COMMIT_SHA
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/book-loop-web:$COMMIT_SHA
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: E2_MEDIUM
+
+substitutions:
+  _REGION: europe-west1
+  _REPOSITORY: book-loop
+  _CLOUD_SQL_INSTANCE: CHANGE_ME
+  _RUNTIME_SERVICE_ACCOUNT: CHANGE_ME
+  _DATABASE_SECRET: book-loop-database-url
+  _GEMINI_SECRET: book-loop-gemini-api-key
+  _JWT_SECRET: book-loop-jwt-secret
+  _CORS_ORIGINS: https://placeholder.invalid
