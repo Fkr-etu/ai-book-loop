@@ -15,12 +15,7 @@ class InMemoryWorkflowRunStore:
         key = (book_id, chapter_number, idempotency_key)
         run = self.runs.get(key)
         if run is None:
-            run = ChapterWorkflowRun(
-                id=str(uuid.uuid4()),
-                book_id=book_id,
-                chapter_number=chapter_number,
-                idempotency_key=idempotency_key,
-            )
+            run = ChapterWorkflowRun(id=str(uuid.uuid4()), book_id=book_id, chapter_number=chapter_number, idempotency_key=idempotency_key)
             self.runs[key] = run
         return run.model_copy(deep=True)
 
@@ -59,18 +54,19 @@ class SQLiteWorkflowRunStore:
         ).fetchone()
         if row is not None:
             return ChapterWorkflowRun.model_validate(json.loads(row["state"]))
-        run = ChapterWorkflowRun(
-            id=str(uuid.uuid4()),
-            book_id=book_id,
-            chapter_number=chapter_number,
-            idempotency_key=idempotency_key,
-        )
+        run = ChapterWorkflowRun(id=str(uuid.uuid4()), book_id=book_id, chapter_number=chapter_number, idempotency_key=idempotency_key)
         self._connection.execute(
-            "INSERT INTO workflow_runs(id, book_id, chapter_number, idempotency_key, status, state) VALUES(?, ?, ?, ?, ?, ?)",
+            "INSERT OR IGNORE INTO workflow_runs(id, book_id, chapter_number, idempotency_key, status, state) VALUES(?, ?, ?, ?, ?, ?)",
             (run.id, run.book_id, run.chapter_number, run.idempotency_key, run.status.value, json.dumps(run.model_dump(mode="json"))),
         )
         self._connection.commit()
-        return run
+        row = self._connection.execute(
+            "SELECT state FROM workflow_runs WHERE book_id = ? AND chapter_number = ? AND idempotency_key = ?",
+            (book_id, chapter_number, idempotency_key),
+        ).fetchone()
+        if row is None:
+            raise RuntimeError("Workflow run could not be created")
+        return ChapterWorkflowRun.model_validate(json.loads(row["state"]))
 
     def save(self, run: ChapterWorkflowRun) -> None:
         self._connection.execute(
