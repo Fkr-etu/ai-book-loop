@@ -19,9 +19,24 @@ jobs:
   canon-e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: book_loop
+          POSTGRES_USER: book_loop
+          POSTGRES_PASSWORD: book_loop
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U book_loop -d book_loop"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     env:
       LLM_PROVIDER: gemini
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      DATABASE_URL: postgresql://book_loop:book_loop@localhost:5432/book_loop
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -212,12 +227,3 @@ jobs:
           print(f"BOOK_ID={book.id}")
           print(f"CANON_FACT_ID={accepted_fact.id}")
           PY
-
-      - name: Upload SQLite database
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: canon-e2e-book-db
-          path: book_loop.db
-          retention-days: 7
-          if-no-files-found: ignore
