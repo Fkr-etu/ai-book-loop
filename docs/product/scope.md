@@ -1,6 +1,6 @@
 # Product Scope
 
-This document defines the **current product boundary**. It is intentionally short. Future phases, sequencing, and expansion criteria live in `docs/product/roadmap.md`.
+This document defines the **current product boundary**. Future phases, sequencing, and expansion criteria live in `docs/product/roadmap.md`.
 
 ## Current scope — Book MVP
 
@@ -13,14 +13,17 @@ The product is an agentic book-writing and review loop for a single author or sm
 - Generate a structured outline.
 - Require explicit author approval before chapter generation.
 - Generate chapters as bounded AI proposals.
-- Lint and review each generated chapter.
-- Retry within an explicit application-level budget.
-- Preserve generated versions and review history.
+- Deterministically lint and linguistically validate generated chapters when configured.
+- Review each validation-clean chapter with structured LLM feedback.
+- Correct and retry within an explicit application-level budget.
+- Preserve immutable generated versions and review history.
 - Produce an accepted chapter summary for continuity.
-- Maintain the approved book state used by subsequent chapters.
-- Support explicit approve / reject / revise decisions.
+- Maintain approved book state used by subsequent chapters.
+- Maintain evidence-backed Canon assertions, conflicts, review decisions and canonical facts.
 - Keep canonical knowledge separate from transient AI output.
-- Persist the workflow state in SQLite for the current MVP.
+- Persist chapter workflow execution state in SQLite so in-progress runs can resume after process restart.
+- Support idempotent chapter generation requests through workflow run identity and idempotency keys.
+- Support explicit approve / reject / revise decisions at the application boundary.
 
 ### Core loop
 
@@ -33,24 +36,50 @@ Author approval
      ↓
 Chapter proposal
      ↓
-Lint / review
+Persisted version
+     ↓
+Lint / linguistic validation
+     ↓
+Structured review
   ↙       ↘
 Retry    Accept
+  ↓          ↓
+Correct   Summary
+  └──→ Review
              ↓
-     Accepted summary
+       Approved chapter
              ↓
        Next chapter
 ```
 
+### Reliability boundary
+
+The MVP distinguishes **content state** from **execution state**:
+
+- chapter versions are immutable content history;
+- `ChapterWorkflowRun` is durable execution state;
+- the same `(book, chapter, idempotency_key)` does not intentionally execute a completed/terminal run again;
+- recovery reuses a chapter version that was persisted before a process crash.
+
+The current implementation serializes duplicate runs within one process. Cross-process worker claiming/leases are not yet part of the MVP.
+
 ## Canon MVP boundary
 
-The next reusable capability is the smallest evidence-backed canonical model:
+The evidence-backed Canon workflow is an implemented MVP capability:
 
 ```text
-Assertion → Evidence → Conflict → Review → CanonicalFact
+SourceDocument
+      ↓
+Assertion + Evidence
+      ↓
+Conflict detection
+      ↓
+Human/application review
+   ↙      ↓       ↘
+Reject  Defer    Accept
+                  ↓
+            CanonicalFact
 ```
-
-For the MVP, Canon should remain focused on book continuity and review. It must not become a generic knowledge-management UI or require a graph/vector database.
 
 Canonical rules:
 
@@ -58,16 +87,20 @@ Canonical rules:
 - canonical facts retain provenance;
 - conflicts remain explicit until reviewed;
 - review decisions are auditable;
-- rejected/transient material is not used as canonical continuity memory.
+- rejected/deferred/transient material is not canonical continuity memory;
+- Canon is never mutated directly by an LLM or retrieval mechanism.
+
+The MVP intentionally stops before a generic knowledge graph or mandatory vector/RAG infrastructure.
 
 ## Explicitly out of scope for the current MVP
 
 - PostgreSQL migration without a demonstrated production need.
-- pgvector, embeddings, or generic RAG infrastructure.
+- Mandatory pgvector, embeddings, or generic RAG infrastructure.
 - A full knowledge graph.
 - Broad external documentation integrations.
 - A generic documentation editor.
 - Enterprise governance, SSO, billing infrastructure, or multi-tenant platform work.
+- Cross-process distributed workflow leasing/worker orchestration.
 - Complex multi-agent orchestration without a concrete workflow benefit.
 - Broad transmedia/game-specific expansion unrelated to the core loop.
 
