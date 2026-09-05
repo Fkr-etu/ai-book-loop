@@ -79,6 +79,11 @@ def create_app(container: Container | None = None) -> FastAPI:
 
     context_builder = ContextBuilder()
 
+    @app.get("/health")
+    def health() -> dict[str, str]:
+        """Lightweight liveness endpoint for Cloud Run and load balancers."""
+        return {"status": "ok"}
+
     def get_current_user(request: Request) -> UserPublic:
         token = request.cookies.get(COOKIE_NAME)
         if not token:

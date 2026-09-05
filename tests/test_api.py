@@ -40,6 +40,14 @@ def create_book(test_client: TestClient, title: str = "Test Book") -> str:
     return response.json()["id"]
 
 
+def test_health_endpoint():
+    settings = Settings(database_url="sqlite:///./test-health.db", auth_secret_key=TEST_SECRET)
+    client = TestClient(create_app(Container(settings=settings)))
+    response = client.get("/health")
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+
+
 def test_get_book(test_client):
     book_id = create_book(test_client)
     response = test_client.get(f"/api/books/{book_id}")
@@ -137,7 +145,6 @@ def test_books_are_isolated_between_users(tmp_path):
 def test_document_ingestion_and_assertion_review(test_client):
     book_id = create_book(test_client, "Ingestion Test Book")
 
-    # Ingest document
     res = test_client.post(
         f"/api/books/{book_id}/documents/ingest",
         json={
@@ -151,13 +158,11 @@ def test_document_ingestion_and_assertion_review(test_client):
     assert data["source_document"]["name"] == "Manuscrit Source"
     assert "assertions" in data
 
-    # List assertions
     list_res = test_client.get(f"/api/books/{book_id}/assertions")
     assert list_res.status_code == 200
     assertions = list_res.json()["assertions"]
     assert len(assertions) >= 1
 
-    # Review assertion
     assertion_id = assertions[0]["id"]
     review_res = test_client.post(
         f"/api/books/{book_id}/assertions/{assertion_id}/review",
