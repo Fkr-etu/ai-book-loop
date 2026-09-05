@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import json
 import uuid
-from typing import Any
+from contextlib import contextmanager
+from typing import Any, Iterator
 
 import psycopg
 from psycopg.rows import dict_row
@@ -36,6 +37,7 @@ class _PostgresConnectionAdapter:
 
     def __init__(self, database_url: str) -> None:
         self._connection = psycopg.connect(_normalize_postgres_url(database_url), row_factory=dict_row)
+        self._transaction_depth = 0
 
     def execute(self, sql: str, params: tuple[Any, ...] = ()):
         sql = sql.replace("?", "%s")
@@ -48,7 +50,27 @@ class _PostgresConnectionAdapter:
         return self._connection.execute(sql, params)
 
     def commit(self) -> None:
-        self._connection.commit()
+        if self._transaction_depth == 0:
+            self._connection.commit()
+
+    @contextmanager
+    def transaction(self) -> Iterator[None]:
+        """Group repository operations into one atomic PostgreSQL transaction."""
+        outermost = self._transaction_depth == 0
+        if outermost:
+            self._connection.execute("BEGIN")
+        self._transaction_depth += 1
+        try:
+            yield
+        except Exception:
+            self._transaction_depth -= 1
+            if outermost:
+                self._connection.rollback()
+            raise
+        else:
+            self._transaction_depth -= 1
+            if outermost:
+                self._connection.commit()
 
     def close(self) -> None:
         self._connection.close()
@@ -179,6 +201,18 @@ class PostgresBookRepository(SQLiteBookRepository):
             """
         )
         self._connection.commit()
+
+    @contextmanager
+    def transaction(self) -> Iterator[None]:
+        with self._connection.transaction():
+            yield
+
+    def lock_assertion(self, assertion_id: str) -> None:
+        """Serialize concurrent reviews of the same assertion."""
+        self._connection.execute(
+            "SELECT id FROM assertions WHERE id = ? FOR UPDATE",
+            (assertion_id,),
+        ).fetchone()
 
 
 class PostgresWorkflowRunStore:
