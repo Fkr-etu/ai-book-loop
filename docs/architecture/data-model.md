@@ -1,6 +1,6 @@
 # Data Model
 
-This document describes the conceptual persisted state. The implementation remains the source of truth for exact serialization details.
+This document describes the persisted state and its ownership boundaries. The implementation remains the source of truth for exact serialization details.
 
 ## Book
 
@@ -37,15 +37,45 @@ The domain validates that chapter numbers are consecutive. The outline must be e
 
 A chapter is identified within a book by its sequence number and contains at least a title and objective.
 
-The current workflow also tracks:
+The chapter stores the accepted/current state:
 
 - `status`;
-- `current_version` — the accepted/current generated attempt number;
-- `summary` — the canonical continuity summary when the chapter has been accepted.
+- `current_version` — the accepted generated attempt number;
+- `summary` — the accepted continuity summary.
 
-Generation attempts are persisted separately through repository version history. Reviews are also persisted against the corresponding chapter attempt, so rejected drafts are not silently overwritten.
+Generated attempts are persisted separately through immutable chapter-version history. Reviews are persisted against the corresponding chapter attempt, so rejected drafts are not silently overwritten.
 
-Relevant statuses include `draft`, `proposed`, `approved`, `rejected`, `canonical`, and `needs_review`. The chapter loop currently sets an accepted generated chapter to `approved`; exhausted retries terminate without producing a canonical summary.
+Relevant statuses include `draft`, `proposed`, `approved`, `rejected`, `canonical`, and `needs_review`. The chapter workflow sets an accepted generated chapter to `approved`; exhausted retries end without advancing `current_version` or creating an accepted summary.
+
+## Chapter versions
+
+A chapter version is identified by `(book_id, chapter_number, version)` and is immutable after persistence. Version numbers start at `1` and increase for retries/corrections.
+
+The workflow reserves an attempt before calling an LLM. On recovery, an already persisted version is reused rather than generated again. This is the main protection against duplicate generation after a process crash.
+
+## Workflow run
+
+Chapter execution state is persisted separately from `BookState` so workflow progress can survive process restart.
+
+`ChapterWorkflowRun` contains:
+
+- `id` — durable run identifier;
+- `book_id`;
+- `chapter_number`;
+- `idempotency_key`;
+- `status` — `running`, `completed`, or `needs_review`;
+- `step` — `write`, `review`, `correct`, or `summarize`;
+- `attempt` — current chapter version/attempt;
+- `draft` — current draft text;
+- `review` — current `SceneReview`, when available;
+- `decision` — application review decision, when available;
+- `summary` — accepted summary, when available.
+
+A durable run is uniquely identified by `(book_id, chapter_number, idempotency_key)`. Repeating a completed or terminal run with the same key does not invoke agents again.
+
+`GenerateChapter` derives a stable default idempotency key from the next expected chapter version. Callers can supply an explicit key when request-level idempotency is required.
+
+The workflow store is an infrastructure concern. Production wiring uses `SQLiteWorkflowRunStore`; isolated tests/lightweight callers can use `InMemoryWorkflowRunStore`.
 
 ## Chapter review
 
@@ -58,65 +88,43 @@ A `SceneReview` contains:
 
 The application review policy converts the review into a workflow decision. The configured threshold and retry budget remain application policy.
 
-## Canonical context
+## Diagnostics and linguistic validation
 
-Canonical context is built from persisted author/book information and accepted summaries of previous chapters. For a chapter generation run, the current context contains:
+Chapter validation may produce structured diagnostics with a category, severity, source, message, offsets, suggestions and confidence. Blocking linguistic `ERROR` diagnostics prevent the LLM reviewer from being called; non-blocking diagnostics are passed to the reviewer.
 
-- author idea;
-- theme;
-- lore;
-- global structured outline;
-- global constraints;
-- summaries for chapters preceding the current chapter;
-- current chapter objective.
+Canon diagnostics remain distinct from linguistic diagnostics and are not sent through the linguistic contextualizer.
 
-This bounded context provides continuity without requiring the entire chapter history to be resent to the LLM on every call.
-
-Rejected attempts and transient review output are not treated as canonical continuity memory.
-
-## Canonical knowledge model — target evolution
-
-The product is evolving toward a first-class canonical knowledge model. The smallest useful conceptual primitives are:
+## Canonical knowledge
 
 ### SourceDocument
 
-A document or source from which knowledge can be derived. It should retain stable identity and enough metadata to locate the relevant source/version.
+A document or source from which knowledge can be derived. It retains stable identity and enough metadata to locate the relevant source/version.
 
 ### Assertion
 
-A proposed claim extracted or inferred from a source, such as a character attribute, relationship, event, timeline fact, world rule, or documentation statement.
-
-Assertions are **not canonical by default**.
+A proposed claim extracted or inferred from a source. Assertions are **not canonical by default**.
 
 ### Evidence / Provenance
 
-Evidence connects an assertion to its supporting source and location. Provenance should answer where the assertion came from and which source version supported it.
+Evidence connects an assertion to its supporting source and location. Provenance answers where the assertion came from and which source version supported it.
 
 ### Conflict
 
-A representation of competing assertions that cannot all be accepted under the same interpretation. Conflicts must remain visible until resolved; the LLM must not silently choose a winner.
+A representation of competing assertions that cannot all be accepted under the same interpretation. Conflicts remain visible until resolved; the LLM must not silently choose a winner.
 
 ### ReviewDecision
 
-The decision that accepts, rejects, or defers an assertion/canonical change. Decisions should remain auditable and associated with the actor, timestamp, and relevant evidence where the implementation supports them.
+The decision that accepts, rejects, or defers an assertion/canonical change. Decisions are audit records associated with the relevant assertion/conflict and actor metadata supported by the implementation.
 
 ### CanonicalFact
 
-An approved assertion that belongs to the project's source of truth. A canonical fact must retain provenance and an approval trail.
+An approved assertion that belongs to the project's source of truth. Canonical facts retain provenance and approval history and are versioned per `(book, subject, predicate)`.
 
 ### Confidence
 
-A signal about extraction or inference quality. Confidence can help prioritize review but **does not itself make an assertion canonical**.
-
-### Dependency
-
-A relationship indicating that the validity of one claim or content item depends on another claim. This is the basis for future change-impact and regression analysis.
-
-The exact schema is intentionally deferred. We should implement these concepts incrementally, beginning with the subset required to validate book continuity and document review.
+A signal about extraction or inference quality. Confidence can prioritize review but **does not make an assertion canonical**.
 
 ## Canonical state lifecycle
-
-The conceptual lifecycle is:
 
 ```text
 RAW SOURCE
@@ -132,23 +140,23 @@ CANONICAL FACTS
 GENERATION / QA
 ```
 
-The important boundary is between **proposed knowledge** and **approved knowledge**. Downstream generation and validation should consume canonical facts by default.
+The important boundary is between **proposed knowledge** and **approved knowledge**. Generation and validation may consume active canonical facts, but retrieval is never the source of truth.
 
 ## State ownership
 
 - Author inputs are persisted as book state.
-- Outline approval is application state and changes only through explicit application/API actions.
-- Chapter drafts are generated by the Writer agent and persisted as versioned attempts.
-- Reviews are generated by the Reviewer agent and persisted per attempt.
-- Accepted summaries are generated by the Summarizer agent and persisted on the chapter as continuity data.
+- Outline approval changes only through explicit application/API actions.
+- Chapter drafts are generated by Writer/Corrector agents and persisted as immutable versions.
+- Reviews are generated by the Reviewer or deterministic validation path and persisted per attempt.
+- Accepted summaries are generated by the Summarizer and persisted on the chapter as continuity data.
 - Canonical knowledge changes are explicit application actions backed by evidence and review decisions.
 - Agents may extract, compare, classify, or propose knowledge changes, but do not own canonical state transitions.
-- The workflow coordinates these transitions but does not become the source of truth for domain state.
+- The workflow owns execution progress, not canonical domain truth.
 - SQLite is an implementation detail of persistence.
 
 ## Retrieval rule
 
-Semantic search, embeddings, vector indexes, full-text search, or graph traversal may later improve how canonical knowledge is retrieved. They are **retrieval mechanisms, not canonical stores**. The authoritative state remains structured, persisted, provenance-aware, and reviewable.
+Lexical, semantic, hybrid, vector, full-text, or graph retrieval mechanisms may optimize access to canonical knowledge. They are **retrieval mechanisms, not canonical stores**. The authoritative state remains structured, persisted, provenance-aware, and reviewable.
 
 ## Evolution rule
 

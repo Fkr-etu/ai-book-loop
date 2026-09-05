@@ -15,22 +15,31 @@ Author intent
      ↓
 Approval gate
      ↓
- Chapter
+ Chapter proposal
      ↓
-Lint / Review
+Persisted version
+     ↓
+Lint / linguistic validation
+     ↓
+Structured review
   ↙       ↘
 Retry    Accept
+  ↓          ↓
+Correct   Summary
+  └──→ Review
              ↓
-     Canonical summary
+      Approved chapter
              ↓
        Next chapter
 ```
 
-The author remains the source of creative intent. Generated content is proposed by the LLM, while application code controls approvals, sequencing, validation, and retry limits.
+Each chapter run has durable execution state in SQLite and an idempotency identity. Generated chapter versions remain immutable. Canonical knowledge is updated only through explicit application review decisions.
+
+The author remains the source of creative intent. Generated content is proposed by the LLM, while application code controls approvals, sequencing, validation, persistence, recovery, and retry limits.
 
 ## Project Architecture & Structure
 
-- **Backend Core Engine (`book_loop/`):** Layered/hexagonal Python architecture, isolated chapter workflow orchestration, SQLite persistence, and CLI interface.
+- **Backend Core Engine (`book_loop/`):** layered/hexagonal Python architecture, chapter workflow orchestration, SQLite persistence, Canon support, and CLI interface.
 - **Frontend Studio (`web/`):** Next.js App Router application ("Manuscript Studio") built with TypeScript, Tailwind CSS v4, React Flow (`@xyflow/react`), mock API service layer (`web/src/services/api.ts`), and Playwright E2E testing suite.
 
 ## Quick start
@@ -48,7 +57,7 @@ python -m book_loop.cli.main --help
 Run the backend tests with:
 
 ```bash
-pytest
+uv run --extra dev pytest
 ```
 
 A Gemini API key is only required when using the real Gemini provider.
@@ -86,7 +95,7 @@ Infrastructure adapters
       └── Configurable LLM provider
 ```
 
-The chapter workflow is isolated from the rest of the application. Plain Python is preferred when sufficient; LangGraph is an implementation detail rather than an application dependency.
+The chapter workflow is isolated from the rest of the application. `LangGraph` remains an implementation-compatible orchestration representation; the durable `ChapterWorkflow.run()` path uses a persisted Python state machine so execution can resume after a process restart.
 
 ## Documentation
 
@@ -99,7 +108,7 @@ Start with [`AGENTS.md`](AGENTS.md). It contains the repository rules and points
 - [`docs/product/vision.md`](docs/product/vision.md) — why the product exists and the long-term thesis
 - [`docs/product/strategy.md`](docs/product/strategy.md) — strategic choices, moat, and sequencing logic
 - [`docs/product/scope.md`](docs/product/scope.md) — current MVP boundary
-- [`docs/product/roadmap.md`](docs/product/roadmap.md) — future product sequence and decision gates
+- [`docs/product/roadmap.md`](docs/product/roadmap.md) — future product sequence, implementation status and decision gates
 - [`docs/product/pricing-strategy.md`](docs/product/pricing-strategy.md) — pricing and unit-economics hypotheses
 - [`docs/product/infrastructure-costs.md`](docs/product/infrastructure-costs.md) — infrastructure planning scenarios
 
@@ -108,8 +117,9 @@ Start with [`AGENTS.md`](AGENTS.md). It contains the repository rules and points
 - [`docs/architecture/overview.md`](docs/architecture/overview.md) — current architecture
 - [`docs/architecture/principles.md`](docs/architecture/principles.md) — architectural invariants
 - [`docs/architecture/boundaries.md`](docs/architecture/boundaries.md) — dependency boundaries
-- [`docs/architecture/workflows.md`](docs/architecture/workflows.md) — current book and chapter workflows
-- [`docs/architecture/data-model.md`](docs/architecture/data-model.md) — persisted domain concepts
+- [`docs/architecture/workflows.md`](docs/architecture/workflows.md) — current book/chapter workflows and recovery semantics
+- [`docs/architecture/data-model.md`](docs/architecture/data-model.md) — persisted domain and workflow-run model
+- [`docs/architecture/chapter-workflow-recovery.md`](docs/architecture/chapter-workflow-recovery.md) — durable checkpoints, idempotency and known limitations
 - [`docs/architecture/canonical-review.md`](docs/architecture/canonical-review.md) — current Canon review semantics
 - [`docs/architecture/document-ingestion.md`](docs/architecture/document-ingestion.md) — document-ingestion design
 - [`docs/architecture/decisions/`](docs/architecture/decisions/) — historical architecture decisions

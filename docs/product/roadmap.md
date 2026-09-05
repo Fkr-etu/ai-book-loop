@@ -8,6 +8,32 @@ Build an AI agentic workflow that can repeatedly **review → propose → valida
 
 The strategic asset is not a generic writing assistant. It is the reusable engine that understands a long-lived corpus, its claims and dependencies, and the effect of changes on that corpus.
 
+## Current implementation status — September 2026
+
+This roadmap mixes **product validation** with **technical implementation**. A technical capability being implemented does not mean the product exit criterion has been validated with users.
+
+Implemented foundations include:
+
+- structured book/outline/chapter domain model and explicit approval gates;
+- bounded Writer → validation → Reviewer → Corrector → Summarizer chapter loop;
+- deterministic chapter linting and linguistic validation before LLM review;
+- immutable chapter versions and persisted reviews;
+- evidence-backed Canon assertions, conflicts, review decisions and canonical facts;
+- durable chapter workflow runs in SQLite with step checkpoints;
+- idempotent chapter execution by `(book_id, chapter_number, idempotency_key)`;
+- restart recovery that reuses a chapter version already persisted before a process crash;
+- provider abstraction with Gemini as the current implementation;
+- deterministic/fake-based backend test strategy.
+
+Still requiring product evidence: author trust, repeated multi-chapter use, measurable time saved versus a generic LLM, false-positive acceptance thresholds, and willingness to pay.
+
+Known technical follow-ups before stronger production concurrency guarantees:
+
+- close the crash window between review persistence and workflow checkpoint persistence;
+- add persistent cross-process run claiming/leases before horizontally concurrent workers;
+- expose an explicit API-level idempotency key if request-level idempotency is required by external clients;
+- keep frontend/backend integration and frontend CI aligned with the evolving Studio implementation.
+
 ## LLM strategy
 
 The LLM layer is an enabling capability, not the product moat. Model quality and pricing will continue to converge and change, so Book must preserve provider replaceability and avoid business logic tied to one vendor.
@@ -36,36 +62,17 @@ LLMProvider
 └── MistralProvider
 ```
 
-Business workflows should depend on capabilities/tasks rather than vendor-specific APIs:
-
-```text
-Task
-├── WRITING
-├── REVIEW
-├── EXTRACTION
-├── CLASSIFICATION
-├── CANONICALIZATION
-└── CONFLICT_ANALYSIS
-```
+Business workflows should depend on capabilities/tasks rather than vendor-specific APIs.
 
 ### Model routing strategy
 
-Do not use the most expensive model for every operation. The target architecture is quality × cost × latency optimization:
-
-```text
-Task Router
-   ├── low-cost model → extraction / lint / classification
-   ├── general model  → summaries / routine drafting
-   └── premium model  → difficult writing / review / conflict analysis
-```
-
-Routing should only become a real product/infrastructure layer after benchmarks show that different models materially improve economics or quality.
+Do not use the most expensive model for every operation. The target architecture is quality × cost × latency optimization. Routing should only become a real product/infrastructure layer after benchmarks show that different models materially improve economics or quality.
 
 ### LLM roadmap
 
 - [ ] Keep Gemini as the initial default provider.
 - [ ] Measure token cost, latency, retry rate and task quality by workflow.
-- [ ] Maintain provider isolation in application/domain code.
+- [x] Maintain provider isolation in application/domain code.
 - [ ] Build a reproducible Book benchmark set before adding several providers.
 - [ ] Compare Gemini, OpenAI, Anthropic and Mistral on representative Book tasks.
 - [ ] Add additional providers only where benchmarks demonstrate value.
@@ -95,16 +102,16 @@ Routing should only become a real product/infrastructure layer after benchmarks 
 
 ### Agentic workflow
 
-- [ ] Intent / creative brief capture.
-- [ ] Context and research ingestion where useful.
-- [ ] Outline proposal and approval.
-- [ ] Chapter drafting as bounded agent proposals.
-- [ ] AI review with structured findings.
-- [ ] Continuity / quality validation.
-- [ ] Revision proposals.
-- [ ] Human approval.
-- [ ] Canonical state update.
-- [ ] Repeatable next-chapter / revision loop.
+- [x] Intent / creative brief capture.
+- [x] Context and research ingestion where useful.
+- [x] Outline proposal and approval.
+- [x] Chapter drafting as bounded agent proposals.
+- [x] AI review with structured findings.
+- [x] Continuity / quality validation foundations.
+- [x] Revision proposals.
+- [ ] Human approval of generated chapter revisions as a complete UX flow.
+- [x] Canonical state update foundations.
+- [ ] Repeatable next-chapter / revision loop validated through the full product UI.
 
 ### Book intelligence
 
@@ -112,10 +119,10 @@ Routing should only become a real product/infrastructure layer after benchmarks 
 - [ ] Lore / world rules.
 - [ ] Relationships.
 - [ ] Timeline and events.
-- [ ] Chapter versions.
-- [ ] Provenance and review history.
-- [ ] Canonical summaries.
-- [ ] Deterministic validation where possible.
+- [x] Chapter versions.
+- [x] Provenance and review history.
+- [x] Canonical summaries.
+- [x] Deterministic validation where possible.
 
 **Exit criterion:** the product's main advantage over a generic LLM is the persistent, agentic, review-driven loop and its ability to maintain book coherence.
 
@@ -124,27 +131,16 @@ Routing should only become a real product/infrastructure layer after benchmarks 
 **Goal:** extract reusable primitives without prematurely changing the book UX.
 
 - [ ] Define a domain-neutral entity model.
-- [ ] Define canonical claims / facts.
+- [x] Define canonical claims / facts.
 - [ ] Model relationships and dependencies.
 - [ ] Model events and temporal assertions.
 - [ ] Model rules / constraints.
-- [ ] Attach provenance and confidence to claims.
-- [ ] Track versions and approval decisions.
-- [ ] Link claims to source content.
+- [x] Attach provenance and confidence to claims.
+- [x] Track versions and approval decisions.
+- [x] Link claims to source content.
 - [ ] Separate domain-specific presentation from the underlying engine.
 
-Example:
-
-```text
-Book:
-  "Sarah learns the truth in chapter 18."
-
-Company documentation:
-  "API v3 requires OAuth 2.0."
-
-Both become:
-  canonical claim + source + validity + dependencies + review history
-```
+The current Canon implementation is deliberately book-focused. Generalization is still a future phase.
 
 **Exit criterion:** book continuity logic can be expressed using the generalized model without degrading the book product.
 
@@ -155,7 +151,7 @@ Both become:
 - [ ] `What breaks if I change this?`.
 - [ ] Find content affected by a changed claim.
 - [ ] Detect stale assertions.
-- [ ] Detect contradictory assertions.
+- [x] Detect contradictory assertions.
 - [ ] Track dependency chains.
 - [ ] Add temporal consistency checks.
 - [ ] Add entity state / knowledge checks.
@@ -316,7 +312,8 @@ The current project already contains foundations that map naturally to this road
 - bounded retries;
 - persistence and history;
 - lore / character / outline workflows;
-- validation and linting.
+- validation and linting;
+- durable workflow checkpoints and idempotency.
 
 The strategy is to **prove the loop first, extract the reusable knowledge primitives second, and only then expand the market**.
 

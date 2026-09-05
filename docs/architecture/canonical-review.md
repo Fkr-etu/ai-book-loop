@@ -1,13 +1,13 @@
 # Canonical review workflow
 
-This is the second implementation stage of ADR 001.
+This document describes the current evidence-backed Canon review behavior.
 
 ```text
 Assertions
     ↓
 Conflict detection
     ↓
-Human review
+Human/application review
     ├── reject → rejected assertion
     ├── defer  → deferred assertion
     └── accept → ReviewDecision → CanonicalFact
@@ -35,6 +35,8 @@ Canonical facts are versioned per `(book, subject, predicate)`. A new accepted v
 
 ## Boundary
 
-`CanonicalFact` is the source-of-truth representation produced by explicit review. Ingestion still cannot create Canon directly.
+`CanonicalFact` is the source-of-truth representation produced by explicit review. Ingestion cannot create Canon directly, and LLM agents do not own Canon state transitions.
 
-The next stage can expose active canonical facts to chapter generation and QA, with provenance retained through `CanonicalFact → ReviewDecision → Assertion → Evidence → SourceDocument`.
+Active canonical facts can be consumed by generation/validation through the configured context/retrieval boundary. The provenance chain remains:
+
+`CanonicalFact → ReviewDecision → Assertion → Evidence → SourceDocument`
