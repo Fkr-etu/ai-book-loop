@@ -123,10 +123,17 @@ class SQLiteBookRepository:
                 decision_id TEXT NOT NULL,
                 version INTEGER NOT NULL,
                 active INTEGER NOT NULL,
+                previous_fact_id TEXT,
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE(book_id, subject, predicate, version)
             );
             """
+        )
+        columns = {row[1] for row in self._connection.execute("PRAGMA table_info(canonical_facts)").fetchall()}
+        if "previous_fact_id" not in columns:
+            self._connection.execute("ALTER TABLE canonical_facts ADD COLUMN previous_fact_id TEXT")
+        self._connection.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS uq_active_canonical_fact ON canonical_facts(book_id, subject, predicate) WHERE active = 1"
         )
         self._connection.commit()
 
@@ -209,13 +216,8 @@ class SQLiteBookRepository:
         ).fetchall()
         return [
             Evidence(
-                id=row["id"],
-                assertion_id=row["assertion_id"],
-                source_document_id=row["source_document_id"],
-                chunk_id=row["chunk_id"],
-                start_offset=row["start_offset"],
-                end_offset=row["end_offset"],
-                excerpt=row["excerpt"],
+                id=row["id"], assertion_id=row["assertion_id"], source_document_id=row["source_document_id"],
+                chunk_id=row["chunk_id"], start_offset=row["start_offset"], end_offset=row["end_offset"], excerpt=row["excerpt"],
             )
             for row in rows
         ]
@@ -241,18 +243,11 @@ class SQLiteBookRepository:
         self._connection.commit()
 
     def list_conflicts(self, *, book_id: str) -> list[Conflict]:
-        rows = self._connection.execute(
-            "SELECT * FROM conflicts WHERE book_id = ? ORDER BY rowid",
-            (book_id,),
-        ).fetchall()
+        rows = self._connection.execute("SELECT * FROM conflicts WHERE book_id = ? ORDER BY rowid", (book_id,)).fetchall()
         return [
             Conflict(
-                id=row["id"],
-                book_id=row["book_id"],
-                left_assertion_id=row["left_assertion_id"],
-                right_assertion_id=row["right_assertion_id"],
-                status=row["status"],
-                resolution_assertion_id=row["resolution_assertion_id"],
+                id=row["id"], book_id=row["book_id"], left_assertion_id=row["left_assertion_id"],
+                right_assertion_id=row["right_assertion_id"], status=row["status"], resolution_assertion_id=row["resolution_assertion_id"],
             )
             for row in rows
         ]
@@ -272,6 +267,19 @@ class SQLiteBookRepository:
         )
         self._connection.commit()
 
+    def list_review_decisions(self, *, assertion_id: str) -> list[ReviewDecision]:
+        rows = self._connection.execute(
+            "SELECT * FROM review_decisions WHERE assertion_id = ? ORDER BY rowid",
+            (assertion_id,),
+        ).fetchall()
+        return [
+            ReviewDecision(
+                id=row["id"], assertion_id=row["assertion_id"], decision=row["decision"],
+                reviewer_id=row["reviewer_id"], rationale=row["rationale"], created_at=row["created_at"],
+            )
+            for row in rows
+        ]
+
     def next_canonical_version(self, *, book_id: str, subject: str, predicate: str) -> int:
         row = self._connection.execute(
             "SELECT COALESCE(MAX(version), 0) + 1 AS next_version FROM canonical_facts WHERE book_id = ? AND subject = ? AND predicate = ?",
@@ -288,8 +296,8 @@ class SQLiteBookRepository:
 
     def save_canonical_fact(self, fact: CanonicalFact) -> None:
         self._connection.execute(
-            "INSERT INTO canonical_facts(id, book_id, assertion_id, statement, subject, predicate, object, decision_id, version, active) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (fact.id, fact.book_id, fact.assertion_id, fact.statement, fact.subject, fact.predicate, fact.object, fact.decision_id, fact.version, int(fact.active)),
+            "INSERT INTO canonical_facts(id, book_id, assertion_id, statement, subject, predicate, object, decision_id, version, active, previous_fact_id) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (fact.id, fact.book_id, fact.assertion_id, fact.statement, fact.subject, fact.predicate, fact.object, fact.decision_id, fact.version, int(fact.active), fact.previous_fact_id),
         )
         self._connection.commit()
 
@@ -298,21 +306,14 @@ class SQLiteBookRepository:
             "SELECT * FROM canonical_facts WHERE book_id = ? AND active = 1 ORDER BY subject, predicate, version",
             (book_id,),
         ).fetchall()
-        return [
-            CanonicalFact(
-                id=row["id"],
-                book_id=row["book_id"],
-                assertion_id=row["assertion_id"],
-                statement=row["statement"],
-                subject=row["subject"],
-                predicate=row["predicate"],
-                object=row["object"],
-                decision_id=row["decision_id"],
-                version=row["version"],
-                active=bool(row["active"]),
-            )
-            for row in rows
-        ]
+        return [self._canonical_fact_from_row(row) for row in rows]
+
+    def list_canonical_fact_history(self, *, book_id: str, subject: str, predicate: str) -> list[CanonicalFact]:
+        rows = self._connection.execute(
+            "SELECT * FROM canonical_facts WHERE book_id = ? AND subject = ? AND predicate = ? ORDER BY version",
+            (book_id, subject, predicate),
+        ).fetchall()
+        return [self._canonical_fact_from_row(row) for row in rows]
 
     def set_assertion_status(self, assertion_id: str, status: AssertionStatus) -> None:
         cursor = self._connection.execute("UPDATE assertions SET status = ? WHERE id = ?", (status.value, assertion_id))
@@ -333,6 +334,14 @@ class SQLiteBookRepository:
             id=row["id"], source_document_id=row["source_document_id"], chunk_id=row["chunk_id"],
             statement=row["statement"], subject=row["subject"], predicate=row["predicate"], object=row["object"],
             confidence=row["confidence"], status=row["status"], evidence_id=row["evidence_id"],
+        )
+
+    @staticmethod
+    def _canonical_fact_from_row(row: sqlite3.Row) -> CanonicalFact:
+        return CanonicalFact(
+            id=row["id"], book_id=row["book_id"], assertion_id=row["assertion_id"], statement=row["statement"],
+            subject=row["subject"], predicate=row["predicate"], object=row["object"], decision_id=row["decision_id"],
+            version=row["version"], active=bool(row["active"]), previous_fact_id=row["previous_fact_id"],
         )
 
     def create_user(self, user: User) -> User:

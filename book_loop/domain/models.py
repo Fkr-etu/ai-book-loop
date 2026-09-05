@@ -196,6 +196,7 @@ class CanonicalFact(BaseModel):
     decision_id: str
     version: int = Field(default=1, ge=1)
     active: bool = True
+    previous_fact_id: str | None = None
 
 
 class IngestionResult(BaseModel):

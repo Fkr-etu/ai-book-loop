@@ -25,7 +25,15 @@ class ReviewAssertion:
         assertion = assertions.get(assertion_id)
         if assertion is None:
             raise KeyError(f"Unknown assertion: {assertion_id}")
-        if assertion.status in {AssertionStatus.ACCEPTED, AssertionStatus.REJECTED}:
+
+        existing = self.repository.list_review_decisions(assertion_id=assertion_id)
+        if existing:
+            latest = existing[-1]
+            if latest.decision is decision:
+                return latest
+            if assertion.status in {AssertionStatus.ACCEPTED, AssertionStatus.REJECTED}:
+                raise ValueError(f"Assertion {assertion_id} already has a terminal status")
+        elif assertion.status in {AssertionStatus.ACCEPTED, AssertionStatus.REJECTED}:
             raise ValueError(f"Assertion {assertion_id} already has a terminal status")
 
         review = ReviewDecision(
@@ -60,6 +68,15 @@ class ReviewAssertion:
                 self.repository.set_assertion_status(candidate.id, AssertionStatus.REJECTED)
             self.repository.resolve_conflict(candidate.id, assertion_id, assertion_id)
 
+        previous = self.repository.list_active_canonical_facts(book_id=book_id)
+        previous_fact = next(
+            (
+                fact for fact in previous
+                if fact.subject.strip().casefold() == assertion.subject.strip().casefold()
+                and fact.predicate.strip().casefold() == assertion.predicate.strip().casefold()
+            ),
+            None,
+        )
         self.repository.deactivate_canonical_facts(
             book_id=book_id,
             subject=assertion.subject,
@@ -79,6 +96,7 @@ class ReviewAssertion:
                 subject=assertion.subject,
                 predicate=assertion.predicate,
             ),
+            previous_fact_id=previous_fact.id if previous_fact else None,
         )
         self.repository.save_canonical_fact(fact)
         return review
