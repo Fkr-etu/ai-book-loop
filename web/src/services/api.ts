@@ -13,6 +13,7 @@ import { USE_REAL_API } from "@/services/config";
 import { typedBookApi } from "@/services/bookApiAdapter";
 
 const STORAGE_KEY = "manuscript_studio_project";
+const ASSERTIONS_STORAGE_KEY = "manuscript_studio_assertions";
 
 export interface BookApi {
   getBook(id?: string): Promise<BookState>;
@@ -55,6 +56,25 @@ function saveStorageProject(state: BookState): void {
   if (typeof window === "undefined") return;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch {
+    // Local persistence is best-effort in mock mode.
+  }
+}
+
+function loadAssertions(): Assertion[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(ASSERTIONS_STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as Assertion[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveAssertions(assertions: Assertion[]): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(ASSERTIONS_STORAGE_KEY, JSON.stringify(assertions));
   } catch {
     // Local persistence is best-effort in mock mode.
   }
@@ -157,16 +177,81 @@ export class MockBookApi implements BookApi {
     };
   }
 
-  async createCharacter(): Promise<BookState> { throw new Error("Les personnages ne sont pas disponibles en mode mock simplifié."); }
-  async updateCharacter(): Promise<BookState> { throw new Error("Les personnages ne sont pas disponibles en mode mock simplifié."); }
-  async deleteCharacter(): Promise<BookState> { throw new Error("Les personnages ne sont pas disponibles en mode mock simplifié."); }
-  async createLoreItem(): Promise<BookState> { throw new Error("Le lore structuré n'est pas disponible en mode mock simplifié."); }
-  async updateLoreItem(): Promise<BookState> { throw new Error("Le lore structuré n'est pas disponible en mode mock simplifié."); }
-  async deleteLoreItem(): Promise<BookState> { throw new Error("Le lore structuré n'est pas disponible en mode mock simplifié."); }
+  async createCharacter(id: string, char: Omit<Character, "id">): Promise<BookState> {
+    const state = loadStorageProject();
+    state.characters = [...(state.characters || []), { ...char, id: `char-${Date.now()}` }];
+    saveStorageProject(state);
+    return state;
+  }
 
-  async ingestDocument(): Promise<IngestionResult> { throw new Error("L'ingestion locale est désactivée dans ce mock."); }
-  async listAssertions(): Promise<Assertion[]> { return []; }
-  async reviewAssertion(): Promise<void> {}
+  async updateCharacter(id: string, charId: string, updates: Partial<Character>): Promise<BookState> {
+    const state = loadStorageProject();
+    state.characters = (state.characters || []).map((char) => char.id === charId ? { ...char, ...updates } : char);
+    saveStorageProject(state);
+    return state;
+  }
+
+  async deleteCharacter(id: string, charId: string): Promise<BookState> {
+    const state = loadStorageProject();
+    state.characters = (state.characters || []).filter((char) => char.id !== charId);
+    saveStorageProject(state);
+    return state;
+  }
+
+  async createLoreItem(id: string, item: Omit<LoreItem, "id">): Promise<BookState> {
+    const state = loadStorageProject();
+    state.loreItems = [...(state.loreItems || []), { ...item, id: `lore-${Date.now()}` }];
+    saveStorageProject(state);
+    return state;
+  }
+
+  async updateLoreItem(id: string, loreId: string, updates: Partial<LoreItem>): Promise<BookState> {
+    const state = loadStorageProject();
+    state.loreItems = (state.loreItems || []).map((item) => item.id === loreId ? { ...item, ...updates } : item);
+    saveStorageProject(state);
+    return state;
+  }
+
+  async deleteLoreItem(id: string, loreId: string): Promise<BookState> {
+    const state = loadStorageProject();
+    state.loreItems = (state.loreItems || []).filter((item) => item.id !== loreId);
+    saveStorageProject(state);
+    return state;
+  }
+
+  async ingestDocument(id: string, name: string, content: string, sourceType = "manual"): Promise<IngestionResult> {
+    const now = new Date().toISOString();
+    const sourceDocument = {
+      id: `source-${Date.now()}`,
+      book_id: id,
+      name,
+      source_type: sourceType,
+      content,
+      content_hash: `mock-${content.length}`,
+      version: 1,
+    };
+    const assertion: Assertion = {
+      id: `assertion-${Date.now()}`,
+      source_document_id: sourceDocument.id,
+      chunk_id: `chunk-${Date.now()}`,
+      statement: content,
+      subject: "Valerius",
+      predicate: "a découvert",
+      object: "la seconde relique à Aethelgard",
+      confidence: 1,
+      status: "proposed",
+    };
+    saveAssertions([assertion, ...loadAssertions()]);
+    void now;
+    return { source_document: sourceDocument, assertions: [assertion] };
+  }
+
+  async listAssertions(): Promise<Assertion[]> { return loadAssertions(); }
+
+  async reviewAssertion(id: string, assertionId: string, decision: "accept" | "reject" | "defer"): Promise<void> {
+    const status: Assertion["status"] = decision === "accept" ? "accepted" : decision === "reject" ? "rejected" : "deferred";
+    saveAssertions(loadAssertions().map((assertion) => assertion.id === assertionId ? { ...assertion, status } : assertion));
+  }
 
   async registerUser(email: string, pass: string, name = ""): Promise<UserProfile> { return { id: "mock-user", email, name, plan: "pro" }; }
   async loginUser(email: string, pass: string): Promise<UserProfile> { return { id: "mock-user", email, name: "Auteur", plan: "pro" }; }
