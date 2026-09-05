@@ -1,55 +1,62 @@
 # Stratégie & options d'hébergement — AI Book Loop / Manuscript Studio
 
-Ce document décrit les options d'hébergement compatibles avec l'architecture actuelle. **PostgreSQL est désormais la seule base de données supportée** par l'application ; SQLite n'est plus un backend de persistance.
+Ce document décrit les options d'hébergement compatibles avec l'architecture actuelle. **PostgreSQL est la seule base de données supportée** par l'application.
 
-## 1. Architecture actuelle
+## 1. Architecture recommandée
 
-- **Frontend** : Next.js / TypeScript (`web/`).
-- **Backend** : FastAPI / Python (`book_loop/`).
-- **Workflow** : génération de chapitre durable et reprenable, avec état persistant.
-- **Persistance** : PostgreSQL via `DATABASE_URL`.
-- **LLM** : Google Gemini.
+Pour le MVP et les premières validations clients, la cible est volontairement mono-plateforme : **Google Cloud**.
 
-Le choix PostgreSQL est volontaire : il permet d'utiliser les mêmes sémantiques SQL en développement, CI, staging et production, notamment pour les transactions, contraintes et opérations concurrentes du workflow et du Canon.
-
-## 2. Option recommandée : Vercel + Cloud Run + PostgreSQL managé
-
-| Composant | Service possible | Rôle |
+| Composant | Service GCP | Rôle |
 | :--- | :--- | :--- |
-| Frontend | Vercel | Déploiement Next.js et CDN |
-| Backend | GCP Cloud Run | API FastAPI et workers HTTP |
-| Base de données | Neon / Supabase / Cloud SQL | PostgreSQL persistant |
+| Frontend | Cloud Run | Next.js |
+| Backend | Cloud Run | FastAPI |
+| Base de données | Cloud SQL | PostgreSQL persistant |
+| Images | Artifact Registry | Images Docker |
+| Secrets | Secret Manager | Secrets runtime |
+| Migrations | Cloud Run Job | Alembic |
+| CI/CD | Cloud Build | Déploiement depuis GitHub |
 
-Cloud Run possède un système de fichiers éphémère : une base locale n'est donc pas adaptée au stockage durable de l'application. PostgreSQL élimine cette dépendance au disque local et permet de conserver les checkpoints de workflow et les données du Canon entre les redémarrages.
+Tout est initialement déployé dans `europe-west1`.
 
-Pour un faible trafic, un PostgreSQL managé avec une offre gratuite ou peu coûteuse peut convenir. Pour une charge plus importante, Cloud SQL ou une offre PostgreSQL managée équivalente fournit une capacité et une supervision supérieures.
+## 2. Pourquoi GCP uniquement
 
-## 3. Alternative : VPS
+Le produit n'a pas besoin de trois plateformes dès le MVP. Centraliser frontend, backend, PostgreSQL, secrets et déploiement sur GCP réduit les intégrations, les problèmes de réseau inter-fournisseurs et la charge opérationnelle.
 
-Un VPS peut héberger le frontend, le backend et PostgreSQL avec Docker Compose. Cette option reste pertinente pour minimiser le coût fixe et garder un serveur actif en permanence.
+Le frontend et le backend restent deux services Cloud Run indépendants afin de conserver une séparation claire des responsabilités.
 
-**PostgreSQL doit néanmoins rester la base utilisée par l'application** : on ne propose plus de variante SQLite sur VPS.
+## 3. Profil de coût MVP
+
+L'objectif est de pouvoir fonctionner avec **zéro client** sans infrastructure disproportionnée :
+
+- Cloud Run : `min=0` ;
+- Cloud SQL : petite instance shared-core sans HA au départ ;
+- Artifact Registry : images minimales ;
+- Secret Manager : quelques secrets ;
+- Cloud Build : déclenché sur `release` ;
+- aucun GKE, Load Balancer, Memorystore ou Cloud NAT au départ.
+
+La montée en charge se fait ensuite par augmentation des ressources, sans changement de modèle applicatif.
 
 ## 4. Configuration
 
-La configuration applicative passe par une seule variable :
+La configuration applicative passe par `DATABASE_URL` pour PostgreSQL. Les formes `postgres://`, `postgresql://` et `postgresql+psycopg://` sont acceptées par la composition root et le repository PostgreSQL.
 
-```text
-DATABASE_URL=postgresql://user:password@host:5432/database
-```
+Les secrets runtime sont injectés depuis Secret Manager.
 
-Les formes `postgres://`, `postgresql://` et `postgresql+psycopg://` sont acceptées par la composition root et le repository PostgreSQL.
+Le CI utilise PostgreSQL 16 afin de rapprocher les tests automatisés de la persistance de production. Alembic est la source de vérité du schéma en environnement déployé.
 
-Le CI utilise PostgreSQL 16 afin de rapprocher au maximum les tests automatisés de la persistance de production.
+## 5. Alternatives
 
-## 5. Suite technique
+### VPS
 
-Avant C3 (Context Builder), la priorité est :
+Un VPS peut héberger frontend, backend et PostgreSQL avec Docker Compose et peut réduire le coût fixe. En contrepartie, il faut gérer soi-même les mises à jour, backups, sécurité, monitoring et récupération après incident.
 
-1. terminer la suppression des derniers usages SQLite ;
-2. stabiliser les tests PostgreSQL et la concurrence ;
-3. introduire **Alembic** pour les migrations de schéma ;
-4. documenter le bootstrap PostgreSQL local et les variables d'environnement ;
-5. puis poursuivre le Context Builder et l'enrichissement du pipeline Canon.
+Cette option reste possible pour un futur environnement très économique, mais elle n'est pas la cible de production actuelle.
 
-Le passage à PostgreSQL ne modifie pas la roadmap fonctionnelle : il simplifie uniquement la couche d'infrastructure en supprimant un backend divergent.
+### Autres PostgreSQL managés
+
+Neon, Supabase ou un autre fournisseur PostgreSQL restent techniquement compatibles avec l'application grâce à `DATABASE_URL`. Ils ne sont toutefois pas retenus pour la cible actuelle : l'objectif est une infrastructure GCP unique.
+
+## 6. Suite technique
+
+Le passage à GCP ne modifie pas la roadmap fonctionnelle. Les prochaines priorités restent le Context Builder, la robustesse du Canon et les tests E2E/concurrence.
