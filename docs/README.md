@@ -18,9 +18,10 @@ This directory is the project's canonical knowledge base. Keep documentation sma
 - `architecture/overview.md` — current system architecture and responsibilities.
 - `architecture/principles.md` — architectural invariants.
 - `architecture/boundaries.md` — dependency boundaries.
-- `architecture/workflows.md` — current book/chapter workflows.
-- `architecture/data-model.md` — persisted domain model and canonical-state evolution.
+- `architecture/workflows.md` — current book/chapter workflows and recovery semantics.
+- `architecture/data-model.md` — persisted domain and workflow-run model.
 - `architecture/canonical-review.md` — implemented Canon review semantics.
+- `architecture/chapter-workflow-recovery.md` — durable checkpoints, idempotency and recovery limitations.
 - `architecture/document-ingestion.md` — document-ingestion design and boundaries.
 - `architecture/linguistic-validation.md` — hybrid linguistic validation architecture and implementation plan.
 - `architecture/decisions/` — historical architecture decisions (ADRs).
@@ -28,7 +29,7 @@ This directory is the project's canonical knowledge base. Keep documentation sma
 ### Development
 
 - `development/setup.md` — local setup and how to run the project.
-- `development/testing.md` — testing strategy.
+- `development/testing.md` — testing strategy, including workflow recovery tests.
 - `development/configuration.md` — configuration rules.
 - `development/contributing.md` — contribution workflow.
 - `glossary.md` — project terminology.
@@ -45,6 +46,7 @@ Use one canonical document for each type of information:
 - **Current architecture** → `architecture/overview.md`
 - **Architecture invariants** → `architecture/principles.md`
 - **Persisted model** → `architecture/data-model.md`
+- **Current workflow/recovery behavior** → `architecture/workflows.md` + `architecture/chapter-workflow-recovery.md`
 - **Historical decisions** → `architecture/decisions/`
 - **Operational agent rules** → root `AGENTS.md`
 
