@@ -1,247 +1,248 @@
-# Infrastructure cost analysis
+# Infrastructure and unit economics
 
-This document turns infrastructure into an explicit product/strategy decision. The objective is to keep fixed costs low while the product hypothesis is still being validated, and to scale infrastructure only when usage or reliability requirements justify it.
+This document estimates the cost of running Book Loop in the **current target architecture** and connects infrastructure cost to the proposed SaaS pricing.
 
-## Executive conclusion
+The goal is simple: **price the product so normal customers are profitable, while putting hard capacity controls around unusually expensive AI workloads.**
 
-Infrastructure should be treated as a **variable-cost optimization problem**, not as a platform-building objective.
+These are planning estimates, not billing guarantees. Recalculate them before launch and after real usage data is available.
 
-For the current Book MVP, SQLite plus a single application runtime is sufficient. The dominant cost is expected to be LLM usage, not the database or application server.
+## Current production architecture
 
-The recommended progression is:
-
-```text
-Local / MVP
-SQLite + one API/runtime
-        ↓
-Production Book
-managed PostgreSQL + serverless/container runtime
-        ↓
-Knowledge QA at scale
-PostgreSQL + object storage + observability
-        ↓
-Semantic retrieval bottleneck proven
-PostgreSQL + pgvector (or another measured retrieval layer)
-```
-
-PostgreSQL and pgvector are separate decisions. PostgreSQL solves operational/database requirements; pgvector solves a demonstrated semantic-retrieval requirement.
-
-## Cost drivers
-
-The main infrastructure cost categories are:
-
-1. **LLM inference** — likely the largest variable cost.
-2. **Application compute** — API, background jobs, workers.
-3. **Database** — initially small; becomes a meaningful fixed cost with managed PostgreSQL.
-4. **Storage** — documents, versions, exports, logs and eventually embeddings.
-5. **Observability / networking** — initially minor, but can grow with traffic and retained logs.
-6. **Operational overhead** — not directly visible on the cloud bill, but important when choosing managed services.
-
-Gemini 2.5 Flash currently lists $0.30 / 1M input tokens and $2.50 / 1M output tokens on the standard paid tier. Gemini 2.5 Flash-Lite lists $0.10 / 1M input and $0.40 / 1M output. These prices make model selection and prompt/output discipline much more important than early database optimization. See the current provider pricing before committing to a commercial unit economics model.
-
-## Scenario A — Local / development
-
-### Architecture
-
-- SQLite
-- local API / CLI
-- local or developer-provided LLM credentials
-- no always-on cloud infrastructure
-
-### Expected fixed infrastructure cost
-
-**~$0/month**, excluding developer machines and LLM usage.
-
-This should remain the default for development and CI where practical.
-
-## Scenario B — Early production Book
-
-### Hypothesis
-
-A small number of real authors use the product, but traffic is intermittent and the corpus is still modest.
-
-### Architecture
-
-- serverless/container application runtime;
-- managed PostgreSQL only when persistence/concurrency requires it;
-- object storage for larger files if needed;
-- basic logging and monitoring;
-- no vector database.
-
-Cloud Run is an example of a serverless runtime that bills for resources actually used and automatically scales instances, making it a reasonable early-production model when traffic is bursty.
-
-### Order-of-magnitude planning budget
-
-**~$20–100/month excluding LLM usage** is a reasonable planning envelope for a small production deployment, but this is not a vendor quote. The actual amount depends strongly on region, minimum instances, database size, backups, network traffic and observability retention.
-
-The important decision is not to run a large always-on cluster before traffic exists.
-
-## Scenario C — Product with hundreds of active users
-
-### Hypothesis
-
-The Book workflow has product-market evidence and there are hundreds of active users, with concurrent requests and background jobs.
-
-### Architecture
-
-- managed PostgreSQL;
-- one or more serverless/container application services;
-- background workers/jobs for long-running generation and analysis;
-- object storage for documents and exports;
-- centralized logs/metrics;
-- backups and recovery procedures.
-
-### Order-of-magnitude planning budget
-
-**~$100–500/month excluding LLM usage** is a useful planning range for the application/infrastructure layer before high availability or enterprise requirements. This is intentionally a range rather than a forecast: managed PostgreSQL pricing is driven by CPU, memory, storage and networking, while serverless compute is usage-dependent.
-
-At this stage, LLM spend can easily exceed infrastructure spend if users generate and review substantial amounts of content.
-
-## Scenario D — Documentation QA pilot
-
-### Hypothesis
-
-Three to ten B2B design partners provide real documentation corpora. Usage is periodic but corpus sizes are substantially larger than a book project.
-
-### Architecture
-
-- managed PostgreSQL;
-- object storage for source documents and immutable versions;
-- asynchronous ingestion/extraction jobs;
-- application API;
-- basic queue/job mechanism;
-- observability;
-- no mandatory pgvector yet.
-
-### Order-of-magnitude planning budget
-
-**~$200–1,000/month excluding LLM usage** is a reasonable planning envelope for a small pilot environment with several corpora. This should be validated against the selected cloud, region, retention policy and ingestion frequency.
-
-The major new cost is not necessarily PostgreSQL itself. It is the combination of repeated ingestion, extraction, analysis and retained source/version data.
-
-## Scenario E — Knowledge QA SaaS at meaningful scale
-
-### Hypothesis
-
-Hundreds to thousands of organizations/users, continuous document changes, automated regression checks and customer-facing SLAs.
-
-### Architecture
-
-- highly available managed PostgreSQL;
-- object storage;
-- asynchronous workers/queues;
-- caching where measured useful;
-- centralized observability;
-- rate limits and quotas;
-- tenant isolation and backup/recovery strategy;
-- semantic retrieval only where benchmarks show it is necessary.
-
-### Order-of-magnitude planning budget
-
-**~$1,000–5,000+/month excluding LLM usage** becomes plausible depending on availability, traffic, retention, background processing and enterprise requirements.
-
-This range is deliberately broad. At this stage, architecture should be driven by measured workload and gross margin targets rather than a generic startup stack.
-
-## LLM cost model
-
-LLM usage should be modeled separately from infrastructure.
-
-For Gemini 2.5 Flash standard pricing, a simple planning formula is:
+Book Loop is now designed as a 100% GCP production stack:
 
 ```text
-monthly LLM cost
-= input_tokens / 1,000,000 × $0.30
-+ output_tokens / 1,000,000 × $2.50
+GitHub
+  ↓
+Cloud Build
+  ↓
+Artifact Registry
+  ↓
+Cloud Run frontend (Next.js)
+Cloud Run backend (FastAPI)
+Cloud Run Job migrations
+  ↓
+Cloud SQL PostgreSQL
+
+Secret Manager
+Cloud Logging / Monitoring
+
+Backend → Gemini API
 ```
 
-For Gemini 2.5 Flash-Lite:
+The production region is `europe-west9` (Paris). The repository documentation confirms Cloud Run, Cloud SQL PostgreSQL, Artifact Registry and Secret Manager as the production components. fileciteturn59file1L22-L46
+
+There is no Vercel, Supabase or permanently provisioned application server in the target architecture.
+
+## Current vendor pricing anchors
+
+### Gemini
+
+For `gemini-2.5-flash`, current standard paid pricing is:
+
+- **$0.30 / 1M input tokens**;
+- **$2.50 / 1M output tokens**, including thinking tokens;
+- cached input: **$0.03 / 1M tokens**.
+
+For `gemini-2.5-flash-lite`:
+
+- **$0.10 / 1M input tokens**;
+- **$0.40 / 1M output tokens**.
+
+Source: Google Gemini API pricing. citeturn0search3
+
+This makes output tokens substantially more expensive than input tokens. We should therefore control output length, retries and unnecessary correction loops before optimizing database costs.
+
+### Cloud Run
+
+Cloud Run is pay-per-use and has a monthly free tier. For Tier 1 regions including Paris, the current services pricing is approximately:
+
+- $0.000018 / vCPU-second;
+- $0.000002 / GiB-second;
+- request-based billing: $0.40 / million requests.
+
+The first monthly free tier includes 240,000 vCPU-seconds and 450,000 GiB-seconds for instance-based services; request-based services have their own free allowance. citeturn2view0
+
+For an early Book Loop deployment with low traffic and scale-to-zero enabled, **Cloud Run should remain a small part of COGS**.
+
+### Cloud SQL PostgreSQL
+
+Cloud SQL is the first meaningful fixed infrastructure cost because the database runs continuously.
+
+Current Cloud SQL pricing exposes dedicated CPU/memory pricing and also offers very small shared-core instances. `db-f1-micro` is currently around **$0.0105/hour (~$7.70/month)** before storage/backups, but Google explicitly positions shared-core `db-f1-micro` / `db-g1-small` as test/development machines without an SLA. They should therefore not be treated as the long-term production baseline. citeturn1search6turn1search5
+
+For a real production baseline, a small dedicated instance should be budgeted instead. At the current Paris Enterprise rates of roughly $0.0413/vCPU-hour and $0.007/GiB-hour, a 1 vCPU / 2 GiB instance is approximately:
 
 ```text
-monthly LLM cost
-= input_tokens / 1,000,000 × $0.10
-+ output_tokens / 1,000,000 × $0.40
+CPU:    1 × $0.0413 × 730 h ≈ $30.15/month
+Memory: 2 × $0.007  × 730 h ≈ $10.22/month
+--------------------------------------------
+Compute:                    ≈ $40.37/month
 ```
 
-### Example: one chapter workflow
+Storage, backups and networking are additional. Current SSD storage pricing is about $0.000465753/GiB-hour, or roughly $0.34/GiB-month. citeturn1search3
 
-Assume, purely as a planning hypothesis:
+Therefore a sensible early-production Cloud SQL envelope is **~$45–60/month**, depending on storage and backup configuration. This is deliberately more conservative than assuming a shared-core development instance.
 
-- 100k input tokens across context, lore, outline, previous summaries and review calls;
-- 20k output tokens across draft, review and summary.
+### Artifact Registry and Secret Manager
 
-Then Flash would cost approximately:
+Artifact Registry has a small free storage allowance and then charges for stored artifact volume; co-locating it with Cloud Run avoids unnecessary cross-region transfer. citeturn0search0
+
+Secret Manager provides free monthly allowances for six active secret versions and 10,000 access operations. For Book Loop's small secret set, its direct cost should be effectively negligible at early scale. citeturn0search2
+
+## Early production fixed-cost envelope
+
+For the current GCP-only architecture, before Gemini usage:
+
+| Component | Early monthly planning cost |
+|---|---:|
+| Cloud SQL PostgreSQL | **$45–60** |
+| Cloud Run frontend + backend + jobs | **$0–15** |
+| Artifact Registry | **$0–2** |
+| Secret Manager | **~$0** |
+| Logging / Monitoring / network buffer | **$5–20** |
+| **Total** | **~$50–95/month** |
+
+This is the number that matters for the first commercial deployment. It is substantially more useful than the old generic `$20–100` estimate because it reflects the actual GCP architecture and a production-grade PostgreSQL baseline.
+
+A reasonable planning target is therefore **~$75/month fixed infrastructure** before AI usage.
+
+## Gemini unit cost per Book Loop workflow
+
+The previous document used one hypothetical chapter at 100k input + 20k output tokens. That remains a useful baseline, but we should now model a range because the workflow contains multiple agents and may retry.
+
+### Baseline workflow
+
+Assume one completed chapter workflow consumes:
+
+- 100k input tokens;
+- 20k output tokens;
+- Gemini 2.5 Flash.
+
+Then:
 
 ```text
-100k × $0.30/M = $0.03
-20k × $2.50/M  = $0.05
-Total           = $0.08 / chapter
+100k input  × $0.30/M = $0.030
+20k output  × $2.50/M = $0.050
+--------------------------------
+AI cost                 = $0.080 / chapter
 ```
 
-At 20 chapters, that is about **$1.60 per book** under these assumptions.
+### Conservative workflow
 
-The actual cost may be materially higher or lower depending on retries, reasoning tokens, context size, model choice and workflow design. This example is a unit-economics model, not a measured application cost.
-
-## Why pgvector should not be added for cost reasons
-
-pgvector is not a cost-saving technology by itself. It introduces another retrieval dimension and can increase database CPU, memory and storage requirements.
-
-Its value should be demonstrated by a retrieval benchmark such as:
-
-- exact/structured retrieval misses relevant evidence;
-- semantic retrieval materially improves recall/precision;
-- corpus size makes brute-force or application-side retrieval too expensive;
-- retrieval latency becomes a user-visible bottleneck.
-
-Until then, structured PostgreSQL queries and simple deterministic retrieval are preferable.
-
-## PostgreSQL migration trigger
-
-Move from SQLite when one or more of these become true:
-
-- multiple users write concurrently;
-- deployed production API requires robust concurrent persistence;
-- background workers need transactional coordination;
-- backups/recovery requirements exceed the local SQLite setup;
-- dataset size or operational needs justify managed database infrastructure;
-- team operations benefit from a managed database.
-
-Do **not** migrate simply because PostgreSQL is more scalable in theory.
-
-## Infrastructure guardrails
-
-- Keep infrastructure minimal until product usage justifies it.
-- Prefer managed services over self-hosted databases for production.
-- Separate compute, persistence, object storage and retrieval concerns.
-- Keep repository ports/adapters so SQLite and PostgreSQL remain interchangeable at the application boundary.
-- Measure LLM cost per completed workflow, not only tokens per request.
-- Add quotas before runaway agentic workflows become a billing risk.
-- Track retry rates: bounded retries are a direct cost-control mechanism.
-- Store provenance and review history, but define retention policies before the corpus becomes large.
-- Do not introduce a vector database or knowledge graph without a benchmark showing the need.
-
-## Decision table
-
-| Stage | Database | Compute | Vector search | Planning budget, excl. LLM |
-|---|---|---|---|---:|
-| Development | SQLite | Local | No | ~$0 |
-| Early Book production | PostgreSQL when needed | Serverless/container | No | ~$20–100/mo |
-| Hundreds of users | Managed PostgreSQL | Serverless + jobs | No by default | ~$100–500/mo |
-| Documentation pilot | Managed PostgreSQL + object storage | API + async jobs | Only if proven | ~$200–1,000/mo |
-| Scaled Knowledge QA | HA PostgreSQL + object storage | Services + workers | Benchmark-driven | ~$1,000–5,000+/mo |
-
-These are **planning envelopes**, not commitments or vendor quotes. Re-estimate before each infrastructure transition using real workload measurements and current provider prices.
-
-## Strategic conclusion
-
-The project should optimize in this order:
+Assume 250k input + 50k output:
 
 ```text
-1. Prove user value
-2. Measure workflow cost
-3. Optimize prompts / model routing / retries
-4. Introduce managed PostgreSQL when operationally justified
-5. Add semantic retrieval only when retrieval quality or scale requires it
-6. Add enterprise infrastructure only when customers pay for it
+250k × $0.30/M = $0.075
+ 50k × $2.50/M = $0.125
+-------------------------
+AI cost         = $0.200 / chapter
 ```
 
-The moat remains the canonical knowledge model and evidence-backed validation loop. Infrastructure exists to support that moat; it should not become the product strategy.
+### Cost-control envelope
+
+For pricing decisions, I recommend budgeting **$0.50 per completed chapter-equivalent workflow** even when the nominal Gemini estimate is lower. This 2.5× buffer is intended to absorb retries, larger contexts, correction loops, failed generations and other workflow overhead.
+
+It is a **commercial safety envelope**, not an assertion that Gemini will actually cost $0.50 per chapter.
+
+## What this means for our pricing
+
+The current pricing hypothesis is:
+
+| Plan | Monthly | Annual | Commercial role |
+|---|---:|---:|---|
+| Free | €0 | — | Product discovery |
+| Creator | **€19** | **€190** | Serious individual creator |
+| Pro | **€39** | **€390** | Intensive creator / multiple projects |
+| Studio | **€79** | **€790** | Collaboration / advanced usage |
+
+The objective is not unlimited AI. The objective is a predictable amount of narrative work per month with enough headroom for Book Loop's workflow.
+
+## Gross-margin safety model
+
+For planning, target direct COGS below **25% of subscription revenue** for paid plans before general company expenses such as salaries, marketing, accounting and support.
+
+Using the conservative **$0.50 per chapter-equivalent** envelope:
+
+| Plan | Revenue | 25% COGS ceiling | Approx. chapter-equivalents before hitting ceiling* |
+|---|---:|---:|---:|
+| Creator | €19 | €4.75 | ~9 |
+| Pro | €39 | €9.75 | ~19 |
+| Studio | €79 | €19.75 | ~39 |
+
+*Approximate only; USD/EUR conversion, Stripe fees and shared infrastructure are not included in this simple table.
+
+This demonstrates why **capacity must be an entitlement**, rather than unlimited generation.
+
+At the nominal baseline of $0.08/chapter, the same plans have considerably more headroom. The conservative $0.50 envelope is intentionally used to prevent us from building a pricing model that only works under optimistic LLM usage.
+
+## Stripe must be included in COGS
+
+For a French Stripe account, current standard European cards are priced at **1.5% + €0.25 per successful transaction**. International cards can cost more. citeturn3search0
+
+Approximate standard-card processing cost:
+
+- €19 subscription → **~€0.54**
+- €39 subscription → **~€0.84**
+- €79 subscription → **~€1.44**
+
+This makes the effective revenue after payment processing approximately:
+
+- Creator: **€18.46**
+- Pro: **€38.16**
+- Studio: **€77.56**
+
+Stripe Billing pricing for recurring charges should also be checked at implementation time; Checkout itself states that recurring charges are subject to Stripe Billing pricing. citeturn3search7
+
+## Shared infrastructure allocation
+
+The ~$75/month fixed GCP envelope is irrelevant to a single customer's unit economics once there are enough paying customers, but it matters at low scale.
+
+Illustrative allocation:
+
+| Paying customers | Fixed GCP cost/customer/month |
+|---:|---:|
+| 10 | ~$7.50 |
+| 25 | ~$3.00 |
+| 50 | ~$1.50 |
+| 100 | ~$0.75 |
+| 500 | ~$0.15 |
+
+Therefore the immediate economic risk is **not Cloud Run or Cloud SQL**. It is allowing an individual customer to consume unbounded Gemini capacity.
+
+## Practical conclusion for Book Loop
+
+The economics are favorable if we enforce four rules:
+
+1. **No unlimited AI generation.**
+2. **Bound correction/review retries.**
+3. **Use Flash by default and reserve more expensive models for explicitly valuable operations.**
+4. **Track usage per completed workflow and enforce monthly plan capacity.**
+
+The current GCP architecture is cheap enough that infrastructure should not drive pricing. Gemini usage and payment processing are the meaningful variable costs.
+
+### Recommended commercial guardrail
+
+Use the following internal planning assumptions until real production data replaces them:
+
+```text
+Fixed GCP baseline:          ~$75/month
+Nominal Gemini workflow:     ~$0.08/chapter
+Conservative AI envelope:    ~$0.50/chapter-equivalent
+Target direct COGS:           ≤25% of subscription revenue
+```
+
+This supports the proposed **€19 / €39 / €79** pricing strategy, provided the plans have explicit capacity limits.
+
+## What we should measure after launch
+
+The first real unit-economics dashboard should answer only these questions:
+
+- Gemini cost per completed chapter;
+- Gemini cost per successful full workflow;
+- retry/correction rate;
+- average input/output tokens per workflow;
+- monthly AI cost per paying customer;
+- Stripe cost per paying customer;
+- gross margin by plan.
+
+The objective is to replace the conservative assumptions above with actual Book Loop workload data, then adjust quotas—not immediately adjust prices—when a workload becomes unexpectedly expensive.
