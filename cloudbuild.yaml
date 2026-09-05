@@ -14,7 +14,7 @@ steps:
     args:
       - "build"
       - "-t"
-      - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_API_REPOSITORY}/api:$COMMIT_SHA"
+      - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_API_REPOSITORY}/api:$BUILD_ID"
       - "."
 
   - id: build-web
@@ -22,20 +22,20 @@ steps:
     args:
       - "build"
       - "-t"
-      - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_WEB_REPOSITORY}/web:$COMMIT_SHA"
+      - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_WEB_REPOSITORY}/web:$BUILD_ID"
       - "./web"
 
   - id: push-api
     name: gcr.io/cloud-builders/docker
     args:
       - "push"
-      - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_API_REPOSITORY}/api:$COMMIT_SHA"
+      - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_API_REPOSITORY}/api:$BUILD_ID"
 
   - id: push-web
     name: gcr.io/cloud-builders/docker
     args:
       - "push"
-      - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_WEB_REPOSITORY}/web:$COMMIT_SHA"
+      - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_WEB_REPOSITORY}/web:$BUILD_ID"
 
   - id: migrate
     name: gcr.io/google.com/cloudsdktool/cloud-sdk
@@ -45,7 +45,7 @@ steps:
       - "jobs"
       - "deploy"
       - "book-loop-migrations"
-      - "--image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_API_REPOSITORY}/api:$COMMIT_SHA"
+      - "--image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_API_REPOSITORY}/api:$BUILD_ID"
       - "--region=${_REGION}"
       - "--service-account=${_MIGRATION_SERVICE_ACCOUNT}"
       - "--set-secrets=DATABASE_URL=DATABASE_URL:1"
@@ -71,7 +71,7 @@ steps:
       - "run"
       - "deploy"
       - "${_API_SERVICE}"
-      - "--image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_API_REPOSITORY}/api:$COMMIT_SHA"
+      - "--image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_API_REPOSITORY}/api:$BUILD_ID"
       - "--region=${_REGION}"
       - "--platform=managed"
       - "--allow-unauthenticated"
@@ -92,7 +92,7 @@ steps:
       - "run"
       - "deploy"
       - "${_WEB_SERVICE}"
-      - "--image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_WEB_REPOSITORY}/web:$COMMIT_SHA"
+      - "--image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_WEB_REPOSITORY}/web:$BUILD_ID"
       - "--region=${_REGION}"
       - "--platform=managed"
       - "--allow-unauthenticated"
@@ -105,5 +105,5 @@ steps:
       - "--set-env-vars=NEXT_PUBLIC_USE_REAL_API=false"
 
 images:
-  - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_API_REPOSITORY}/api:$COMMIT_SHA"
-  - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_WEB_REPOSITORY}/web:$COMMIT_SHA"
+  - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_API_REPOSITORY}/api:$BUILD_ID"
+  - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_WEB_REPOSITORY}/web:$BUILD_ID"
