@@ -17,7 +17,9 @@ from book_loop.application.use_cases.create_book import CreateBook
 from book_loop.application.use_cases.extract_chapter_assertions import ExtractChapterAssertions
 from book_loop.application.use_cases.generate_chapter import GenerateChapter
 from book_loop.application.use_cases.generate_outline import GenerateOutline
+from book_loop.application.use_cases.get_canonical_fact_history import GetCanonicalFactHistory
 from book_loop.application.use_cases.ingest_document import IngestDocument
+from book_loop.application.use_cases.list_canonical_facts import ListCanonicalFacts
 from book_loop.application.use_cases.reject_chapter import RejectChapter
 from book_loop.application.use_cases.review_assertion import ReviewAssertion
 from book_loop.application.use_cases.review_chapter import ReviewChapter
@@ -139,3 +141,9 @@ class Container:
 
     def review_assertion(self) -> ReviewAssertion:
         return ReviewAssertion(self.repository)
+
+    def list_canonical_facts(self) -> ListCanonicalFacts:
+        return ListCanonicalFacts(self.repository)
+
+    def get_canonical_fact_history(self) -> GetCanonicalFactHistory:
+        return GetCanonicalFactHistory(self.repository)
