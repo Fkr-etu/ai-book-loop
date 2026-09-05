@@ -12,12 +12,33 @@ import { realApiClient } from "@/services/realApiClient";
 import { adaptBackendBook } from "@/services/bookAdapter";
 import type { BookApi } from "@/services/api";
 
+const EMPTY_BOOK_ID = "proj-001";
+
+function emptyBook(): BookState {
+  return {
+    id: EMPTY_BOOK_ID,
+    title: "",
+    theme: "",
+    authorIdea: "",
+    lore: "",
+    constraints: [],
+    outlineApproved: false,
+    chapters: [],
+    characters: [],
+    loreItems: [],
+    graphNodes: [],
+    graphEdges: [],
+    reviews: [],
+  };
+}
+
 function unsupported(feature: string): never {
   throw new Error(`${feature} n'est pas encore exposé par l'API backend.`);
 }
 
 export class TypedBookApiAdapter implements BookApi {
   async getBook(id: string): Promise<BookState> {
+    if (!id || id === EMPTY_BOOK_ID) return emptyBook();
     return adaptBackendBook(await realApiClient.getBook(id));
   }
 
@@ -34,6 +55,8 @@ export class TypedBookApiAdapter implements BookApi {
   }
 
   async updateBook(id: string, updates: Partial<BookState>): Promise<BookState> {
+    if (!id || id === EMPTY_BOOK_ID) return this.createBook(updates);
+
     const payload: Record<string, unknown> = {};
     if (updates.title !== undefined) payload.title = updates.title;
     if (updates.theme !== undefined) payload.theme = updates.theme;
