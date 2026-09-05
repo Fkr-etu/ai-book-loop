@@ -32,8 +32,7 @@ from book_loop.infrastructure.llm.assertion_extractor import LLMAssertionExtract
 from book_loop.infrastructure.llm.factory import create_llm
 from book_loop.infrastructure.linguistic.languagetool import LanguageToolChecker
 from book_loop.infrastructure.linguistic.spacy import SpacyFrenchChecker
-from book_loop.infrastructure.observability import ObservabilityStore
-from book_loop.workflow.chapter_graph import ChapterWorkflow
+from book_loop.infrastructure.observability import InstrumentedChapterWorkflow, ObservabilityStore
 
 
 class Container:
@@ -60,7 +59,7 @@ class Container:
         self.linter = ChapterLinter()
         self.linguistic_contextualizer = GeminiDiagnosticContextualizer(llm=self.llm)
 
-        self.chapter_workflow = ChapterWorkflow(
+        self.chapter_workflow = InstrumentedChapterWorkflow(
             repository=self.repository,
             writer=self.writer_agent,
             reviewer=self.reviewer_agent,
