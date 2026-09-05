@@ -44,7 +44,9 @@ cd web
 npm run test:e2e
 ```
 
-**CI currently runs the Python `pytest` suite only.** Frontend build/lint/E2E checks are local development checks until they are explicitly added to the CI workflow.
+CI runs backend tests with `LLM_PROVIDER=fake` and runs the Playwright suite with `NEXT_PUBLIC_USE_REAL_API=false`. The automated E2E path therefore provides deterministic UI coverage without a Gemini API key or Gemini inference charges.
+
+The live Gemini/Canon validation remains an explicit manual workflow and is the only CI workflow intended to consume Gemini inference quota.
 
 ## CLI & Web Studio
 
