@@ -1,0 +1,110 @@
+substitutions:
+  _REGION: europe-west9
+  _API_SERVICE: book-loop-api
+  _WEB_SERVICE: book-loop-web
+  _API_REPOSITORY: book-loop-api
+  _WEB_REPOSITORY: book-loop-web
+  _DB_INSTANCE: book-loop-postgres
+  _API_SERVICE_ACCOUNT: book-loop-api@gen-lang-client-0322058604.iam.gserviceaccount.com
+  _MIGRATION_SERVICE_ACCOUNT: book-loop-migrations@gen-lang-client-0322058604.iam.gserviceaccount.com
+
+steps:
+  - id: build-api
+    name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_API_REPOSITORY}/api:$COMMIT_SHA
+      - .
+
+  - id: build-web
+    name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_WEB_REPOSITORY}/web:$COMMIT_SHA
+      - ./web
+
+  - id: push-api
+    name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_API_REPOSITORY}/api:$COMMIT_SHA
+
+  - id: push-web
+    name: gcr.io/cloud-builders/docker
+    args:
+      - push
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_WEB_REPOSITORY}/web:$COMMIT_SHA
+
+  - id: migrate
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: gcloud
+    args:
+      - run
+      - jobs
+      - deploy
+      - book-loop-migrations
+      - --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_API_REPOSITORY}/api:$COMMIT_SHA
+      - --region=${_REGION}
+      - --service-account=${_MIGRATION_SERVICE_ACCOUNT}
+      - --set-env-vars=DATABASE_URL=secret:DATABASE_URL:1
+      - --set-secrets=DATABASE_URL=DATABASE_URL:1
+      - --set-cloudsql-instances=$PROJECT_ID:${_REGION}:${_DB_INSTANCE}
+      - --command=alembic
+      - --args=upgrade,head
+
+  - id: execute-migrations
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: gcloud
+    args:
+      - run
+      - jobs
+      - execute
+      - book-loop-migrations
+      - --region=${_REGION}
+      - --wait
+
+  - id: deploy-api
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - ${_API_SERVICE}
+      - --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_API_REPOSITORY}/api:$COMMIT_SHA
+      - --region=${_REGION}
+      - --platform=managed
+      - --allow-unauthenticated
+      - --service-account=${_API_SERVICE_ACCOUNT}
+      - --add-cloudsql-instances=$PROJECT_ID:${_REGION}:${_DB_INSTANCE}
+      - --set-secrets=DATABASE_URL=DATABASE_URL:1,GEMINI_API_KEY=GEMINI_API_KEY:1,AUTH_SECRET_KEY=AUTH_SECRET_KEY:1
+      - --min=0
+      - --max=3
+      - --cpu=1
+      - --memory=512Mi
+      - --concurrency=8
+      - --port=8080
+
+  - id: deploy-web
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - ${_WEB_SERVICE}
+      - --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_WEB_REPOSITORY}/web:$COMMIT_SHA
+      - --region=${_REGION}
+      - --platform=managed
+      - --allow-unauthenticated
+      - --min=0
+      - --max=2
+      - --cpu=1
+      - --memory=512Mi
+      - --concurrency=40
+      - --port=8080
+      - --set-env-vars=NEXT_PUBLIC_USE_REAL_API=false
+
+images:
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_API_REPOSITORY}/api:$COMMIT_SHA
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_WEB_REPOSITORY}/web:$COMMIT_SHA
