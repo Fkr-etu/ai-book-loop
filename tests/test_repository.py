@@ -1,18 +1,25 @@
+import os
+
 from book_loop.domain.models import BookState, Outline, SceneReview
-from book_loop.infrastructure.database.repository import SQLiteBookRepository
+from book_loop.infrastructure.database.postgres import PostgresBookRepository
 
 
-def test_book_round_trip(tmp_path) -> None:
-    repository = SQLiteBookRepository(f"sqlite:///{tmp_path / 'book.db'}")
+DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://book_loop:book_loop@localhost:5432/book_loop_test")
+
+
+def repository() -> PostgresBookRepository:
+    return PostgresBookRepository(DATABASE_URL)
+
+
+def test_book_round_trip() -> None:
+    repo = repository()
     book = BookState(id="book-1", title="Test", theme="Fantasy", author_idea="A test idea")
-
-    repository.save(book)
-
-    assert repository.get("book-1") == book
+    repo.save(book)
+    assert repo.get("book-1") == book
 
 
-def test_structured_outline_round_trip(tmp_path) -> None:
-    repository = SQLiteBookRepository(f"sqlite:///{tmp_path / 'book.db'}")
+def test_structured_outline_round_trip() -> None:
+    repo = repository()
     book = BookState(
         id="book-1",
         title="Test",
@@ -25,30 +32,19 @@ def test_structured_outline_round_trip(tmp_path) -> None:
             ]
         ),
     )
-
-    repository.save(book)
-
-    loaded = repository.get("book-1")
+    repo.save(book)
+    loaded = repo.get("book-1")
     assert loaded.outline == book.outline
     assert loaded.outline.chapters[0].synopsis == "An inciting event."
 
 
-def test_chapter_version_and_review_are_persisted(tmp_path) -> None:
-    repository = SQLiteBookRepository(f"sqlite:///{tmp_path / 'book.db'}")
+def test_chapter_version_and_review_are_persisted() -> None:
+    repo = repository()
     review = SceneReview(score=8, approved=True, issues=["minor"], suggestions=["keep"])
-
-    repository.save_chapter_version("book-1", 1, 2, "Draft v2")
-    repository.save_review("book-1", 1, 2, review)
-
-    version = repository._connection.execute(
-        "SELECT draft FROM chapter_versions WHERE book_id=? AND chapter_number=? AND version=?",
-        ("book-1", 1, 2),
-    ).fetchone()
-    saved_review = repository._connection.execute(
-        "SELECT score, approved, issues, suggestions FROM reviews WHERE book_id=? AND chapter_number=? AND version=?",
-        ("book-1", 1, 2),
-    ).fetchone()
-
-    assert version[0] == "Draft v2"
-    assert saved_review[0] == 8
-    assert saved_review[1] == 1
+    repo.save_chapter_version("book-1", 1, 2, "Draft v2")
+    repo.save_review("book-1", 1, 2, review)
+    version = repo._connection.execute("SELECT draft FROM chapter_versions WHERE book_id=? AND chapter_number=? AND version=?", ("book-1", 1, 2)).fetchone()
+    saved_review = repo._connection.execute("SELECT score, approved, issues, suggestions FROM reviews WHERE book_id=? AND chapter_number=? AND version=?", ("book-1", 1, 2)).fetchone()
+    assert version["draft"] == "Draft v2"
+    assert saved_review["score"] == 8
+    assert saved_review["approved"] is True
