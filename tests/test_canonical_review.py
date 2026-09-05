@@ -104,5 +104,11 @@ def test_acceptance_creates_versioned_canonical_fact_and_audit_decision():
     conflict = repository._connection.execute("SELECT status, resolution_assertion_id FROM conflicts").fetchone()
     assert conflict["status"] == "resolved"
     assert conflict["resolution_assertion_id"] == left.id
-    audit = repository._connection.execute("SELECT decision FROM review_decisions ORDER BY id").fetchall()
-    assert [row["decision"] for row in audit] == ["accept", "reject"]
+    audit = repository._connection.execute(
+        "SELECT assertion_id, decision FROM review_decisions WHERE assertion_id IN (?, ?)",
+        (left.id, right.id),
+    ).fetchall()
+    assert {(row["assertion_id"], row["decision"]) for row in audit} == {
+        (left.id, "accept"),
+        (right.id, "reject"),
+    }
