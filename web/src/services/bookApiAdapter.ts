@@ -151,6 +151,10 @@ export class RealBookApi implements BookApi {
     return realApiClient.register(email, password, name) as Promise<UserProfile>;
   }
 
+  async logoutUser(): Promise<void> {
+    await realApiClient.logout();
+  }
+
   async getCurrentUser(): Promise<UserProfile | null> {
     return realApiClient.getCurrentUser() as Promise<UserProfile | null>;
   }
