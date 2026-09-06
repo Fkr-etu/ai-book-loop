@@ -14,6 +14,7 @@ from book_loop.domain.models import (
     ReviewDecision,
     SceneReview,
     SourceDocument,
+    SubscriptionPlan,
     User,
 )
 
@@ -191,18 +192,18 @@ class BookRepositoryMixin:
         return CanonicalFact(id=row["id"], book_id=row["book_id"], assertion_id=row["assertion_id"], statement=row["statement"], subject=row["subject"], predicate=row["predicate"], object=row["object"], decision_id=row["decision_id"], version=row["version"], active=bool(row["active"]), previous_fact_id=row["previous_fact_id"])
 
     def create_user(self, user: User) -> User:
-        self._connection.execute("INSERT INTO users(id, email, password_hash, name) VALUES(?, ?, ?, ?)", (user.id, user.email.lower().strip(), user.password_hash, user.name))
+        self._connection.execute("INSERT INTO users(id, email, password_hash, name, plan) VALUES(?, ?, ?, ?, ?)", (user.id, user.email.lower().strip(), user.password_hash, user.name, user.plan.value))
         self._connection.commit()
         return self.get_user_by_email(user.email)  # type: ignore
 
     def get_user_by_email(self, email: str) -> User | None:
-        row = self._connection.execute("SELECT id, email, password_hash, name, created_at FROM users WHERE lower(email) = ?", (email.lower().strip(),)).fetchone()
+        row = self._connection.execute("SELECT id, email, password_hash, name, plan, created_at FROM users WHERE lower(email) = ?", (email.lower().strip(),)).fetchone()
         if row is None:
             return None
-        return User(id=row["id"], email=row["email"], password_hash=row["password_hash"], name=row["name"], created_at=row["created_at"])
+        return User(id=row["id"], email=row["email"], password_hash=row["password_hash"], name=row["name"], plan=SubscriptionPlan(row["plan"]), created_at=row["created_at"])
 
     def get_user_by_id(self, user_id: str) -> User | None:
-        row = self._connection.execute("SELECT id, email, password_hash, name, created_at FROM users WHERE id = ?", (user_id,)).fetchone()
+        row = self._connection.execute("SELECT id, email, password_hash, name, plan, created_at FROM users WHERE id = ?", (user_id,)).fetchone()
         if row is None:
             return None
-        return User(id=row["id"], email=row["email"], password_hash=row["password_hash"], name=row["name"], created_at=row["created_at"])
+        return User(id=row["id"], email=row["email"], password_hash=row["password_hash"], name=row["name"], plan=SubscriptionPlan(row["plan"]), created_at=row["created_at"])
