@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Playfair_Display, Merriweather, Inter, Courier_Prime } from "next/font/google";
 import { Providers } from "@/components/Providers";
 import { CookieConsent } from "@/components/CookieConsent";
+import { AnalyticsBootstrap } from "@/components/AnalyticsBootstrap";
 import "./globals.css";
 
 const playfair = Playfair_Display({
@@ -49,6 +50,7 @@ export default function RootLayout({
         <Providers>
           {children}
           <CookieConsent />
+          <AnalyticsBootstrap />
         </Providers>
       </body>
     </html>
