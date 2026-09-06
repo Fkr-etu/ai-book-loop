@@ -4,7 +4,7 @@ import hashlib
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Any, Iterator
+from typing import Iterator
 
 import psycopg
 from psycopg.rows import dict_row
@@ -12,6 +12,7 @@ from psycopg.rows import dict_row
 
 @dataclass(frozen=True)
 class RateLimitResult:
+    event_id: int | None = None
     retry_after_seconds: int | None = None
 
     @property
@@ -63,7 +64,7 @@ class AuthRateLimiter:
             self._connection.commit()
 
     def consume(self, key: str, *, limit: int, window_seconds: int) -> RateLimitResult:
-        """Consume one attempt; return a non-sensitive retry delay when throttled."""
+        """Reserve one authentication attempt; release it when authentication succeeds."""
         now = datetime.now(timezone.utc)
         window_start = now - timedelta(seconds=window_seconds)
 
@@ -85,13 +86,21 @@ class AuthRateLimiter:
                 retry_after = max(1, int((row["attempted_at"] + timedelta(seconds=window_seconds) - now).total_seconds()))
                 return RateLimitResult(retry_after_seconds=retry_after)
 
-            self._connection.execute(
-                "INSERT INTO auth_rate_limit_events(rate_key, attempted_at) VALUES(%s, %s)",
+            inserted = self._connection.execute(
+                "INSERT INTO auth_rate_limit_events(rate_key, attempted_at) VALUES(%s, %s) RETURNING id",
                 (key, now),
-            )
-            return RateLimitResult()
+            ).fetchone()
+            return RateLimitResult(event_id=int(inserted["id"]))
+
+    def release(self, event_id: int | None) -> None:
+        """Remove a successful-login reservation without touching other failures."""
+        if event_id is None:
+            return
+        with self._transaction():
+            self._connection.execute("DELETE FROM auth_rate_limit_events WHERE id = %s", (event_id,))
 
     def reset(self, key: str) -> None:
+        """Clear all failed attempts for one account after a successful login."""
         with self._transaction():
             self._connection.execute("DELETE FROM auth_rate_limit_events WHERE rate_key = %s", (key,))
 
