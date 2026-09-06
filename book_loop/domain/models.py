@@ -14,6 +14,12 @@ class ChapterStatus(StrEnum):
     NEEDS_REVIEW = "needs_review"
 
 
+class SubscriptionPlan(StrEnum):
+    FREE = "free"
+    CREATOR = "creator"
+    PRO = "pro"
+
+
 class SceneReview(BaseModel):
     score: float = Field(ge=0, le=10)
     approved: bool
@@ -88,12 +94,14 @@ class User(BaseModel):
     password_hash: str
     name: str = ""
     created_at: str | None = None
+    plan: SubscriptionPlan = SubscriptionPlan.FREE
 
 
 class UserPublic(BaseModel):
     id: str
     email: str
     name: str = ""
+    plan: SubscriptionPlan = SubscriptionPlan.FREE
 
 
 class SourceDocument(BaseModel):
