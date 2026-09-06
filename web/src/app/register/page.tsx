@@ -76,7 +76,6 @@ export default function RegisterPage() {
             </div>
           )}
 
-          {/* Plan Selector Toggle */}
           <div className="grid grid-cols-2 gap-3 mb-6 p-1 bg-[#eff4ff] rounded-lg border border-[#c6c6cd]/20">
             <button
               type="button"
@@ -124,7 +123,7 @@ export default function RegisterPage() {
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="Valerius de Cendres"
+                  placeholder="Votre nom ou pseudonyme"
                   required
                   className="w-full pl-10 pr-3 py-2 text-sm border-b border-[#c6c6cd] focus:border-[#b87500] focus:outline-none bg-transparent transition-colors"
                 />
@@ -141,7 +140,7 @@ export default function RegisterPage() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="auteur@manuscript.studio"
+                  placeholder="votre@email.com"
                   required
                   className="w-full pl-10 pr-3 py-2 text-sm border-b border-[#c6c6cd] focus:border-[#b87500] focus:outline-none bg-transparent transition-colors"
                 />
@@ -166,6 +165,7 @@ export default function RegisterPage() {
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-[#76777d] hover:text-[#0f172a]"
+                  aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -191,7 +191,7 @@ export default function RegisterPage() {
       </main>
 
       <footer className="p-6 text-center text-xs text-[#76777d] border-t border-[#c6c6cd]/20 max-w-5xl mx-auto w-full flex flex-col md:flex-row justify-between items-center gap-2 relative z-10">
-        <div>© 2025 Manuscript Studio</div>
+        <div>© 2026 Manuscript Studio</div>
         <div className="flex gap-4">
           <Link href="/login" className="hover:text-[#0f172a]">Connexion</Link>
           <Link href="/pricing" className="hover:text-[#0f172a]">Tarification</Link>
