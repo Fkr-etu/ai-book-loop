@@ -9,6 +9,12 @@ test.describe("Book Loop — real API author journey", () => {
   test.skip(!realApiEnabled, "Requires NEXT_PUBLIC_USE_REAL_API=true");
 
   test("registers, configures, approves the outline and generates a chapter", async ({ page }) => {
+    page.on("response", async (response) => {
+      if (response.url().endsWith("/api/auth/register")) {
+        console.log(`[real-api] register ${response.status()} ${await response.text()}`);
+      }
+    });
+
     await page.goto("/register");
     await page.getByPlaceholder("Votre nom ou pseudonyme").fill("E2E Author");
     await page.getByPlaceholder("votre@email.com").fill(email);
