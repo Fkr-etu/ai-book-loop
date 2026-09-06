@@ -5,7 +5,24 @@ import { Check, ChevronRight, RotateCcw, Sparkles, X } from "lucide-react";
 import { StudioLayout } from "@/components/StudioLayout";
 import { StudioDecisionState } from "@/components/StudioDecisionState";
 import { useProjectStore } from "@/lib/useProjectStore";
+import { realApiClient, RealApiError } from "@/services/realApiClient";
+import type { BackendWorkflowRun } from "@/types/api";
 import type { ChapterVersion, SceneReview } from "@/types";
+
+const WORKFLOW_POLL_MS = 2000;
+
+const workflowLabels: Record<BackendWorkflowRun["status"], string> = {
+  running: "En cours",
+  needs_review: "Décision auteur requise",
+  completed: "Terminé",
+};
+
+const stepLabels: Record<BackendWorkflowRun["step"], string> = {
+  write: "Rédaction",
+  review: "Critique",
+  correct: "Correction",
+  summarize: "Synthèse",
+};
 
 export default function ChaptersPage() {
   const store = useProjectStore();
@@ -16,6 +33,7 @@ export default function ChaptersPage() {
   const [draftText, setDraftText] = useState("");
   const [review, setReview] = useState<SceneReview | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [workflowRun, setWorkflowRun] = useState<BackendWorkflowRun | null>(null);
 
   const chapter = useMemo(
     () => chapters.find((item) => item.number === selectedNumber) || chapters[0],
@@ -34,6 +52,7 @@ export default function ChaptersPage() {
       setSelectedNumber(null);
       setSelectedVersion(null);
       setDraftText("");
+      setWorkflowRun(null);
       return;
     }
     setSelectedNumber(chapter.number);
@@ -44,6 +63,37 @@ export default function ChaptersPage() {
     setDraftText(version?.content || "");
     setReview(version?.review || null);
   }, [version?.id]);
+
+  useEffect(() => {
+    if (!project.id || !chapter?.number) return;
+    let cancelled = false;
+
+    const loadWorkflow = async () => {
+      try {
+        const latest = await realApiClient.getLatestChapterWorkflowRun(project.id, chapter.number);
+        if (!cancelled) setWorkflowRun(latest);
+      } catch (err) {
+        if (!cancelled && !(err instanceof RealApiError && err.status === 404)) {
+          setActionError(err instanceof Error ? err.message : "Impossible de lire l'état du workflow.");
+        }
+      }
+    };
+
+    void loadWorkflow();
+    const interval = window.setInterval(() => {
+      void loadWorkflow();
+    }, WORKFLOW_POLL_MS);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [project.id, chapter?.number]);
+
+  useEffect(() => {
+    if (!workflowRun || workflowRun.status === "running" || !project.id) return;
+    if (workflowRun.status === "completed") void store.refreshProject();
+  }, [workflowRun?.id, workflowRun?.status, project.id, store.refreshProject]);
 
   const run = async (operation: () => Promise<void>) => {
     setActionError(null);
@@ -57,6 +107,12 @@ export default function ChaptersPage() {
   const generate = () => run(async () => {
     if (!chapter) return;
     await store.generateChapter(chapter.number);
+    try {
+      const latest = await realApiClient.getLatestChapterWorkflowRun(project.id, chapter.number);
+      setWorkflowRun(latest);
+    } catch (err) {
+      if (!(err instanceof RealApiError && err.status === 404)) throw err;
+    }
   });
 
   const critique = () => run(async () => {
@@ -93,6 +149,21 @@ export default function ChaptersPage() {
               </div>
               {chapter && <StudioDecisionState status={chapter.status} />}
             </header>
+
+            {workflowRun && (
+              <section className="mb-4 rounded-lg border border-[#c6c6cd]/40 bg-white p-4" aria-live="polite">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#76777d]">Exécution persistée</p>
+                    <p className="mt-1 text-sm font-semibold text-[#0b1c30]">
+                      {workflowLabels[workflowRun.status]} · {stepLabels[workflowRun.step]} · tentative {workflowRun.attempt || 1}
+                    </p>
+                  </div>
+                  {workflowRun.status === "running" && <span className="text-xs text-[#b87500]">Actualisation automatique</span>}
+                  {workflowRun.status === "needs_review" && <span className="text-xs font-semibold text-[#8f3028]">Une décision est requise</span>}
+                </div>
+              </section>
+            )}
 
             {error && <div className="mb-4 rounded border border-[#d98980] bg-[#fff5f3] p-3 text-sm text-[#8f3028]">{error}</div>}
             {actionError && <div className="mb-4 rounded border border-[#d98980] bg-[#fff5f3] p-3 text-sm text-[#8f3028]">{actionError}</div>}
@@ -140,7 +211,7 @@ export default function ChaptersPage() {
                             {chapter.objective && <p className="mt-2 text-xs italic text-[#5f5e5b]">{chapter.objective}</p>}
                           </div>
                           <div className="flex flex-wrap gap-2">
-                            <button type="button" onClick={generate} disabled={loading || !project.outlineApproved} className="inline-flex items-center gap-1.5 rounded bg-[#0b1c30] px-3 py-2 text-xs font-semibold text-[#ffddb8] disabled:opacity-40">
+                            <button type="button" onClick={generate} disabled={loading || workflowRun?.status === "running" || !project.outlineApproved} className="inline-flex items-center gap-1.5 rounded bg-[#0b1c30] px-3 py-2 text-xs font-semibold text-[#ffddb8] disabled:opacity-40">
                               <Sparkles className="h-3.5 w-3.5" /> Générer
                             </button>
                             <button type="button" onClick={critique} disabled={loading || !version} className="inline-flex items-center gap-1.5 rounded border border-[#c6c6cd] bg-[#eff4ff] px-3 py-2 text-xs font-semibold text-[#0b1c30] disabled:opacity-40">
@@ -191,6 +262,18 @@ export default function ChaptersPage() {
                 <div className="flex justify-between gap-3"><span>Versions</span><strong>{versions.length}</strong></div>
                 <div className="flex justify-between gap-3"><span>Version courante</span><strong>{chapter?.currentVersion || "—"}</strong></div>
               </div>
+            </section>
+
+            <section className="rounded-lg border border-[#c6c6cd]/30 bg-white p-4">
+              <h3 className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#76777d]">Workflow</h3>
+              {workflowRun ? (
+                <div className="mt-3 space-y-2 text-xs text-[#45464d]">
+                  <div className="flex justify-between gap-3"><span>Statut</span><strong>{workflowLabels[workflowRun.status]}</strong></div>
+                  <div className="flex justify-between gap-3"><span>Étape</span><strong>{stepLabels[workflowRun.step]}</strong></div>
+                  <div className="flex justify-between gap-3"><span>Tentative</span><strong>{workflowRun.attempt || 1}</strong></div>
+                  {workflowRun.decision && <div className="flex justify-between gap-3"><span>Décision</span><strong>{workflowRun.decision}</strong></div>}
+                </div>
+              ) : <p className="mt-3 text-xs text-[#76777d]">Aucune exécution persistée pour ce chapitre.</p>}
             </section>
 
             <section className="rounded-lg border border-[#c6c6cd]/30 bg-white p-4">
