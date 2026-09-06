@@ -23,7 +23,17 @@ export class RealBookApi implements BookApi {
   async generateOutline(id: string): Promise<BookState> { return adaptBackendBook(await realApiClient.generateOutline(id)); }
   async approveOutline(id: string): Promise<BookState> { return adaptBackendBook(await realApiClient.approveOutline(id)); }
   async addChapter(id: string, title: string, objective: string): Promise<BookState> { void title; void objective; const current = await realApiClient.getBook(id); return adaptBackendBook(await realApiClient.addChapter(id, current.chapters.length + 1)); }
-  async generateChapter(id: string, n: number): Promise<{ book: BookState; versionNumber: number; content: string; run: BackendWorkflowRun }> { const result = await realApiClient.generateChapter(id, n); return { book: adaptBackendBook(await realApiClient.getBook(id)), versionNumber: result.run.attempt, content: result.run.draft, run: result.run }; }
+  async generateChapter(id: string, n: number): Promise<{ book: BookState; versionNumber: number; content: string; run: BackendWorkflowRun }> {
+    const result = await realApiClient.generateChapter(id, n);
+    const book = adaptBackendBook(await realApiClient.getBook(id));
+    const chapter = book.chapters.find((item) => item.number === n);
+    return {
+      book,
+      versionNumber: chapter?.currentVersion ?? 0,
+      content: result.run.draft,
+      run: result.run,
+    };
+  }
   async getChapterWorkflowRun(id: string, n: number, runId: string): Promise<BackendWorkflowRun> { return realApiClient.getChapterWorkflowRun(id, n, runId); }
   async getLatestChapterWorkflowRun(id: string, n: number): Promise<BackendWorkflowRun | null> { return realApiClient.getLatestChapterWorkflowRun(id, n); }
   async reviewChapter(id: string, n: number, v?: number, draft?: string): Promise<{ book: BookState; review: SceneReview }> { const result = await realApiClient.reviewChapter(id, n, v, draft); return { book: adaptBackendBook(result.book), review: result.review as SceneReview }; }
