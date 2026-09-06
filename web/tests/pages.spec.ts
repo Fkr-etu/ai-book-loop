@@ -32,4 +32,33 @@ test.describe("Book Loop - Complete Page Coverage Suite", () => {
     await page.reload();
     await expect(banner).toBeHidden();
   });
+
+  test("SEO — public pages expose canonical URLs", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", /\/?$/);
+    await page.goto("/guides");
+    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", /\/guides\/?$/);
+    await page.goto("/pricing");
+    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", /\/pricing\/?$/);
+  });
+
+  test("SEO — private and authentication pages are noindex", async ({ page }) => {
+    for (const path of ["/login", "/register", "/setup", "/dashboard", "/studio", "/parametres"]) {
+      await page.goto(path);
+      await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/);
+    }
+  });
+
+  test("SEO — discovery files are available", async ({ request }) => {
+    const robots = await request.get("/robots.txt");
+    expect(robots.ok()).toBeTruthy();
+    expect(await robots.text()).toContain("/sitemap.xml");
+
+    const sitemap = await request.get("/sitemap.xml");
+    expect(sitemap.ok()).toBeTruthy();
+    expect(await sitemap.text()).toContain("/guides");
+
+    const manifest = await request.get("/manifest.webmanifest");
+    expect(manifest.ok()).toBeTruthy();
+  });
 });

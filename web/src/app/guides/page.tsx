@@ -1,36 +1,18 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 
-export const metadata = {
+export const metadata: Metadata = {
   title: "Guides d’écriture IA et cohérence narrative",
   description:
     "Guides pratiques pour écrire avec l’IA, construire une bible narrative et préserver la cohérence d’une histoire longue.",
+  alternates: { canonical: "/guides" },
 };
 
 const guides = [
-  {
-    slug: "ecrire-un-roman-avec-ia",
-    title: "Écrire un roman avec l’IA : méthode complète pour garder la cohérence",
-    description:
-      "Une méthode concrète pour passer de l’idée au manuscrit sans laisser l’IA perdre les faits importants de votre histoire.",
-  },
-  {
-    slug: "garder-coherence-roman-ia",
-    title: "Comment garder la cohérence d’un roman écrit avec l’IA ?",
-    description:
-      "Personnages, chronologie, lieux et règles : les bonnes pratiques pour éviter les contradictions au fil des chapitres.",
-  },
-  {
-    slug: "bible-narrative",
-    title: "Qu’est-ce qu’une bible narrative ?",
-    description:
-      "Comprendre le rôle d’une bible narrative et pourquoi elle devient essentielle quand une histoire évolue sur la durée.",
-  },
-  {
-    slug: "eviter-contradictions-roman",
-    title: "Comment éviter les contradictions dans un roman ?",
-    description:
-      "Une approche simple pour repérer, vérifier et décider quoi faire lorsqu’un nouveau passage contredit l’histoire établie.",
-  },
+  { slug: "ecrire-un-roman-avec-ia", title: "Écrire un roman avec l’IA : méthode complète pour garder la cohérence", description: "Une méthode concrète pour passer de l’idée au manuscrit sans laisser l’IA perdre les faits importants de votre histoire." },
+  { slug: "garder-coherence-roman-ia", title: "Comment garder la cohérence d’un roman écrit avec l’IA ?", description: "Personnages, chronologie, lieux et règles : les bonnes pratiques pour éviter les contradictions au fil des chapitres." },
+  { slug: "bible-narrative", title: "Qu’est-ce qu’une bible narrative ?", description: "Comprendre le rôle d’une bible narrative et pourquoi elle devient essentielle quand une histoire évolue sur la durée." },
+  { slug: "eviter-contradictions-roman", title: "Comment éviter les contradictions dans un roman ?", description: "Une approche simple pour repérer, vérifier et décider quoi faire lorsqu’un nouveau passage contredit l’histoire établie." },
 ];
 
 export default function GuidesPage() {
