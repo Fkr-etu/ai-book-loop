@@ -68,8 +68,13 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const clearError = () => setError(null);
 
   const refreshProject = useCallback(async () => {
+    if (!project.id) {
+      setError("Aucun livre sélectionné.");
+      return;
+    }
+
     try {
-      const data = await getApiClient().getBook(project.id || "proj-001");
+      const data = await getApiClient().getBook(project.id);
       setProject(data);
     } catch (err: any) {
       console.error("Error refreshing project:", err);
