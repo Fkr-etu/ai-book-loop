@@ -143,7 +143,7 @@ Le CI GitHub reste une barrière de sécurité et de validation. Il ne devient p
 
 ## 5. Région
 
-La région de référence est **`europe-west1`**.
+La région de référence est **`europe-west9` (Paris)**.
 
 Tous les composants principaux sont regroupés dans cette région autant que possible :
 
