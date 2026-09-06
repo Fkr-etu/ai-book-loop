@@ -7,13 +7,13 @@ import {
   BookOpen,
   User,
   CreditCard,
-  Feather,
   LayoutDashboard,
   Download,
   Menu,
   X,
   PanelLeft
 } from "lucide-react";
+import { BrandMark } from "./BrandMark";
 
 interface NavbarProps {
   onToggleSidebar?: () => void;
@@ -32,21 +32,21 @@ export function Navbar({ onToggleSidebar, showSidebarToggle = false }: NavbarPro
             onClick={onToggleSidebar}
             className="md:hidden p-2 rounded text-[#0b1c30] hover:bg-[#eff4ff] border border-[#c6c6cd]/40 transition-colors"
             title="Ouvrir le menu du Studio"
-            aria-label="Toggle Studio Sidebar"
+            aria-label="Ouvrir la navigation du Studio"
           >
             <PanelLeft className="w-5 h-5 text-[#0b1c30]" />
           </button>
         )}
-        <Link href="/dashboard" className="flex items-center gap-2.5 group">
-          <div className="w-8 h-8 md:w-9 md:h-9 rounded bg-[#0b1c30] text-[#f8f5f0] flex items-center justify-center shadow-xs group-hover:bg-[#131b2e] transition-colors shrink-0">
-            <Feather className="w-4 h-4 md:w-5 md:h-5 text-[#ffddb8]" />
+        <Link href="/dashboard" className="flex items-center gap-2.5 group" aria-label="Book Loop — mes livres">
+          <div className="w-8 h-8 md:w-9 md:h-9 rounded-lg bg-[#13243a] text-[#fffdfc] flex items-center justify-center shadow-xs group-hover:bg-[#0b1c30] transition-colors shrink-0">
+            <BrandMark className="w-5 h-5 md:w-6 md:h-6" />
           </div>
           <div>
             <span className="font-playfair text-base md:text-lg font-bold tracking-tight text-[#0b1c30] block leading-none">
               Book Loop
             </span>
             <span className="font-courier text-[9px] md:text-[10px] text-[#45464d] tracking-widest uppercase block mt-0.5">
-              Moteur de cohérence narrative
+              La continuité de votre récit
             </span>
           </div>
         </Link>
@@ -68,17 +68,13 @@ export function Navbar({ onToggleSidebar, showSidebarToggle = false }: NavbarPro
       </nav>
 
       <div className="hidden md:flex items-center gap-3">
-        <div className="flex items-center gap-2 px-2.5 py-1 rounded bg-[#ffddb8]/40 border border-[#b87500]/30 text-[11px] font-mono text-[#2a1700]">
-          <span className="w-2 h-2 rounded-full bg-[#b87500] animate-pulse"></span>
-          IA Canon: Actif
-        </div>
         <Link href="/login" className="flex items-center gap-2 text-xs font-medium text-[#0b1c30] hover:bg-[#eff4ff] px-3 py-1.5 rounded border border-[#c6c6cd]/40 transition-colors">
           <User className="w-3.5 h-3.5" /> <span>Connexion</span>
         </Link>
       </div>
 
       <div className="flex items-center md:hidden gap-2">
-        <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="p-2 rounded text-[#0b1c30] hover:bg-[#eff4ff] border border-[#c6c6cd]/40 transition-colors" aria-label="Toggle Menu">
+        <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="p-2 rounded text-[#0b1c30] hover:bg-[#eff4ff] border border-[#c6c6cd]/40 transition-colors" aria-label={mobileMenuOpen ? "Fermer le menu" : "Ouvrir le menu"}>
           {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
         </button>
       </div>
@@ -86,10 +82,7 @@ export function Navbar({ onToggleSidebar, showSidebarToggle = false }: NavbarPro
       {mobileMenuOpen && (
         <div className="absolute top-full left-0 right-0 bg-[#f8f9ff] border-b border-[#c6c6cd]/40 p-4 shadow-lg flex flex-col gap-3 md:hidden z-50">
           <div className="flex items-center justify-between pb-2 border-b border-[#c6c6cd]/20">
-            <div className="flex items-center gap-2 px-2.5 py-1 rounded bg-[#ffddb8]/40 border border-[#b87500]/30 text-[11px] font-mono text-[#2a1700]">
-              <span className="w-2 h-2 rounded-full bg-[#b87500] animate-pulse"></span>
-              IA Canon: Actif
-            </div>
+            <span className="text-xs text-[#506070]">Votre Canon reste sous votre contrôle.</span>
             <Link href="/login" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2 text-xs font-medium text-[#0b1c30] bg-[#eff4ff] px-3 py-1.5 rounded border border-[#c6c6cd]/40 transition-colors">
               <User className="w-3.5 h-3.5" /> <span>Connexion</span>
             </Link>

@@ -57,6 +57,11 @@ export const metadata: Metadata = {
     description:
       "Écrivez avec l’IA sans perdre la cohérence de votre histoire. L’IA propose, vous décidez ce qui devient canon.",
   },
+  icons: {
+    icon: "/book-loop-mark.svg",
+    shortcut: "/book-loop-mark.svg",
+    apple: "/book-loop-mark.svg",
+  },
 };
 
 export default function RootLayout({

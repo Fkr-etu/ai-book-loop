@@ -20,6 +20,17 @@ import {
 } from "lucide-react";
 import { CanonicalContextResponse, ChapterVersion } from "@/types";
 
+const chapterStatus = {
+  approved: { label: "Canon approuvé", detail: "Cette version est la référence pour la suite du récit.", className: "bg-[#f3e7cb] text-[#76500f] border-[#d8b36e]" },
+  canonical: { label: "Canon approuvé", detail: "Cette version est la référence pour la suite du récit.", className: "bg-[#f3e7cb] text-[#76500f] border-[#d8b36e]" },
+  rejected: { label: "Rejetée", detail: "Cette proposition reste dans l'historique et ne modifie pas le Canon.", className: "bg-[#ffdad6] text-[#a33b32] border-[#e8aaa3]" },
+  needs_review: { label: "À votre décision", detail: "Vérifiez les findings avant de décider si cette version rejoint le Canon.", className: "bg-[#dcebf3] text-[#24536d] border-[#9bbfd3]" },
+  proposed: { label: "Proposition", detail: "Cette version n'a pas encore été vérifiée ni approuvée.", className: "bg-[#dcebf3] text-[#24536d] border-[#9bbfd3]" },
+  draft: { label: "Brouillon", detail: "Continuez d'écrire ou lancez une vérification avant toute décision.", className: "bg-[#eef0f2] text-[#506070] border-[#c8d0d8]" },
+  in_progress: { label: "En cours", detail: "La génération ou la vérification est encore en cours.", className: "bg-[#eef0f2] text-[#506070] border-[#c8d0d8]" },
+  pending: { label: "En attente", detail: "Cette version attend une étape du workflow.", className: "bg-[#eef0f2] text-[#506070] border-[#c8d0d8]" },
+} as const;
+
 export default function StudioDeskPage() {
   const store = useProjectStore();
   const project = store.project;
@@ -99,6 +110,9 @@ export default function StudioDeskPage() {
   };
 
   const wordCount = editorContent.trim().split(/\s+/).filter(Boolean).length;
+  const status = chapterStatus[activeChapter?.status ?? "draft"];
+  const isCanonical = activeChapter?.status === "approved" || activeChapter?.status === "canonical";
+  const canDecide = !isCanonical && activeChapter?.status !== "rejected";
 
   return (
     <StudioLayout>
@@ -125,16 +139,8 @@ export default function StudioDeskPage() {
                 ))}
               </select>
 
-              <span
-                className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                  activeChapter?.status === "approved"
-                    ? "bg-[#d3e4fe] text-[#0b1c30]"
-                    : activeChapter?.status === "rejected"
-                    ? "bg-[#ffdad6] text-[#ba1a1a]"
-                    : "bg-[#ffddb8] text-[#2a1700]"
-                }`}
-              >
-                {activeChapter?.status === "approved" ? "Approuvé (Canon)" : activeChapter?.status || "Brouillon"}
+              <span className={`px-2 py-1 rounded-full border text-[11px] font-semibold ${status.className}`}>
+                {status.label}
               </span>
             </div>
 
@@ -164,32 +170,23 @@ export default function StudioDeskPage() {
           </div>
 
           {/* Workflow Actions Bar */}
-          <div className="w-full max-w-[760px] mb-4 p-3 bg-white rounded-lg border border-[#c6c6cd]/30 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="font-mono text-[#76777d]">
-                Version courante: <strong>v{selectedVerNum}</strong>
-              </span>
-              <span className="text-[#c6c6cd] hidden sm:inline">|</span>
-              <span className="text-[#45464d]">
-                Objectif: <em>{activeChapter?.objective || "Non spécifié"}</em>
-              </span>
+          <div className="w-full max-w-[760px] mb-4 p-4 bg-[#fffdfc] rounded-lg border border-[#c6c6cd]/40 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs" aria-live="polite">
+            <div className="min-w-0">
+              <p className="font-mono text-[#506070]">Version v{selectedVerNum}</p>
+              <p className="text-[#13243a] mt-1">{status.detail}</p>
+              <p className="text-[#506070] mt-1">Objectif : <em>{activeChapter?.objective || "Non spécifié"}</em></p>
             </div>
 
-            <div className="flex items-center gap-2 shrink-0">
-              <button
-                onClick={handleApproveChapter}
-                className="px-3 py-1 bg-[#b87500] text-white font-bold rounded hover:bg-[#9a6200] flex items-center gap-1 text-[11px] cursor-pointer"
-              >
-                <Check className="w-3.5 h-3.5" /> Approuver (Canon)
-              </button>
-
-              <button
-                onClick={handleRejectChapter}
-                className="px-3 py-1 bg-[#ffdad6] text-[#ba1a1a] font-bold rounded hover:bg-[#ffb4ab] flex items-center gap-1 text-[11px] cursor-pointer"
-              >
-                <X className="w-3.5 h-3.5" /> Rejeter
-              </button>
-            </div>
+            {canDecide && (
+              <div className="flex flex-col sm:flex-row items-stretch gap-2 shrink-0">
+                <button onClick={handleApproveChapter} className="px-3 py-2 bg-[#9a6617] text-white font-bold rounded hover:bg-[#76500f] flex items-center justify-center gap-1.5 text-[11px] cursor-pointer">
+                  <Check className="w-3.5 h-3.5" /> Approuver dans le Canon
+                </button>
+                <button onClick={handleRejectChapter} className="px-3 py-2 bg-white text-[#a33b32] border border-[#d98980] font-bold rounded hover:bg-[#ffefed] flex items-center justify-center gap-1.5 text-[11px] cursor-pointer">
+                  <X className="w-3.5 h-3.5" /> Rejeter
+                </button>
+              </div>
+            )}
           </div>
 
           {/* PARCHMENT SHEET */}
@@ -214,8 +211,8 @@ export default function StudioDeskPage() {
 
             {/* Subtle Footer watermark */}
             <div className="mt-8 pt-4 border-t border-[#c6c6cd]/20 flex flex-wrap justify-between items-center text-[11px] font-mono text-[#76777d] gap-2">
-              <span>Manuscript Studio — Parchment Canvas</span>
-              <span>Canon State: {activeChapter?.status}</span>
+              <span>Version immuable · votre texte reste votre référence</span>
+              <span>État : {status.label}</span>
             </div>
           </div>
         </div>
@@ -230,7 +227,7 @@ export default function StudioDeskPage() {
                 activeTab === "manuscript" ? "bg-white shadow-xs text-[#0b1c30]" : "text-[#76777d]"
               }`}
             >
-              <Sparkles className="w-3.5 h-3.5 text-[#b87500]" /> Review
+              <Sparkles className="w-3.5 h-3.5 text-[#b87500]" /> Analyse
             </button>
 
             <button
@@ -248,7 +245,7 @@ export default function StudioDeskPage() {
                 activeTab === "context" ? "bg-white shadow-xs text-[#0b1c30]" : "text-[#76777d]"
               }`}
             >
-              <Info className="w-3.5 h-3.5 text-[#b87500]" /> Context
+              <Info className="w-3.5 h-3.5 text-[#b87500]" /> Canon
             </button>
           </div>
 
@@ -394,7 +391,7 @@ export default function StudioDeskPage() {
           {activeTab === "context" && (
             <div className="space-y-3">
               <span className="text-xs font-mono font-bold text-[#76777d] uppercase tracking-wider block">
-                Context Inspector — Invariants Canoniques
+                Contexte canonique
               </span>
 
               {canonicalContext ? (
@@ -439,7 +436,7 @@ export default function StudioDeskPage() {
 
                   <details className="p-3 bg-white rounded-lg border border-[#c6c6cd]/30 space-y-1 text-[11px] font-mono">
                     <summary className="font-bold text-[#0b1c30] cursor-pointer">
-                      Aperçu du Prompt Formaté Envoyé au LLM
+                      Contexte transmis au modèle
                     </summary>
                     <pre className="p-2 bg-[#f8f5f0] rounded text-[#45464d] whitespace-pre-wrap font-mono mt-2 text-[10px]">
                       {canonicalContext.formattedContext}

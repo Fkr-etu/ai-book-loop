@@ -2,7 +2,7 @@
 
 @layer base {
   :root {
-    --surface: #f8f9ff;
+    --surface: #f7f2e9;
     --surface-dim: #cbdbf5;
     --surface-bright: #f8f9ff;
     --surface-container-lowest: #ffffff;
@@ -40,6 +40,15 @@
     --lore-gold-dark: #b87500;
     --error-crimson: #ba1a1a;
     --ui-blue: #0b1c30;
+    --canvas: #f7f2e9;
+    --paper: #fffdfc;
+    --ink: #13243a;
+    --slate: #506070;
+    --canon: #9a6617;
+    --proposal: #3d6f8e;
+    --conflict: #a33b32;
+    --brand-seal: #d49a37;
+    --brand-paper: #fffdfc;
   }
 }
 
@@ -50,6 +59,22 @@ body {
   margin: 0;
   padding: 0;
   -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible {
+  outline: 3px solid var(--canon);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 /* Custom Scrollbars */
