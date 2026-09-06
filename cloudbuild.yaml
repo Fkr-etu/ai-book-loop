@@ -7,10 +7,11 @@ substitutions:
   _DB_INSTANCE: book-loop-postgres
   _API_SERVICE_ACCOUNT: book-loop-api@gen-lang-client-0322058604.iam.gserviceaccount.com
   _MIGRATION_SERVICE_ACCOUNT: book-loop-migrations@gen-lang-client-0322058604.iam.gserviceaccount.com
-  _API_URL: ""
-  _USE_REAL_API: "false"
+  _USE_REAL_API: "true"
 
 steps:
+  # The API must be deployed before the web image is built so Next.js can
+  # bake the real Cloud Run API URL into the client bundle.
   - id: build-api
     name: gcr.io/cloud-builders/docker
     args:
@@ -19,33 +20,17 @@ steps:
       - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_API_REPOSITORY}/api:$BUILD_ID"
       - "."
 
-  - id: build-web
-    name: gcr.io/cloud-builders/docker
-    args:
-      - "build"
-      - "--build-arg"
-      - "NEXT_PUBLIC_API_URL=${_API_URL}"
-      - "--build-arg"
-      - "NEXT_PUBLIC_USE_REAL_API=${_USE_REAL_API}"
-      - "-t"
-      - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_WEB_REPOSITORY}/web:$BUILD_ID"
-      - "./web"
-
   - id: push-api
     name: gcr.io/cloud-builders/docker
+    waitFor: [build-api]
     args:
       - "push"
       - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_API_REPOSITORY}/api:$BUILD_ID"
 
-  - id: push-web
-    name: gcr.io/cloud-builders/docker
-    args:
-      - "push"
-      - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_WEB_REPOSITORY}/web:$BUILD_ID"
-
   - id: migrate
     name: gcr.io/google.com/cloudsdktool/cloud-sdk
     entrypoint: gcloud
+    waitFor: [push-api]
     args:
       - "run"
       - "jobs"
@@ -62,6 +47,7 @@ steps:
   - id: execute-migrations
     name: gcr.io/google.com/cloudsdktool/cloud-sdk
     entrypoint: gcloud
+    waitFor: [migrate]
     args:
       - "run"
       - "jobs"
@@ -73,6 +59,7 @@ steps:
   - id: deploy-api
     name: gcr.io/google.com/cloudsdktool/cloud-sdk
     entrypoint: gcloud
+    waitFor: [execute-migrations]
     args:
       - "run"
       - "deploy"
@@ -91,9 +78,33 @@ steps:
       - "--concurrency=8"
       - "--port=8080"
 
+  - id: build-web
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: bash
+    waitFor: [deploy-api]
+    args:
+      - "-c"
+      - |
+        API_URL="$$(gcloud run services describe ${_API_SERVICE} --region=${_REGION} --format='value(status.url)')"
+        test -n "$${API_URL}"
+        gcloud auth configure-docker ${_REGION}-docker.pkg.dev --quiet
+        docker build \
+          --build-arg "NEXT_PUBLIC_API_URL=$${API_URL}" \
+          --build-arg "NEXT_PUBLIC_USE_REAL_API=${_USE_REAL_API}" \
+          -t "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_WEB_REPOSITORY}/web:$BUILD_ID" \
+          ./web
+
+  - id: push-web
+    name: gcr.io/cloud-builders/docker
+    waitFor: [build-web]
+    args:
+      - "push"
+      - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_WEB_REPOSITORY}/web:$BUILD_ID"
+
   - id: deploy-web
     name: gcr.io/google.com/cloudsdktool/cloud-sdk
     entrypoint: gcloud
+    waitFor: [push-web]
     args:
       - "run"
       - "deploy"
