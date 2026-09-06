@@ -35,11 +35,11 @@ test.describe("Book Loop - Complete Page Coverage Suite", () => {
 
   test("SEO — public pages expose canonical URLs", async ({ page }) => {
     await page.goto("/");
-    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", /\/$/);
+    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", /\/?$/);
     await page.goto("/guides");
-    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", /\/guides$/);
+    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", /\/guides\/?$/);
     await page.goto("/pricing");
-    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", /\/pricing$/);
+    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", /\/pricing\/?$/);
   });
 
   test("SEO — private and authentication pages are noindex", async ({ page }) => {
