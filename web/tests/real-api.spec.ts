@@ -52,11 +52,15 @@ test.describe("Book Loop — real API author journey", () => {
     await page.getByTestId("approve-outline-btn").click();
     await expect(page.getByText("Plan approuvé")).toBeVisible();
 
+    const proposedOutline = await page.locator("pre").innerText();
+    const firstChapterTitle = proposedOutline.match(/^## Chapitre 1: (.+)$/m)?.[1];
+    expect(firstChapterTitle).toBeTruthy();
+
     await page.getByTestId("add-chapter-btn").click();
-    await page.locator('form input[type="text"]').nth(0).fill("Le premier seuil");
+    await page.locator('form input[type="text"]').nth(0).fill(firstChapterTitle!);
     await page.locator('form input[type="text"]').nth(1).fill("Poser le conflit initial.");
     await page.getByRole("button", { name: "Créer le chapitre" }).click();
-    await expect(page.getByRole("heading", { name: "Le premier seuil" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: firstChapterTitle! })).toBeVisible();
 
     await page.goto("/studio/chapters");
     await expect(page.getByRole("heading", { name: "Rédiger, vérifier, décider" })).toBeVisible();
