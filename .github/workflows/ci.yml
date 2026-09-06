@@ -160,8 +160,8 @@ jobs:
         working-directory: web
         run: npx playwright test tests/real-api.spec.ts
       - name: Print backend API log after E2E failure
-        if: steps.real-api-test.outcome == 'failure'
+        if: steps.real-api-test.conclusion == 'failure'
         run: cat /tmp/book-loop-api.log
       - name: Fail job after diagnostics
-        if: steps.real-api-test.outcome == 'failure'
+        if: steps.real-api-test.conclusion == 'failure'
         run: exit 1
