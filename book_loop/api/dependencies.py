@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from fastapi import HTTPException, Request, Response
 
-from book_loop.domain.models import UserPublic
-from book_loop.infrastructure.auth import COOKIE_NAME, create_access_token, decode_access_token
+from book_loop.domain.models import BookState, UserPublic
+from book_loop.infrastructure.auth import COOKIE_NAME, decode_access_token
 from book_loop.infrastructure.container import Container
 
 
@@ -29,6 +29,13 @@ def get_current_user(request: Request) -> UserPublic:
     if not user:
         raise HTTPException(status_code=401, detail="Utilisateur introuvable.")
     return UserPublic(id=user.id, email=user.email, name=user.name, plan=user.plan)
+
+
+def get_book(book_id: str, container: Container) -> BookState:
+    try:
+        return container.repository.get(book_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail=f"Livre {book_id} introuvable.")
 
 
 def set_session_cookie(response: Response, token: str, container: Container) -> None:
