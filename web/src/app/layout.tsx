@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Playfair_Display, Merriweather, Inter, Courier_Prime } from "next/font/google";
 import { Providers } from "@/components/Providers";
+import { CookieConsent } from "@/components/CookieConsent";
 import "./globals.css";
 
 const playfair = Playfair_Display({
@@ -45,7 +46,10 @@ export default function RootLayout({
   return (
     <html lang="fr" className={`${playfair.variable} ${merriweather.variable} ${inter.variable} ${courier.variable}`}>
       <body className="antialiased min-h-screen bg-[#f8f9ff] text-[#0b1c30] selection:bg-[#ffddb8] selection:text-[#0b1c30]">
-        <Providers>{children}</Providers>
+        <Providers>
+          {children}
+          <CookieConsent />
+        </Providers>
       </body>
     </html>
   );
