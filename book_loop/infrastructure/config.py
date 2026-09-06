@@ -1,3 +1,4 @@
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -24,3 +25,11 @@ class Settings(BaseSettings):
     auth_register_rate_limit: int = 10
     auth_register_rate_window_seconds: int = 900
     cors_allowed_origins: list[str] = ["http://localhost:3000", "http://localhost:5173"]
+
+    @model_validator(mode="after")
+    def validate_auth_security(self) -> "Settings":
+        if self.auth_cookie_samesite not in {"lax", "strict", "none"}:
+            raise ValueError("AUTH_COOKIE_SAMESITE must be lax, strict, or none")
+        if self.auth_cookie_secure and len(self.auth_secret_key) < 32:
+            raise ValueError("AUTH_SECRET_KEY must contain at least 32 characters when secure cookies are enabled")
+        return self

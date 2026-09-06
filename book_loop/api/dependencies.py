@@ -38,6 +38,20 @@ def get_book(book_id: str, container: Container) -> BookState:
         raise HTTPException(status_code=404, detail=f"Livre {book_id} introuvable.")
 
 
+def get_owned_book(book_id: str, request: Request, container: Container) -> BookState:
+    """Return a book only when it belongs to the authenticated user.
+
+    Authorization is enforced at the route boundary as well as by the global
+    middleware so a future route cannot accidentally turn an object lookup into
+    an IDOR vulnerability.
+    """
+    current_user = get_current_user(request)
+    book = get_book(book_id, container)
+    if book.owner_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Livre introuvable.")
+    return book
+
+
 def set_session_cookie(response: Response, token: str, container: Container) -> None:
     response.set_cookie(
         key=COOKIE_NAME,

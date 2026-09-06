@@ -18,7 +18,7 @@ VALID_PASSWORD = "ValidPassword1!"
 def _client() -> TestClient:
     settings = Settings(
         database_url=DATABASE_URL,
-        auth_secret_key="test-secret-key-for-csrf",
+        auth_secret_key="test-secret-key-for-csrf-32-bytes-long",
         auth_cookie_secure=True,
         cors_allowed_origins=["http://localhost:3000"],
     )
