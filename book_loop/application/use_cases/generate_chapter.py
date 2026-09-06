@@ -14,7 +14,7 @@ class GenerateChapter:
         self.workflow = workflow
         self.repository = repository
 
-    def _validate(self, book: BookState, chapter_number: int) -> None:
+    def _validate(self, book: BookState, chapter_number: int):
         if not book.outline_approved:
             raise ValueError("The author must approve the outline before generating chapters")
         chapter = next((chapter for chapter in book.chapters if chapter.number == chapter_number), None)
@@ -25,24 +25,18 @@ class GenerateChapter:
             raise ValueError(
                 f"Chapter {chapter_number - 1} must be approved before generating chapter {chapter_number}"
             )
+        return chapter
 
-    def start(
-        self,
-        book: BookState,
-        chapter_number: int,
-        *,
-        idempotency_key: str | None = None,
-    ) -> ChapterWorkflowRun:
-        self._validate(book, chapter_number)
-        key = idempotency_key or f"chapter:{book.id}:{chapter_number}:v{book.chapters[chapter_number - 1].current_version + 1}:{uuid4()}"
+    def start(self, book: BookState, chapter_number: int, *, idempotency_key: str | None = None) -> ChapterWorkflowRun:
+        chapter = self._validate(book, chapter_number)
+        key = idempotency_key or f"chapter:{book.id}:{chapter_number}:v{chapter.current_version + 1}:{uuid4()}"
 
         if self.repository is not None and hasattr(self.repository, "consume_workflow_capacity"):
             user = self.repository.get_user_by_id(book.owner_id)
             if user is None:
                 raise PermissionError("Unknown owner")
             plan = SubscriptionPlan(user.plan)
-            now = datetime.now(timezone.utc)
-            period_start = now.date().replace(day=1).isoformat()
+            period_start = datetime.now(timezone.utc).date().replace(day=1).isoformat()
             allowed = self.repository.consume_workflow_capacity(
                 user_id=user.id,
                 period_start=period_start,
@@ -61,12 +55,6 @@ class GenerateChapter:
             idempotency_key=key,
         )
 
-    def execute(
-        self,
-        book: BookState,
-        chapter_number: int,
-        *,
-        idempotency_key: str | None = None,
-    ) -> ChapterWorkflowState:
+    def execute(self, book: BookState, chapter_number: int, *, idempotency_key: str | None = None) -> ChapterWorkflowState:
         run = self.start(book, chapter_number, idempotency_key=idempotency_key)
         return self.workflow.run(book=book, chapter_number=chapter_number, idempotency_key=run.idempotency_key)
