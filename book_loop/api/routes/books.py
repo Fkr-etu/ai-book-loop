@@ -2,13 +2,12 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Body, Depends, HTTPException
+from fastapi import APIRouter, Body, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from book_loop.api.dependencies import get_container
-from book_loop.infrastructure.container import Container
+from book_loop.api.dependencies import get_book, get_container
 from book_loop.domain.models import UserPublic
-from fastapi import Request
+from book_loop.infrastructure.container import Container
 
 router = APIRouter(prefix="/api/books", tags=["books"])
 
@@ -19,13 +18,6 @@ class CreateBookPayload(BaseModel):
     author_idea: str
     lore: str = ""
     constraints: list[str] = Field(default_factory=list)
-
-
-def get_book(book_id: str, container: Container) -> Any:
-    try:
-        return container.repository.get(book_id)
-    except KeyError:
-        raise HTTPException(status_code=404, detail=f"Livre {book_id} introuvable.")
 
 
 @router.get("")
