@@ -48,7 +48,7 @@ export default function RegisterPage() {
             <Feather className="w-4 h-4" />
           </div>
           <span className="font-playfair font-bold text-lg text-[#0b1c30]">
-            Manuscript Studio
+            AI Book Loop
           </span>
         </Link>
         <Link
@@ -191,7 +191,7 @@ export default function RegisterPage() {
       </main>
 
       <footer className="p-6 text-center text-xs text-[#76777d] border-t border-[#c6c6cd]/20 max-w-5xl mx-auto w-full flex flex-col md:flex-row justify-between items-center gap-2 relative z-10">
-        <div>© 2026 Manuscript Studio</div>
+        <div>© 2026 AI Book Loop</div>
         <div className="flex gap-4">
           <Link href="/login" className="hover:text-[#0f172a]">Connexion</Link>
           <Link href="/pricing" className="hover:text-[#0f172a]">Tarification</Link>
