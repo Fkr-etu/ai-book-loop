@@ -20,16 +20,35 @@ class CreateBookPayload(BaseModel):
     constraints: list[str] = Field(default_factory=list)
 
 
+def _serialize_book(book: Any, container: Container) -> dict[str, Any]:
+    """Serialize the durable book state and hydrate its persisted chapter drafts."""
+    response = book.model_dump(mode="json")
+    for chapter in response["chapters"]:
+        versions = container.repository.list_chapter_versions(book.id, chapter["number"])
+        chapter["versions"] = [
+            {
+                "id": version["id"],
+                "versionNumber": version["version"],
+                "content": version["draft"],
+                "createdAt": version["created_at"],
+                "source": "ai",
+                "status": chapter["status"],
+            }
+            for version in versions
+        ]
+    return response
+
+
 @router.get("")
 def list_books(request: Request, container: Container = Depends(get_container)) -> list[dict[str, Any]]:
     current_user: UserPublic = request.state.user
     books = container.repository.list_books_for_owner(current_user.id)
-    return [book.model_dump(mode="json") for book in books]
+    return [_serialize_book(book, container) for book in books]
 
 
 @router.get("/{book_id}")
 def read_book(book_id: str, container: Container = Depends(get_container)) -> dict[str, Any]:
-    return get_book(book_id, container).model_dump(mode="json")
+    return _serialize_book(get_book(book_id, container), container)
 
 
 @router.post("")
@@ -46,7 +65,7 @@ def create_book(payload: CreateBookPayload, request: Request, container: Contain
         )
     except PermissionError as exc:
         raise HTTPException(status_code=429, detail=str(exc))
-    return book.model_dump(mode="json")
+    return _serialize_book(book, container)
 
 
 @router.put("/{book_id}")
@@ -58,4 +77,4 @@ def update_book(book_id: str, updates: dict[str, Any] = Body(...), container: Co
         raise HTTPException(status_code=404, detail=f"Livre {book_id} introuvable.")
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc))
-    return updated_book.model_dump(mode="json")
+    return _serialize_book(updated_book, container)
