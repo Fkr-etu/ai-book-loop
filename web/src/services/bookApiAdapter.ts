@@ -14,7 +14,7 @@ import type { BookApi } from "@/services/api";
 
 const EMPTY_BOOK_ID = "proj-001";
 
-function emptyBook(): BookState {
+export function emptyBook(): BookState {
   return {
     id: EMPTY_BOOK_ID,
     title: "",
@@ -76,28 +76,34 @@ export class RealBookApi implements BookApi {
   }
 
   async generateOutline(id: string): Promise<BookState> {
+    if (id === EMPTY_BOOK_ID) return adaptBackendBook(await realApiClient.generateOutline(id));
     return adaptBackendBook(await realApiClient.generateOutline(id));
   }
 
   async approveOutline(id: string): Promise<BookState> {
+    if (id === EMPTY_BOOK_ID) return adaptBackendBook(await realApiClient.approveOutline(id));
     return adaptBackendBook(await realApiClient.approveOutline(id));
   }
 
   async addChapter(id: string, title: string, objective: string): Promise<BookState> {
-    const current = await realApiClient.getBook(id);
-    const nextNumber = current.chapters.length + 1;
-    const updated = await realApiClient.addChapter(id, nextNumber);
-    return adaptBackendBook(updated);
+    return adaptBackendBook(await realApiClient.addChapter(id, title, objective));
   }
 
   async generateChapter(id: string, chapterNumber: number): Promise<{ book: BookState; versionNumber: number; content: string }> {
     const result = await realApiClient.generateChapter(id, chapterNumber);
-    return { book: adaptBackendBook(result.book), versionNumber: result.versionNumber, content: result.content };
+    return {
+      book: adaptBackendBook(result.book),
+      versionNumber: result.versionNumber,
+      content: result.content,
+    };
   }
 
   async reviewChapter(id: string, chapterNumber: number, versionNumber?: number, draftText?: string): Promise<{ book: BookState; review: SceneReview }> {
     const result = await realApiClient.reviewChapter(id, chapterNumber, versionNumber, draftText);
-    return { book: adaptBackendBook(result.book), review: result.review as SceneReview };
+    return {
+      book: adaptBackendBook(result.book),
+      review: result.review,
+    };
   }
 
   async approveChapter(id: string, chapterNumber: number): Promise<BookState> {
@@ -112,23 +118,28 @@ export class RealBookApi implements BookApi {
     return toCanonicalContext(await realApiClient.getChapterContext(id, chapterNumber));
   }
 
-  async createCharacter(_id: string, _char: Omit<Character, "id">): Promise<BookState> {
-    return unsupported("La gestion des personnages");
+  async createCharacter(id: string, char: Omit<Character, "id">): Promise<BookState> {
+    return adaptBackendBook(await realApiClient.createCharacter(id, char));
   }
-  async updateCharacter(_id: string, _charId: string, _updates: Partial<Character>): Promise<BookState> {
-    return unsupported("La gestion des personnages");
+
+  async updateCharacter(id: string, charId: string, updates: Partial<Character>): Promise<BookState> {
+    return adaptBackendBook(await realApiClient.updateCharacter(id, charId, updates));
   }
-  async deleteCharacter(_id: string, _charId: string): Promise<BookState> {
-    return unsupported("La gestion des personnages");
+
+  async deleteCharacter(id: string, charId: string): Promise<BookState> {
+    return adaptBackendBook(await realApiClient.deleteCharacter(id, charId));
   }
-  async createLoreItem(_id: string, _item: Omit<LoreItem, "id">): Promise<BookState> {
-    return unsupported("La gestion du lore");
+
+  async createLoreItem(id: string, item: Omit<LoreItem, "id">): Promise<BookState> {
+    return adaptBackendBook(await realApiClient.createLoreItem(id, item));
   }
-  async updateLoreItem(_id: string, _loreId: string, _updates: Partial<LoreItem>): Promise<BookState> {
-    return unsupported("La gestion du lore");
+
+  async updateLoreItem(id: string, loreId: string, updates: Partial<LoreItem>): Promise<BookState> {
+    return adaptBackendBook(await realApiClient.updateLoreItem(id, loreId, updates));
   }
-  async deleteLoreItem(_id: string, _loreId: string): Promise<BookState> {
-    return unsupported("La gestion du lore");
+
+  async deleteLoreItem(id: string, loreId: string): Promise<BookState> {
+    return adaptBackendBook(await realApiClient.deleteLoreItem(id, loreId));
   }
 
   async ingestDocument(id: string, name: string, content: string, sourceType?: string): Promise<IngestionResult> {
@@ -136,28 +147,26 @@ export class RealBookApi implements BookApi {
   }
 
   async listAssertions(id: string): Promise<Assertion[]> {
-    return realApiClient.listAssertions(id) as Promise<Assertion[]>;
+    return realApiClient.listAssertions(id);
   }
 
   async reviewAssertion(id: string, assertionId: string, decision: "accept" | "reject" | "defer", rationale?: string): Promise<void> {
-    return realApiClient.reviewAssertion(id, assertionId, decision, rationale);
+    await realApiClient.reviewAssertion(id, assertionId, decision, rationale);
   }
 
-  async loginUser(email: string, password: string): Promise<UserProfile> {
-    return realApiClient.login(email, password) as Promise<UserProfile>;
+  async registerUser(email: string, pass: string, name = ""): Promise<UserProfile> {
+    return realApiClient.registerUser(email, pass, name);
   }
 
-  async registerUser(email: string, password: string, name: string): Promise<UserProfile> {
-    return realApiClient.register(email, password, name) as Promise<UserProfile>;
+  async loginUser(email: string, pass: string): Promise<UserProfile> {
+    return realApiClient.loginUser(email, pass);
   }
 
   async logoutUser(): Promise<void> {
-    await realApiClient.logout();
+    return realApiClient.logoutUser();
   }
 
   async getCurrentUser(): Promise<UserProfile | null> {
-    return realApiClient.getCurrentUser() as Promise<UserProfile | null>;
+    return realApiClient.getCurrentUser();
   }
 }
-
-export const typedBookApi = new RealBookApi();
