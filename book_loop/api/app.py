@@ -176,6 +176,12 @@ def create_app(container: Container | None = None) -> FastAPI:
         except KeyError:
             raise HTTPException(status_code=404, detail=f"Livre {book_id} introuvable.")
 
+    @app.get("/api/books")
+    def list_books(request: Request) -> list[dict[str, Any]]:
+        current_user: UserPublic = request.state.user
+        books = container.repository.list_books_for_owner(current_user.id)
+        return [book.model_dump(mode="json") for book in books]
+
     @app.get("/api/books/{book_id}")
     def get_book(book_id: str) -> dict[str, Any]:
         return _get_book(book_id).model_dump(mode="json")
