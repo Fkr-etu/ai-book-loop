@@ -122,10 +122,14 @@ def test_approving_chapter_syncs_proposed_canon(test_client):
     assert test_client.post(f"/api/books/{book_id}/outline/approve").status_code == 200
     assert test_client.post(f"/api/books/{book_id}/chapters", json={"chapter_number": 1}).status_code == 200
     assert test_client.post(f"/api/books/{book_id}/chapters/1/generate").status_code == 200
+    review = test_client.post(f"/api/books/{book_id}/chapters/1/review", json={"versionNumber": 1})
+    assert review.status_code == 200
+    assert review.json()["review"]["approved"] is True
     response = test_client.post(f"/api/books/{book_id}/chapters/1/approve")
     assert response.status_code == 200
     data = response.json()
     assert data["chapters"][0]["status"] == "approved"
+    assert data["chapters"][0]["current_version"] == 1
     assert data["canonSync"]["assertionCount"] == 1
     assert data["canonSync"]["evidenceCount"] == 1
     assert data["canonSync"]["sourceDocument"]["source_type"] == "approved_chapter"
