@@ -5,9 +5,9 @@ test.describe("Book Loop - Complete Page Coverage Suite", () => {
     await page.goto("/mentions-legales");
     await expect(page.getByRole("heading", { name: "Mentions légales" })).toBeVisible();
     await expect(page.getByText("Entrepreneur individuel — régime micro-entreprise")).toBeVisible();
-    await expect(page.getByText(/SIREN/)).toBeVisible();
-    await expect(page.getByText(/SIRET/)).toBeVisible();
-    await expect(page.getByText(/Code APE\/NAF/)).toBeVisible();
+    await expect(page.getByText("SIREN", { exact: true })).toBeVisible();
+    await expect(page.getByText("SIRET", { exact: true })).toBeVisible();
+    await expect(page.getByText("Code APE/NAF", { exact: true })).toBeVisible();
 
     await page.goto("/cgv");
     await expect(page.getByRole("heading", { name: "Conditions générales de vente" })).toBeVisible();
