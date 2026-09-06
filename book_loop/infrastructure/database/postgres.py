@@ -147,6 +147,7 @@ class PostgresBookRepository(BookRepositoryMixin):
     def consume_workflow_capacity(self, *, user_id: str, period_start: str, idempotency_key: str, monthly_limit: int) -> bool:
         """Atomically reserve one workflow slot; retries of the same key are free."""
         with self.transaction():
+            self._connection.execute("SELECT pg_advisory_xact_lock(hashtext(?))", (user_id,))
             inserted = self._connection.execute(
                 """
                 INSERT INTO workflow_usage(user_id, period_start, idempotency_key)
