@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { Navbar } from "./Navbar";
 import { Sidebar } from "./Sidebar";
+import { StudioErrorNotice } from "./StudioErrorNotice";
 
 export function StudioLayout({ children }: { children: React.ReactNode }) {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -13,6 +14,7 @@ export function StudioLayout({ children }: { children: React.ReactNode }) {
         showSidebarToggle={true}
         onToggleSidebar={() => setMobileSidebarOpen(!mobileSidebarOpen)}
       />
+      <StudioErrorNotice />
       <div className="flex-1 flex relative">
         {/* Desktop Sidebar */}
         <div className="hidden md:block w-[280px] shrink-0 bg-[#eff4ff]/60 border-r border-[#c6c6cd]/30 h-[calc(100vh-61px)] sticky top-[61px]">
