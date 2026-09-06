@@ -6,6 +6,23 @@ export type BackendChapterStatus =
   | "canonical"
   | "needs_review";
 
+export type BackendWorkflowRunStatus = "running" | "completed" | "needs_review";
+export type BackendWorkflowStep = "write" | "review" | "correct" | "summarize";
+
+export interface BackendWorkflowRun {
+  id: string;
+  book_id: string;
+  chapter_number: number;
+  idempotency_key: string;
+  status: BackendWorkflowRunStatus;
+  step: BackendWorkflowStep;
+  attempt: number;
+  draft: string;
+  review: BackendSceneReview | null;
+  decision: string | null;
+  summary: string | null;
+}
+
 export interface BackendOutlineChapter {
   number: number;
   title: string;
