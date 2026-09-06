@@ -43,9 +43,12 @@ def _client_ip(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
-def _consume_or_raise(container: Container, *keys: str, limit: int, window_seconds: int) -> list[int]:
+def _consume_or_raise(
+    container: Container,
+    *limits: tuple[str, int, int],
+) -> list[int]:
     event_ids: list[int] = []
-    for key in keys:
+    for key, limit, window_seconds in limits:
         result = container.auth_rate_limiter.consume(key, limit=limit, window_seconds=window_seconds)
         if not result.allowed:
             for event_id in event_ids:
@@ -64,9 +67,11 @@ def _consume_or_raise(container: Container, *keys: str, limit: int, window_secon
 def register(payload: RegisterPayload, response: Response, request: Request, container: Container = Depends(get_container)) -> dict[str, Any]:
     _consume_or_raise(
         container,
-        ip_key(_client_ip(request)),
-        limit=container.settings.auth_register_rate_limit,
-        window_seconds=container.settings.auth_register_rate_window_seconds,
+        (
+            ip_key(_client_ip(request)),
+            container.settings.auth_register_rate_limit,
+            container.settings.auth_register_rate_window_seconds,
+        ),
     )
     if container.repository.get_user_by_email(payload.email):
         raise HTTPException(status_code=400, detail=GENERIC_REGISTER_ERROR)
@@ -86,10 +91,16 @@ def register(payload: RegisterPayload, response: Response, request: Request, con
 def login(payload: LoginPayload, response: Response, request: Request, container: Container = Depends(get_container)) -> dict[str, Any]:
     event_ids = _consume_or_raise(
         container,
-        email_key(payload.email),
-        ip_key(_client_ip(request)),
-        limit=container.settings.auth_login_rate_limit,
-        window_seconds=container.settings.auth_login_rate_window_seconds,
+        (
+            email_key(payload.email),
+            container.settings.auth_login_rate_limit,
+            container.settings.auth_login_rate_window_seconds,
+        ),
+        (
+            ip_key(_client_ip(request)),
+            container.settings.auth_login_ip_rate_limit,
+            container.settings.auth_login_ip_rate_window_seconds,
+        ),
     )
     user = container.repository.get_user_by_email(payload.email)
     password_hash = user.password_hash if user else DUMMY_PASSWORD_HASH
