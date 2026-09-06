@@ -33,11 +33,23 @@ def test_chapter_add_accepts_outline_chapter_number() -> None:
 
 def test_cli_main_execution(monkeypatch, capsys):
     import sys
-    from book_loop.cli.main import main
+    import book_loop.cli.main as cli_main
 
+    class FakeCreateBook:
+        def execute(self, **kwargs):
+            return type("Book", (), {"id": "cli-book-1"})()
+
+    class FakeContainer:
+        def __init__(self, settings):
+            self.settings = settings
+
+        def create_book(self):
+            return FakeCreateBook()
+
+    monkeypatch.setattr(cli_main, "Container", FakeContainer)
     monkeypatch.setattr(sys, "argv", [
         "book-loop", "create", "--title", "CLI Book", "--theme", "Theme", "--idea", "Idea"
     ])
-    main()
+    cli_main.main()
     captured = capsys.readouterr()
-    assert "Book created:" in captured.out
+    assert "Book created: cli-book-1" in captured.out
