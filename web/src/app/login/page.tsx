@@ -46,7 +46,7 @@ export default function LoginPage() {
             <Feather className="w-4 h-4" />
           </div>
           <span className="font-playfair font-bold text-lg text-[#0b1c30]">
-            Manuscript Studio
+            AI Book Loop
           </span>
         </Link>
         <Link
@@ -61,7 +61,7 @@ export default function LoginPage() {
         <div className="w-full max-w-md bg-white rounded-xl shadow-sm border border-[#c6c6cd]/30 p-8 flex flex-col">
           <div className="text-center mb-8">
             <h1 className="font-playfair text-2xl font-bold text-[#0f172a] mb-2">
-              Manuscript Studio
+              AI Book Loop
             </h1>
             <p className="font-courier text-xs text-[#45464d]">
               Connexion à votre espace d'écriture
@@ -142,7 +142,7 @@ export default function LoginPage() {
       </main>
 
       <footer className="p-6 text-center text-xs text-[#76777d] border-t border-[#c6c6cd]/20 max-w-5xl mx-auto w-full flex flex-col md:flex-row justify-between items-center gap-2 relative z-10">
-        <div>© 2026 Manuscript Studio - Tous droits réservés.</div>
+        <div>© 2026 AI Book Loop - Tous droits réservés.</div>
         <div className="flex gap-4">
           <span>Conditions</span>
           <span>Confidentialité</span>
