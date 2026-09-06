@@ -19,9 +19,10 @@ def _client() -> TestClient:
     settings = Settings(
         database_url=DATABASE_URL,
         auth_secret_key="test-secret-key-for-csrf",
+        auth_cookie_secure=True,
         cors_allowed_origins=["http://localhost:3000"],
     )
-    return TestClient(create_app(Container(settings=settings)))
+    return TestClient(create_app(Container(settings=settings)), base_url="https://localhost")
 
 
 def _register(client: TestClient) -> None:
