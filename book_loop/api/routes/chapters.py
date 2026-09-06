@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from typing import Any
 
 from fastapi import APIRouter, Body, Depends, HTTPException
@@ -26,16 +25,6 @@ class ReviewPayload(BaseModel):
 
 def _workflow_run_payload(run: ChapterWorkflowRun) -> dict[str, Any]:
     return run.model_dump(mode="json")
-
-
-def _read_latest_workflow_run(container: Container, book_id: str, chapter_number: int) -> ChapterWorkflowRun:
-    row = container.workflow_store._connection.execute(
-        "SELECT state FROM workflow_runs WHERE book_id = ? AND chapter_number = ? ORDER BY updated_at DESC, created_at DESC LIMIT 1",
-        (book_id, chapter_number),
-    ).fetchone()
-    if row is None:
-        raise KeyError((book_id, chapter_number))
-    return ChapterWorkflowRun.model_validate(json.loads(row["state"]))
 
 
 @router.post("")
@@ -74,7 +63,7 @@ def generate_chapter(book_id: str, chapter_number: int, container: Container = D
 def get_latest_workflow_run(book_id: str, chapter_number: int, container: Container = Depends(get_container)) -> dict[str, Any]:
     get_book(book_id, container)
     try:
-        run = _read_latest_workflow_run(container, book_id, chapter_number)
+        run = container.workflow_store.get_latest(book_id=book_id, chapter_number=chapter_number)
     except KeyError:
         raise HTTPException(status_code=404, detail=f"Aucun workflow pour le chapitre {chapter_number}.")
     return _workflow_run_payload(run)
