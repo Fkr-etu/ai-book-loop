@@ -5,7 +5,7 @@ from typing import Any
 from fastapi import APIRouter, Body, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from book_loop.api.dependencies import get_book, get_container
+from book_loop.api.dependencies import get_container, get_owned_book
 from book_loop.domain.models import UserPublic
 from book_loop.infrastructure.container import Container
 
@@ -47,8 +47,8 @@ def list_books(request: Request, container: Container = Depends(get_container)) 
 
 
 @router.get("/{book_id}")
-def read_book(book_id: str, container: Container = Depends(get_container)) -> dict[str, Any]:
-    return _serialize_book(get_book(book_id, container), container)
+def read_book(book_id: str, request: Request, container: Container = Depends(get_container)) -> dict[str, Any]:
+    return _serialize_book(get_owned_book(book_id, request, container), container)
 
 
 @router.post("")
@@ -69,10 +69,10 @@ def create_book(payload: CreateBookPayload, request: Request, container: Contain
 
 
 @router.put("/{book_id}")
-def update_book(book_id: str, updates: dict[str, Any] = Body(...), container: Container = Depends(get_container)) -> dict[str, Any]:
-    get_book(book_id, container)
+def update_book(book_id: str, request: Request, updates: dict[str, Any] = Body(...), container: Container = Depends(get_container)) -> dict[str, Any]:
+    book = get_owned_book(book_id, request, container)
     try:
-        updated_book = container.update_book().execute(book_id, updates)
+        updated_book = container.update_book().execute(book.id, updates)
     except KeyError:
         raise HTTPException(status_code=404, detail=f"Livre {book_id} introuvable.")
     except Exception as exc:
