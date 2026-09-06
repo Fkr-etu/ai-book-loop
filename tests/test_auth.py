@@ -13,10 +13,11 @@ from book_loop.infrastructure.auth import COOKIE_NAME, create_access_token, deco
 
 TEST_SECRET = "test-secret-key-for-auth"
 DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://book_loop:book_loop@localhost:5432/book_loop_test")
+VALID_PASSWORD = "SecurePassword123!"
 
 
 def test_password_hashing():
-    pwd = "MySecretPassword123"
+    pwd = VALID_PASSWORD
     hashed = hash_password(pwd)
     assert hashed != pwd
     assert verify_password(pwd, hashed) is True
@@ -34,7 +35,7 @@ def test_jwt_token():
 
 def test_user_repository_crud():
     repo = PostgresBookRepository(DATABASE_URL)
-    user = User(id="usr-test-1", email="AUTHOR@example.com", password_hash=hash_password("password123"), name="Auteur Test")
+    user = User(id="usr-test-1", email="AUTHOR@example.com", password_hash=hash_password(VALID_PASSWORD), name="Auteur Test")
     created = repo.create_user(user)
     assert created.id == "usr-test-1"
     assert created.email == "author@example.com"
@@ -46,7 +47,7 @@ def test_auth_endpoints_flow():
     settings = Settings(database_url=DATABASE_URL, auth_secret_key=TEST_SECRET)
     client = TestClient(create_app(Container(settings=settings)))
     assert client.get("/api/auth/me").status_code == 401
-    payload = {"email": "newauthor@manuscript.studio", "password": "securePassword123", "name": "Nouveau Romancier"}
+    payload = {"email": "newauthor@manuscript.studio", "password": VALID_PASSWORD, "name": "Nouveau Romancier"}
     response = client.post("/api/auth/register", json=payload)
     assert response.status_code == 201
     assert COOKIE_NAME in response.cookies
