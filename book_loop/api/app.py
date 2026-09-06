@@ -100,7 +100,7 @@ def create_app(container: Container | None = None) -> FastAPI:
         user = container.repository.get_user_by_id(payload["sub"])
         if not user:
             raise HTTPException(status_code=401, detail="Utilisateur introuvable.")
-        return UserPublic(id=user.id, email=user.email, name=user.name)
+        return UserPublic(id=user.id, email=user.email, name=user.name, plan=user.plan)
 
     def set_session_cookie(response: Response, token: str) -> None:
         response.set_cookie(
@@ -124,7 +124,7 @@ def create_app(container: Container | None = None) -> FastAPI:
             name=payload.name,
         )
         created = container.repository.create_user(user)
-        public = UserPublic(id=created.id, email=created.email, name=created.name)
+        public = UserPublic(id=created.id, email=created.email, name=created.name, plan=created.plan)
         set_session_cookie(response, create_access_token(public, secret_key=container.settings.auth_secret_key))
         return {"user": public.model_dump(mode="json")}
 
@@ -133,7 +133,7 @@ def create_app(container: Container | None = None) -> FastAPI:
         user = container.repository.get_user_by_email(payload.email)
         if not user or not verify_password(payload.password, user.password_hash):
             raise HTTPException(status_code=401, detail="Adresse e-mail ou mot de passe incorrect.")
-        public = UserPublic(id=user.id, email=user.email, name=user.name)
+        public = UserPublic(id=user.id, email=user.email, name=user.name, plan=user.plan)
         set_session_cookie(response, create_access_token(public, secret_key=container.settings.auth_secret_key))
         return {"user": public.model_dump(mode="json")}
 
@@ -160,7 +160,6 @@ def create_app(container: Container | None = None) -> FastAPI:
 
         request.state.user = current_user
         parts = [part for part in request.url.path.split("/") if part]
-        # /api/books/{book_id}/...; POST /api/books creates a new resource.
         if len(parts) >= 3:
             book_id = parts[2]
             try:
@@ -184,14 +183,17 @@ def create_app(container: Container | None = None) -> FastAPI:
     @app.post("/api/books")
     def create_book(payload: CreateBookPayload, request: Request) -> dict[str, Any]:
         current_user: UserPublic = request.state.user
-        book = container.create_book().execute(
-            owner_id=current_user.id,
-            title=payload.title,
-            theme=payload.theme,
-            author_idea=payload.author_idea,
-            lore=payload.lore,
-            constraints=payload.constraints,
-        )
+        try:
+            book = container.create_book().execute(
+                owner_id=current_user.id,
+                title=payload.title,
+                theme=payload.theme,
+                author_idea=payload.author_idea,
+                lore=payload.lore,
+                constraints=payload.constraints,
+            )
+        except PermissionError as exc:
+            raise HTTPException(status_code=429, detail=str(exc))
         return book.model_dump(mode="json")
 
     @app.put("/api/books/{book_id}")
@@ -242,6 +244,8 @@ def create_app(container: Container | None = None) -> FastAPI:
         book = _get_book(book_id)
         try:
             state = container.generate_chapter().execute(book, chapter_number=chapter_number)
+        except PermissionError as exc:
+            raise HTTPException(status_code=429, detail=str(exc))
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc))
         updated_book = container.repository.get(book_id)

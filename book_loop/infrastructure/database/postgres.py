@@ -18,6 +18,7 @@ from book_loop.domain.models import (
     ReviewDecision,
     SceneReview,
     SourceDocument,
+    SubscriptionPlan,
     User,
 )
 from book_loop.domain.workflow import ChapterWorkflowRun
@@ -90,7 +91,7 @@ class PostgresBookRepository(BookRepositoryMixin):
             CREATE TABLE IF NOT EXISTS books (id TEXT PRIMARY KEY, data TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS chapter_versions (id BIGSERIAL PRIMARY KEY, book_id TEXT NOT NULL, chapter_number INTEGER NOT NULL, version INTEGER NOT NULL, draft TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE(book_id, chapter_number, version));
             CREATE TABLE IF NOT EXISTS reviews (id BIGSERIAL PRIMARY KEY, book_id TEXT NOT NULL, chapter_number INTEGER NOT NULL, version INTEGER NOT NULL, score DOUBLE PRECISION NOT NULL, approved BOOLEAN NOT NULL, issues TEXT NOT NULL, suggestions TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
-            CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, email TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL, name TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
+            CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, email TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL, name TEXT NOT NULL DEFAULT '', plan TEXT NOT NULL DEFAULT 'free', created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
             CREATE TABLE IF NOT EXISTS source_documents (id TEXT PRIMARY KEY, book_id TEXT NOT NULL, name TEXT NOT NULL, source_type TEXT NOT NULL, content TEXT NOT NULL, content_hash TEXT NOT NULL, metadata TEXT NOT NULL, version INTEGER NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE(book_id, content_hash));
             CREATE TABLE IF NOT EXISTS document_chunks (id TEXT PRIMARY KEY, source_document_id TEXT NOT NULL, content TEXT NOT NULL, sequence INTEGER NOT NULL, start_offset INTEGER NOT NULL, end_offset INTEGER NOT NULL, metadata TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS assertions (id TEXT PRIMARY KEY, source_document_id TEXT NOT NULL, chunk_id TEXT NOT NULL, statement TEXT NOT NULL, subject TEXT NOT NULL, predicate TEXT NOT NULL, object TEXT NOT NULL, confidence DOUBLE PRECISION NOT NULL, status TEXT NOT NULL, evidence_id TEXT NOT NULL);
@@ -98,8 +99,16 @@ class PostgresBookRepository(BookRepositoryMixin):
             CREATE TABLE IF NOT EXISTS conflicts (id TEXT PRIMARY KEY, book_id TEXT NOT NULL, left_assertion_id TEXT NOT NULL, right_assertion_id TEXT NOT NULL, status TEXT NOT NULL, resolution_assertion_id TEXT);
             CREATE TABLE IF NOT EXISTS review_decisions (id TEXT PRIMARY KEY, assertion_id TEXT NOT NULL, decision TEXT NOT NULL, reviewer_id TEXT, rationale TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
             CREATE TABLE IF NOT EXISTS canonical_facts (id TEXT PRIMARY KEY, book_id TEXT NOT NULL, assertion_id TEXT NOT NULL, statement TEXT NOT NULL, subject TEXT NOT NULL, predicate TEXT NOT NULL, object TEXT NOT NULL, decision_id TEXT NOT NULL, version INTEGER NOT NULL, active BOOLEAN NOT NULL, previous_fact_id TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE(book_id, subject, predicate, version));
+            CREATE TABLE IF NOT EXISTS workflow_usage (
+                user_id TEXT NOT NULL,
+                period_start DATE NOT NULL,
+                idempotency_key TEXT NOT NULL,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY(user_id, period_start, idempotency_key)
+            );
             """
         )
+        self._connection._connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS plan TEXT NOT NULL DEFAULT 'free'")
         self._connection._connection.execute("ALTER TABLE canonical_facts ADD COLUMN IF NOT EXISTS previous_fact_id TEXT")
         self._connection._connection.execute("CREATE UNIQUE INDEX IF NOT EXISTS uq_active_canonical_fact ON canonical_facts(book_id, subject, predicate) WHERE active = TRUE")
         self._connection._connection.execute("CREATE UNIQUE INDEX IF NOT EXISTS uq_conflict_assertion_pair ON conflicts(left_assertion_id, right_assertion_id)")
@@ -112,6 +121,53 @@ class PostgresBookRepository(BookRepositoryMixin):
 
     def lock_assertion(self, assertion_id: str) -> None:
         self._connection.execute("SELECT id FROM assertions WHERE id = ? FOR UPDATE", (assertion_id,)).fetchone()
+
+    def count_books_for_owner(self, owner_id: str) -> int:
+        row = self._connection.execute(
+            "SELECT COUNT(*) AS count FROM books WHERE data::jsonb ->> 'owner_id' = ?",
+            (owner_id,),
+        ).fetchone()
+        return int(row["count"])
+
+    def save_new_book_with_capacity(self, book: BookState, max_active_projects: int) -> None:
+        """Atomically enforce project capacity and create the book."""
+        with self.transaction():
+            self._connection.execute("SELECT pg_advisory_xact_lock(hashtext(?))", (book.owner_id,))
+            row = self._connection.execute(
+                "SELECT COUNT(*) AS count FROM books WHERE data::jsonb ->> 'owner_id' = ?",
+                (book.owner_id,),
+            ).fetchone()
+            if int(row["count"]) >= max_active_projects:
+                raise PermissionError("Project capacity reached for the current plan")
+            self._connection.execute(
+                "INSERT INTO books(id, data) VALUES(?, ?)",
+                (book.id, json.dumps(book.model_dump(mode="json"))),
+            )
+
+    def consume_workflow_capacity(self, *, user_id: str, period_start: str, idempotency_key: str, monthly_limit: int) -> bool:
+        """Atomically reserve one workflow slot; retries of the same key are free."""
+        with self.transaction():
+            self._connection.execute("SELECT pg_advisory_xact_lock(hashtext(?))", (user_id,))
+            inserted = self._connection.execute(
+                """
+                INSERT INTO workflow_usage(user_id, period_start, idempotency_key)
+                SELECT ?, ?, ?
+                WHERE (
+                    SELECT COUNT(*) FROM workflow_usage
+                    WHERE user_id = ? AND period_start = ?
+                ) < ?
+                ON CONFLICT(user_id, period_start, idempotency_key) DO NOTHING
+                RETURNING idempotency_key
+                """,
+                (user_id, period_start, idempotency_key, user_id, period_start, monthly_limit),
+            ).fetchone()
+            if inserted is not None:
+                return True
+            existing = self._connection.execute(
+                "SELECT 1 FROM workflow_usage WHERE user_id = ? AND period_start = ? AND idempotency_key = ?",
+                (user_id, period_start, idempotency_key),
+            ).fetchone()
+            return existing is not None
 
 
 class PostgresWorkflowRunStore:

@@ -120,7 +120,7 @@ class Container:
         return AddChapter(self.repository)
 
     def generate_chapter(self) -> GenerateChapter:
-        return GenerateChapter(self.chapter_workflow)
+        return GenerateChapter(self.chapter_workflow, repository=self.repository)
 
     def review_chapter(self) -> ReviewChapter:
         return ReviewChapter(repository=self.repository, reviewer=self.reviewer_agent, context_builder=self.context_builder, linter=self.linter, max_retries=self.settings.max_retries, threshold=self.settings.review_threshold)
