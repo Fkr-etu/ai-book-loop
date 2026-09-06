@@ -10,6 +10,7 @@ from book_loop.infrastructure.container import Container
 
 
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://book_loop:book_loop@localhost:5432/book_loop_test")
+VALID_PASSWORD = "SecurePassword123!"
 
 
 def test_free_plan_exposes_plan_and_enforces_project_capacity():
@@ -17,7 +18,7 @@ def test_free_plan_exposes_plan_and_enforces_project_capacity():
     client = TestClient(create_app(Container(settings=settings)))
     email = "capacity-test@example.com"
 
-    register = client.post("/api/auth/register", json={"email": email, "password": "password123", "name": "Capacity"})
+    register = client.post("/api/auth/register", json={"email": email, "password": VALID_PASSWORD, "name": "Capacity"})
     assert register.status_code == 201
     assert register.json()["user"]["plan"] == "free"
     assert client.get("/api/auth/me").json()["user"]["plan"] == "free"
