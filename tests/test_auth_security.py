@@ -14,6 +14,7 @@ DATABASE_URL = os.getenv(
     "DATABASE_URL",
     "postgresql://book_loop:book_loop@localhost:5432/book_loop_test",
 )
+VALID_PASSWORD = "SecurePassword123!"
 
 
 @pytest.fixture
@@ -25,7 +26,7 @@ def client() -> TestClient:
 def register(client: TestClient, email: str) -> dict:
     response = client.post(
         "/api/auth/register",
-        json={"email": email, "password": "password123", "name": email},
+        json={"email": email, "password": VALID_PASSWORD, "name": email},
     )
     assert response.status_code == 201
     return response.json()["user"]
@@ -52,7 +53,7 @@ def test_book_owner_cannot_be_changed_through_update(client: TestClient) -> None
     client.post("/api/auth/logout")
     login = client.post(
         "/api/auth/login",
-        json={"email": "owner@example.com", "password": "password123"},
+        json={"email": "owner@example.com", "password": VALID_PASSWORD},
     )
     assert login.status_code == 200
 
