@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from fastapi import APIRouter, Body, Depends, HTTPException
@@ -7,6 +8,7 @@ from pydantic import BaseModel, Field
 
 from book_loop.api.dependencies import get_book, get_container
 from book_loop.application.services.context import ContextBuilder
+from book_loop.domain.workflow import ChapterWorkflowRun
 from book_loop.infrastructure.container import Container
 
 router = APIRouter(prefix="/api/books/{book_id}/chapters", tags=["chapters"])
@@ -20,6 +22,20 @@ class AddChapterPayload(BaseModel):
 class ReviewPayload(BaseModel):
     versionNumber: int | None = None
     draftText: str | None = None
+
+
+def _workflow_run_payload(run: ChapterWorkflowRun) -> dict[str, Any]:
+    return run.model_dump(mode="json")
+
+
+def _read_latest_workflow_run(container: Container, book_id: str, chapter_number: int) -> ChapterWorkflowRun:
+    row = container.workflow_store._connection.execute(
+        "SELECT state FROM workflow_runs WHERE book_id = ? AND chapter_number = ? ORDER BY updated_at DESC, created_at DESC LIMIT 1",
+        (book_id, chapter_number),
+    ).fetchone()
+    if row is None:
+        raise KeyError((book_id, chapter_number))
+    return ChapterWorkflowRun.model_validate(json.loads(row["state"]))
 
 
 @router.post("")
@@ -42,7 +58,38 @@ def generate_chapter(book_id: str, chapter_number: int, container: Container = D
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     updated_book = container.repository.get(book_id)
-    return {"book": updated_book.model_dump(mode="json"), "versionNumber": state.attempt, "content": state.draft}
+    try:
+        run = container.workflow_store.get(state.workflow_run_id)
+    except KeyError:
+        raise HTTPException(status_code=500, detail="Workflow run introuvable après génération.")
+    return {
+        "book": updated_book.model_dump(mode="json"),
+        "versionNumber": state.attempt,
+        "content": state.draft,
+        "workflowRun": _workflow_run_payload(run),
+    }
+
+
+@router.get("/{chapter_number}/workflow-run")
+def get_latest_workflow_run(book_id: str, chapter_number: int, container: Container = Depends(get_container)) -> dict[str, Any]:
+    get_book(book_id, container)
+    try:
+        run = _read_latest_workflow_run(container, book_id, chapter_number)
+    except KeyError:
+        raise HTTPException(status_code=404, detail=f"Aucun workflow pour le chapitre {chapter_number}.")
+    return _workflow_run_payload(run)
+
+
+@router.get("/{chapter_number}/workflow-runs/{run_id}")
+def get_workflow_run(book_id: str, chapter_number: int, run_id: str, container: Container = Depends(get_container)) -> dict[str, Any]:
+    get_book(book_id, container)
+    try:
+        run = container.workflow_store.get(run_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Workflow introuvable.")
+    if run.book_id != book_id or run.chapter_number != chapter_number:
+        raise HTTPException(status_code=404, detail="Workflow introuvable.")
+    return _workflow_run_payload(run)
 
 
 @router.post("/{chapter_number}/review")
