@@ -5,7 +5,7 @@ export const ANALYTICS_CONSENT_KEY = "book-loop-cookie-consent";
 export type AnalyticsPlan = "free" | "creator" | "pro";
 
 export type AnalyticsEvent =
-  | "landing_viewed"
+  | "page_viewed"
   | "signup_started"
   | "signup_completed"
   | "book_created"
