@@ -71,6 +71,13 @@ function errorMessage(payload: unknown, fallback: string): string {
   return fallback;
 }
 
+function unwrapUser(payload: unknown): BackendUser {
+  if (typeof payload === "object" && payload !== null && "user" in payload) {
+    return (payload as { user: BackendUser }).user;
+  }
+  return payload as BackendUser;
+}
+
 export class RealApiClient {
   private async request<T>(path: string, options: RequestInit = {}): Promise<T> {
     const method = (options.method || "GET").toUpperCase();
@@ -83,6 +90,7 @@ export class RealApiClient {
       try {
         const response = await fetch(`${API_BASE_URL}${path}`, {
           ...options,
+          credentials: "include",
           signal: controller.signal,
           headers: { "Content-Type": "application/json", ...(options.headers || {}) },
         });
@@ -109,22 +117,27 @@ export class RealApiClient {
     }
   }
 
-  getCurrentUser(): Promise<BackendUser | null> {
-    return this.request<BackendUser | null>("/api/auth/me");
+  async getCurrentUser(): Promise<BackendUser | null> {
+    try {
+      return unwrapUser(await this.request<unknown>("/api/auth/me"));
+    } catch (error) {
+      if (error instanceof RealApiError && error.status === 401) return null;
+      throw error;
+    }
   }
 
   async login(email: string, password: string): Promise<BackendUser> {
-    return this.request<BackendUser>("/api/auth/login", {
+    return unwrapUser(await this.request<unknown>("/api/auth/login", {
       method: "POST",
       body: JSON.stringify({ email, password }),
-    });
+    }));
   }
 
   async register(email: string, password: string, name: string): Promise<BackendUser> {
-    return this.request<BackendUser>("/api/auth/register", {
+    return unwrapUser(await this.request<unknown>("/api/auth/register", {
       method: "POST",
       body: JSON.stringify({ email, password, name }),
-    });
+    }));
   }
 
   async logout(): Promise<void> {
