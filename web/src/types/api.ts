@@ -33,6 +33,15 @@ export interface BackendOutlineChapter {
 
 export interface BackendOutline { chapters: BackendOutlineChapter[]; }
 
+export interface BackendChapterVersion {
+  id: string;
+  versionNumber: number;
+  content: string;
+  createdAt: string;
+  source: "author" | "ai" | "edited" | "retry";
+  status: BackendChapterStatus;
+}
+
 export interface BackendChapter {
   id: string;
   number: number;
@@ -41,6 +50,7 @@ export interface BackendChapter {
   status: BackendChapterStatus;
   current_version: number;
   summary: string | null;
+  versions: BackendChapterVersion[];
 }
 
 export interface BackendCreativeBrief {
