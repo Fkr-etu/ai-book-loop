@@ -16,11 +16,15 @@ class FakeBookRepository:
                 number=1,
                 title="Discovery",
                 objective="Introduce Alice",
-                status=ChapterStatus.DRAFT,
-                current_version=1,
+                status=ChapterStatus.NEEDS_REVIEW,
+                current_version=2,
+                reviewed_version=1,
             )],
         )
-        self.draft = "Alice is an archivist. Alice is a detective."
+        self.drafts = {
+            1: "Alice is an archivist. Alice is a detective.",
+            2: "Alice is an archivist. Alice is a detective. Alice is a pilot.",
+        }
 
     def get(self, book_id: str) -> BookState:
         assert book_id == self.book.id
@@ -30,8 +34,7 @@ class FakeBookRepository:
         self.book = book
 
     def get_chapter_version(self, book_id: str, chapter_number: int, version: int) -> str:
-        assert (book_id, chapter_number, version) == ("book-1", 1, 1)
-        return self.draft
+        return self.drafts[(version)]
 
 
 class FakeKnowledgeRepository:
@@ -58,7 +61,6 @@ class FakeKnowledgeRepository:
         self.evidence.append(evidence)
 
     def list_assertions(self, *, book_id: str):
-        # Assertions are scoped to the book through their source document.
         source_ids = {source.id for source in self.sources if source.book_id == book_id}
         return [assertion for assertion in self.assertions if assertion.source_document_id in source_ids]
 
@@ -101,7 +103,7 @@ class FakeExtractor:
         ]
 
 
-def test_approval_syncs_approved_version_as_proposed_canon_and_detects_conflict():
+def test_approval_syncs_the_reviewed_version_as_proposed_canon_and_detects_conflict():
     books = FakeBookRepository()
     knowledge = FakeKnowledgeRepository()
 
@@ -112,9 +114,29 @@ def test_approval_syncs_approved_version_as_proposed_canon_and_detects_conflict(
     ).execute(books.book, chapter_number=1)
 
     assert result.book.chapters[0].status is ChapterStatus.APPROVED
+    assert result.book.chapters[0].current_version == 1
     assert len(result.ingestion.assertions) == 2
     assert all(assertion.status.value == "proposed" for assertion in result.ingestion.assertions)
     assert len(result.ingestion.evidence) == 2
     assert len(result.conflicts) == 1
     assert result.conflicts[0].status.value == "open"
     assert knowledge.conflicts[0].left_assertion_id != knowledge.conflicts[0].right_assertion_id
+
+
+def test_approval_rejects_unreviewed_chapter():
+    books = FakeBookRepository()
+    books.book.chapters[0].status = ChapterStatus.PROPOSED
+    knowledge = FakeKnowledgeRepository()
+
+    use_case = ApproveChapterAndSyncCanon(
+        book_repository=books,
+        knowledge_repository=knowledge,
+        extractor=FakeExtractor(),
+    )
+
+    try:
+        use_case.execute(books.book, chapter_number=1)
+    except ValueError as exc:
+        assert "reviewed" in str(exc).lower()
+    else:
+        raise AssertionError("Approval should require a reviewed chapter")
