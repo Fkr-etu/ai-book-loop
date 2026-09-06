@@ -3,8 +3,20 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Mail, Lock, User, Eye, EyeOff, ArrowRight, Feather, Sparkles } from "lucide-react";
+import { Mail, Lock, User, Eye, EyeOff, ArrowRight, Feather, Sparkles, Check } from "lucide-react";
 import { getApiClient } from "@/services/api";
+
+const PASSWORD_MIN_LENGTH = 12;
+
+function getPasswordChecks(password: string) {
+  return [
+    { label: `${PASSWORD_MIN_LENGTH} caractères minimum`, valid: password.length >= PASSWORD_MIN_LENGTH },
+    { label: "Une lettre majuscule", valid: /[A-Z]/.test(password) },
+    { label: "Une lettre minuscule", valid: /[a-z]/.test(password) },
+    { label: "Un chiffre", valid: /\d/.test(password) },
+    { label: "Un caractère spécial", valid: /[^A-Za-z0-9]/.test(password) },
+  ];
+}
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -16,9 +28,16 @@ export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  const passwordChecks = getPasswordChecks(password);
+  const passwordIsValid = passwordChecks.every((check) => check.valid);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    if (!passwordIsValid) {
+      setError("Votre mot de passe ne respecte pas encore toutes les exigences indiquées ci-dessous.");
+      return;
+    }
     setLoading(true);
 
     try {
@@ -148,17 +167,21 @@ export default function RegisterPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-[#45464d] mb-1">
+              <label htmlFor="password" className="block text-xs font-semibold text-[#45464d] mb-1">
                 Mot de passe
               </label>
               <div className="relative">
                 <Lock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#76777d]" />
                 <input
+                  id="password"
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="8 caractères minimum"
+                  placeholder="Créez un mot de passe robuste"
                   required
+                  minLength={PASSWORD_MIN_LENGTH}
+                  autoComplete="new-password"
+                  aria-describedby="password-requirements"
                   className="w-full pl-10 pr-10 py-2 text-sm border-b border-[#c6c6cd] focus:border-[#b87500] focus:outline-none bg-transparent transition-colors"
                 />
                 <button
@@ -170,12 +193,23 @@ export default function RegisterPage() {
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
+              <div id="password-requirements" className="mt-3 rounded-md bg-[#f8f5f0] p-3" aria-live="polite">
+                <p className="text-[11px] font-semibold text-[#45464d] mb-2">Votre mot de passe doit contenir :</p>
+                <ul className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-[11px] text-[#76777d]">
+                  {passwordChecks.map((check) => (
+                    <li key={check.label} className={`flex items-center gap-1.5 ${check.valid ? "text-emerald-700" : ""}`}>
+                      <Check className={`w-3 h-3 ${check.valid ? "opacity-100" : "opacity-30"}`} />
+                      <span>{check.label}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
 
             <button
               type="submit"
-              disabled={loading}
-              className="mt-4 w-full bg-[#0f172a] text-[#f8f5f0] font-semibold text-sm py-3 rounded hover:bg-[#213145] transition-colors flex items-center justify-center gap-2 group shadow-sm disabled:opacity-50"
+              disabled={loading || !passwordIsValid}
+              className="mt-4 w-full bg-[#0f172a] text-[#f8f5f0] font-semibold text-sm py-3 rounded hover:bg-[#213145] transition-colors flex items-center justify-center gap-2 group shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <span>{loading ? "Création du compte..." : "Démarrer le Setup du Premier Projet"}</span>
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform text-[#ffddb8]" />

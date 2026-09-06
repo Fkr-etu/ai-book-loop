@@ -12,13 +12,14 @@ from book_loop.infrastructure.container import Container
 
 TEST_SECRET = "test-secret-key-for-canon-api"
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://book_loop:book_loop@localhost:5432/book_loop_test")
+VALID_PASSWORD = "SecurePassword123!"
 
 
 def setup_client():
     settings = Settings(database_url=DATABASE_URL, auth_secret_key=TEST_SECRET)
     container = Container(settings=settings)
     client = TestClient(create_app(container))
-    response = client.post("/api/auth/register", json={"email": "canon@example.com", "password": "password123", "name": "Canon Reviewer"})
+    response = client.post("/api/auth/register", json={"email": "canon@example.com", "password": VALID_PASSWORD, "name": "Canon Reviewer"})
     assert response.status_code == 201
     book = client.post("/api/books", json={"title": "Canon API", "theme": "Mystery", "author_idea": "Test", "lore": "Lore"})
     assert book.status_code == 200
@@ -86,7 +87,7 @@ def test_canon_review_api_respects_book_ownership():
     assertion = seed_assertion(container, book_id)
     settings = Settings(database_url=DATABASE_URL, auth_secret_key=TEST_SECRET)
     client_b = TestClient(create_app(Container(settings=settings)))
-    assert client_b.post("/api/auth/register", json={"email": "other@example.com", "password": "password123", "name": "Other"}).status_code == 201
+    assert client_b.post("/api/auth/register", json={"email": "other@example.com", "password": VALID_PASSWORD, "name": "Other"}).status_code == 201
     assert client_b.get(f"/api/books/{book_id}/assertions").status_code == 404
     assert client_b.get(f"/api/books/{book_id}/conflicts").status_code == 404
     assert client_b.get(f"/api/books/{book_id}/canonical-facts").status_code == 404

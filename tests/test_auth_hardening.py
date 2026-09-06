@@ -10,6 +10,7 @@ from book_loop.infrastructure.config import Settings
 from book_loop.infrastructure.container import Container
 
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://book_loop:book_loop@localhost:5432/book_loop_test")
+VALID_PASSWORD = "SecurePassword123!"
 
 
 def test_authenticated_user_owns_created_book():
@@ -17,7 +18,7 @@ def test_authenticated_user_owns_created_book():
     client = TestClient(create_app(Container(settings=settings)))
     register = client.post(
         "/api/auth/register",
-        json={"email": "owner@example.com", "password": "password123"},
+        json={"email": "owner@example.com", "password": VALID_PASSWORD},
     )
     assert register.status_code == 201
     assert COOKIE_NAME in register.cookies

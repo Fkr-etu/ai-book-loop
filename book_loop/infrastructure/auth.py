@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+import re
+
 import argon2
 import jwt
 
@@ -10,6 +12,25 @@ _ph = argon2.PasswordHasher()
 ALGORITHM = "HS256"
 COOKIE_NAME = "session_token"
 ACCESS_TOKEN_EXPIRE_DAYS = 7
+PASSWORD_MIN_LENGTH = 12
+PASSWORD_POLICY_MESSAGE = (
+    "Le mot de passe doit contenir au moins 12 caractères, "
+    "une majuscule, une minuscule, un chiffre et un caractère spécial."
+)
+
+
+def validate_password(password: str) -> str:
+    if len(password) < PASSWORD_MIN_LENGTH:
+        raise ValueError(PASSWORD_POLICY_MESSAGE)
+    if not re.search(r"[A-Z]", password):
+        raise ValueError(PASSWORD_POLICY_MESSAGE)
+    if not re.search(r"[a-z]", password):
+        raise ValueError(PASSWORD_POLICY_MESSAGE)
+    if not re.search(r"\d", password):
+        raise ValueError(PASSWORD_POLICY_MESSAGE)
+    if not re.search(r"[^A-Za-z0-9]", password):
+        raise ValueError(PASSWORD_POLICY_MESSAGE)
+    return password
 
 
 def hash_password(password: str) -> str:
