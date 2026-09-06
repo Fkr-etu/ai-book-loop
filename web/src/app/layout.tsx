@@ -5,6 +5,8 @@ import { CookieConsent } from "@/components/CookieConsent";
 import { AnalyticsBootstrap } from "@/components/AnalyticsBootstrap";
 import "./globals.css";
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://book-loop-web-nddyzebo7a-od.a.run.app";
+
 const playfair = Playfair_Display({
   subsets: ["latin"],
   variable: "--font-playfair",
@@ -32,11 +34,29 @@ const courier = Courier_Prime({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: {
-    default: "Book Loop — Gardez votre histoire cohérente",
+    default: "Book Loop — Écrire avec l’IA, garder son histoire cohérente",
     template: "%s — Book Loop",
   },
-  description: "Écrivez avec l'IA sans perdre le fil de votre histoire. Book Loop protège la cohérence de votre univers au fil de ses évolutions.",
+  description:
+    "Écrivez des histoires longues avec l’IA sans perdre le fil. Book Loop utilise un Canon narratif pour préserver personnages, lieux, événements et règles à chaque chapitre.",
+  alternates: { canonical: "/" },
+  openGraph: {
+    type: "website",
+    locale: "fr_FR",
+    url: "/",
+    siteName: "Book Loop",
+    title: "Book Loop — Écrire avec l’IA, garder son histoire cohérente",
+    description:
+      "L’atelier d’écriture IA conçu pour les histoires longues : votre Canon garde la mémoire de votre univers et vous restez l’autorité finale.",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Book Loop — Écrire avec l’IA, garder son histoire cohérente",
+    description:
+      "Écrivez avec l’IA sans perdre la cohérence de votre histoire. L’IA propose, vous décidez ce qui devient canon.",
+  },
 };
 
 export default function RootLayout({
