@@ -13,7 +13,7 @@ import {
   IngestionResult,
   Assertion
 } from "@/types";
-import { initialProjectData } from "@/lib/mockData";
+import { emptyBook } from "@/services/bookApiAdapter";
 import { getApiClient } from "@/services/api";
 
 interface ProjectContextType {
@@ -52,7 +52,6 @@ interface ProjectContextType {
   // UI Legacy Helpers
   addScene?: (chapterId: string, title: string, summary: string) => void;
   updateSceneContent?: (chapterId: string, sceneId: string, content: string) => void;
-  runAiValidation?: (sceneId: string, content: string) => SceneReview;
   toggleConstraint?: (id: string) => void;
   addConstraint?: (type: CreativeConstraint["type"], description: string) => void;
 }
@@ -60,7 +59,7 @@ interface ProjectContextType {
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
 
 export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [project, setProject] = useState<BookState>(initialProjectData);
+  const [project, setProject] = useState<BookState>(emptyBook());
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedChapterNumber, setSelectedChapterNumber] = useState<number>(1);
@@ -69,8 +68,13 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const clearError = () => setError(null);
 
   const refreshProject = useCallback(async () => {
+    if (!project.id) {
+      setError("Aucun livre sélectionné.");
+      return;
+    }
+
     try {
-      const data = await getApiClient().getBook(project.id || "proj-001");
+      const data = await getApiClient().getBook(project.id);
       setProject(data);
     } catch (err: any) {
       console.error("Error refreshing project:", err);
@@ -332,20 +336,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }));
   };
 
-  const runAiValidation = (sceneId: string, content: string): SceneReview => {
-    const review: SceneReview = {
-      id: `rev-${Date.now()}`,
-      score: 8,
-      approved: true,
-      issues: [],
-      suggestions: ["Conforme."],
-      scoreStyle: 8,
-      scoreCoherence: 8,
-      timestamp: "À l'instant"
-    };
-    return review;
-  };
-
   const toggleConstraint = (id: string) => {
     setProject((prev) => ({
       ...prev,
@@ -396,7 +386,6 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
         reviewAssertion,
         addScene,
         updateSceneContent,
-        runAiValidation,
         toggleConstraint,
         addConstraint
       }}

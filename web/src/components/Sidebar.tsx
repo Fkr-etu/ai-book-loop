@@ -27,54 +27,54 @@ export function Sidebar({ onCloseMobile }: SidebarProps) {
 
   const navItems = [
     {
-      name: "Atelier de Rédaction",
+      name: "Écrire",
       href: "/studio",
       icon: Feather,
-      description: "Desk principal & Canvas"
+      description: "Manuscrit et versions"
     },
     {
-      name: "Plan & Structure",
+      name: "Plan",
       href: "/studio/outline",
       icon: ListOrdered,
-      description: "Chapitres et Scènes"
+      description: "Chapitres et scènes"
     },
     {
-      name: "Personnages Profonds",
+      name: "Personnages",
       href: "/studio/characters",
       icon: Users,
-      description: "Psychologie & Fiches",
+      description: "Fiches et intentions",
       badge: (project.characters || []).length
     },
     {
-      name: "Canon & Bible du Monde",
+      name: "Canon",
       href: "/studio/lore",
       icon: Compass,
-      description: "Lore canonique & Reliques",
+      description: "Faits et sources fiables",
       badge: (project.loreItems || []).length
     },
     {
-      name: "Graphe de Relations",
+      name: "Relations",
       href: "/studio/lore-graph",
       icon: GitFork,
-      description: "Cartographie interactive du Canon"
+      description: "Liens dans le Canon"
     },
     {
-      name: "Intention Auteur & Directives",
+      name: "Intention d'auteur",
       href: "/studio/intention-lab",
       icon: Sliders,
-      description: "Intention Auteur & Contraintes"
+      description: "Thème et contraintes"
     },
     {
-      name: "Boucle de Validation",
+      name: "Vérifier",
       href: "/studio/validation-loop",
       icon: CheckCircle2,
-      description: "Linter Déterministe & Review IA"
+      description: "Contrôles et décisions"
     },
     {
-      name: "Studio d'Exportation",
+      name: "Exporter",
       href: "/studio/export",
       icon: Download,
-      description: "Compilation & Formats"
+      description: "Compilation et formats"
     }
   ];
 
@@ -140,6 +140,7 @@ export function Sidebar({ onCloseMobile }: SidebarProps) {
                   key={item.href}
                   href={item.href}
                   onClick={handleNavClick}
+                  aria-current={isActive ? "page" : undefined}
                   className={`flex items-start gap-3 p-2.5 rounded transition-all text-left ${
                     isActive
                       ? "bg-[#0b1c30] text-[#ffffff] shadow-xs"

@@ -23,9 +23,7 @@ export default function ValidationLoopPage() {
   const reviewsList = project.reviews || [];
 
   const activeChapter = chaptersList[0];
-  const [content, setContent] = useState(
-    activeChapter?.versions?.[0]?.content || "L'encre fraîche n'a pas le même poids que l'oubli. Valerius glissa ses doigts calleux sur la surface glacée du Codex d'Obsidienne."
-  );
+  const [content, setContent] = useState(activeChapter?.versions?.[0]?.content || "");
 
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [attemptCount, setAttemptCount] = useState(1);
@@ -36,15 +34,14 @@ export default function ValidationLoopPage() {
     anachronisms: string[];
     lengthValid: boolean;
   }>({
-    passed: true,
+    passed: false,
     anachronisms: [],
-    lengthValid: true
+    lengthValid: false
   });
 
   const handleRunLoop = async () => {
     setIsEvaluating(true);
 
-    // 1. Deterministic Linter Step
     const lower = content.toLowerCase();
     const foundWords = ["ordinateur", "robot", "telephone", "internet", "wifi", "voiture"].filter((w) =>
       lower.includes(w)
@@ -58,7 +55,6 @@ export default function ValidationLoopPage() {
       lengthValid: lengthOk
     });
 
-    // 2. AI Review Step
     if (activeChapter) {
       await store.reviewChapter(activeChapter.number, activeChapter.currentVersion, content);
       setAttemptCount((prev) => Math.min(prev + 1, maxAttempts));
@@ -70,7 +66,6 @@ export default function ValidationLoopPage() {
   return (
     <StudioLayout>
       <div className="p-4 sm:p-6 md:p-10 max-w-5xl mx-auto space-y-6 md:space-y-8">
-        {/* Header */}
         <div className="border-b border-[#c6c6cd]/30 pb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <span className="text-xs font-mono font-bold text-[#b87500] uppercase tracking-wider block mb-1 flex items-center gap-1.5">
@@ -89,14 +84,12 @@ export default function ValidationLoopPage() {
           </div>
         </div>
 
-        {/* Interactive Validation Simulator */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Left: Text Input for testing */}
           <div className="lg:col-span-7 space-y-4">
             <div className="bg-white rounded-xl border border-[#c6c6cd]/40 p-4 sm:p-5 shadow-xs space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-mono font-bold text-[#0b1c30] uppercase">
-                  Extrait à Tester (Chapitre {activeChapter?.number || 1})
+                  Extrait à Tester {activeChapter ? `(Chapitre ${activeChapter.number})` : ""}
                 </span>
                 <span className="text-[10px] font-mono text-[#76777d]">
                   {content.length} caractères
@@ -107,6 +100,7 @@ export default function ValidationLoopPage() {
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
                 rows={10}
+                placeholder="Sélectionnez ou saisissez un extrait à évaluer."
                 className="w-full p-3 sm:p-4 font-merriweather text-xs sm:text-sm leading-relaxed border border-[#c6c6cd]/50 rounded bg-[#f8f5f0] focus:border-[#b87500] focus:outline-none"
               />
 
@@ -117,7 +111,7 @@ export default function ValidationLoopPage() {
                 <button
                   type="button"
                   onClick={handleRunLoop}
-                  disabled={isEvaluating}
+                  disabled={isEvaluating || !content.trim()}
                   className="w-full sm:w-auto px-4 py-2 bg-[#0b1c30] text-[#ffddb8] font-bold text-xs rounded hover:bg-[#131b2e] flex items-center justify-center gap-2 shadow-xs disabled:opacity-50 cursor-pointer shrink-0"
                 >
                   <Sparkles className={`w-3.5 h-3.5 ${isEvaluating ? "animate-spin" : ""}`} />
@@ -126,7 +120,6 @@ export default function ValidationLoopPage() {
               </div>
             </div>
 
-            {/* Step 1: Deterministic Linter Output Panel */}
             <div className="p-4 bg-white rounded-xl border border-[#c6c6cd]/40 shadow-xs space-y-2">
               <div className="flex items-center justify-between text-xs font-mono font-bold uppercase">
                 <span className="flex items-center gap-1.5 text-[#0b1c30]">
@@ -159,7 +152,6 @@ export default function ValidationLoopPage() {
             </div>
           </div>
 
-          {/* Right: AI Review Results */}
           <div className="lg:col-span-5 space-y-4">
             <h2 className="text-xs font-mono font-bold text-[#76777d] uppercase tracking-wider">
               2. Critique & Review IA ({reviewsList.length})
@@ -168,7 +160,7 @@ export default function ValidationLoopPage() {
             <div className="space-y-4">
               {reviewsList.map((rev) => (
                 <div
-                  key={rev.id || Math.random()}
+                  key={rev.id || `${rev.score}-${rev.approved}-${rev.issues.join("|")}`}
                   className={`p-4 sm:p-5 rounded-xl bg-white border border-[#c6c6cd]/40 shadow-xs space-y-3 relative overflow-hidden border-l-4 ${
                     rev.approved ? "border-l-[#b87500]" : "border-l-[#ba1a1a]"
                   }`}
@@ -184,16 +176,16 @@ export default function ValidationLoopPage() {
                         {rev.approved ? "Proposition Acceptable" : "Décision: REJETÉ"}
                       </span>
                     </div>
-                    <span className="text-[10px] font-mono text-[#76777d]">
-                      {rev.timestamp || "À l'instant"}
-                    </span>
+                    {rev.timestamp && (
+                      <span className="text-[10px] font-mono text-[#76777d]">{rev.timestamp}</span>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-2 gap-2 text-center my-2">
                     <div className="p-2 bg-[#f8f9ff] rounded border border-[#c6c6cd]/20">
                       <div className="text-[10px] text-[#45464d]">Score Qualité</div>
                       <div className="text-base font-bold text-[#0b1c30]">
-                        {rev.score || 8}/10
+                        {rev.score}/10
                       </div>
                     </div>
                     <div className="p-2 bg-[#f8f9ff] rounded border border-[#c6c6cd]/20">
@@ -229,6 +221,11 @@ export default function ValidationLoopPage() {
                   )}
                 </div>
               ))}
+              {reviewsList.length === 0 && (
+                <div className="p-5 rounded-xl border border-dashed border-[#c6c6cd]/50 text-xs text-[#76777d]">
+                  Aucune évaluation disponible.
+                </div>
+              )}
             </div>
           </div>
         </div>

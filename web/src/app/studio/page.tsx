@@ -1,457 +1,320 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { Check, History, Info, RotateCcw, Sparkles, X } from "lucide-react";
 import { StudioLayout } from "@/components/StudioLayout";
+import { StudioDecisionState } from "@/components/StudioDecisionState";
 import { useProjectStore } from "@/lib/useProjectStore";
-import {
-  Sparkles,
-  CheckCircle2,
-  AlertTriangle,
-  Feather,
-  BookOpen,
-  RotateCcw,
-  Sliders,
-  History,
-  Info,
-  Check,
-  X,
-  Compass,
-  User
-} from "lucide-react";
 import { CanonicalContextResponse, ChapterVersion } from "@/types";
 
 export default function StudioDeskPage() {
   const store = useProjectStore();
   const project = store.project;
-
-  const chaptersList = project.chapters || [];
-  const reviewsList = project.reviews || [];
-  const loreList = project.loreItems || [];
+  const chapters = project.chapters || [];
+  const reviews = project.reviews || [];
 
   const [activeTab, setActiveTab] = useState<"manuscript" | "history" | "context">("manuscript");
-  const [selectedChapterNumber, setSelectedChapterNumber] = useState<number>(1);
+  const [selectedChapterNumber, setSelectedChapterNumber] = useState<number | null>(null);
+  const [selectedVersionNumber, setSelectedVersionNumber] = useState<number | null>(null);
   const [canonicalContext, setCanonicalContext] = useState<CanonicalContextResponse | null>(null);
+  const [contextError, setContextError] = useState<string | null>(null);
+  const [editorContent, setEditorContent] = useState("");
+  const [isWorking, setIsWorking] = useState(false);
 
-  const activeChapter = chaptersList.find((c) => c.number === selectedChapterNumber) || chaptersList[0];
-  const versionsList = activeChapter?.versions || [];
+  const activeChapter = useMemo(() => {
+    if (!chapters.length) return undefined;
+    return chapters.find((chapter) => chapter.number === selectedChapterNumber) || chapters[0];
+  }, [chapters, selectedChapterNumber]);
 
-  const [selectedVerNum, setSelectedVerNum] = useState<number>(activeChapter?.currentVersion || 1);
+  const versions = activeChapter?.versions || [];
 
-  const activeVersion: ChapterVersion | undefined =
-    versionsList.find((v) => v.versionNumber === selectedVerNum) ||
-    versionsList[versionsList.length - 1];
-
-  const [editorContent, setEditorContent] = useState(
-    activeVersion?.content || activeChapter?.scenes?.[0]?.content || ""
-  );
-  const [isValidating, setIsValidating] = useState(false);
-
-  useEffect(() => {
-    if (activeChapter) {
-      const curVer = (activeChapter.versions || []).find((v) => v.versionNumber === selectedVerNum) ||
-        (activeChapter.versions || [])[(activeChapter.versions || []).length - 1];
-      setEditorContent(curVer?.content || (activeChapter.scenes || [])[0]?.content || "");
-    }
-  }, [selectedChapterNumber, selectedVerNum, activeChapter]);
+  const activeVersion: ChapterVersion | undefined = useMemo(() => {
+    if (!versions.length) return undefined;
+    return versions.find((version) => version.versionNumber === selectedVersionNumber) ||
+      versions.find((version) => version.versionNumber === activeChapter?.currentVersion) ||
+      versions[versions.length - 1];
+  }, [versions, selectedVersionNumber, activeChapter?.currentVersion]);
 
   useEffect(() => {
-    if (activeChapter) {
-      store.getCanonicalContext(activeChapter.number).then((ctx) => {
-        setCanonicalContext(ctx);
-      }).catch(() => {});
+    setSelectedChapterNumber((current) => {
+      if (current !== null && chapters.some((chapter) => chapter.number === current)) return current;
+      return chapters[0]?.number ?? null;
+    });
+  }, [chapters]);
+
+  useEffect(() => {
+    setSelectedVersionNumber(activeVersion?.versionNumber ?? null);
+    setEditorContent(activeVersion?.content || activeChapter?.scenes?.[0]?.content || "");
+  }, [activeChapter?.id, activeVersion?.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!activeChapter) {
+      setCanonicalContext(null);
+      setContextError(null);
+      return;
     }
-  }, [selectedChapterNumber, activeChapter]);
+
+    setContextError(null);
+    store.getCanonicalContext(activeChapter.number)
+      .then((context) => {
+        if (!cancelled) setCanonicalContext(context);
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          console.error("Unable to load canonical context", error);
+          setCanonicalContext(null);
+          setContextError("Impossible de charger le contexte canonique.");
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeChapter?.number, store]);
 
   const handleGenerateVersion = async () => {
     if (!activeChapter) return;
-    setIsValidating(true);
+    setIsWorking(true);
     try {
       await store.generateChapter(activeChapter.number);
-      const nextV = (activeChapter.currentVersion || 0) + 1;
-      setSelectedVerNum(nextV);
-    } catch (err: any) {
-      console.error(err);
+    } catch (error) {
+      console.error("Chapter generation failed", error);
     } finally {
-      setIsValidating(false);
+      setIsWorking(false);
     }
   };
 
-  const handleReviewCurrent = async () => {
+  const handleReview = async () => {
     if (!activeChapter) return;
-    setIsValidating(true);
+    setIsWorking(true);
     try {
-      await store.reviewChapter(activeChapter.number, selectedVerNum, editorContent);
-    } catch (err: any) {
-      console.error(err);
+      await store.reviewChapter(activeChapter.number, activeVersion?.versionNumber, editorContent);
+    } catch (error) {
+      console.error("Chapter review failed", error);
     } finally {
-      setIsValidating(false);
+      setIsWorking(false);
     }
   };
 
-  const handleApproveChapter = async () => {
+  const handleApprove = async () => {
     if (!activeChapter) return;
     await store.approveChapter(activeChapter.number);
   };
 
-  const handleRejectChapter = async () => {
+  const handleReject = async () => {
     if (!activeChapter) return;
     await store.rejectChapter(activeChapter.number);
   };
 
-  const wordCount = editorContent.trim().split(/\s+/).filter(Boolean).length;
+  const canDecide = activeChapter?.status === "needs_review";
+  const wordCount = editorContent.trim() ? editorContent.trim().split(/\s+/).length : 0;
+  const latestReview = reviews[0];
 
   return (
     <StudioLayout>
-      <div className="flex flex-col lg:flex-row min-h-[calc(100vh-61px)] lg:h-[calc(100vh-61px)] overflow-y-auto lg:overflow-hidden">
-        {/* CENTER WRITING CANVAS (Parchment Desk) */}
-        <div className="flex-1 overflow-y-auto bg-[#f8f5f0] p-4 sm:p-6 md:p-10 flex flex-col items-center relative">
-          {/* Top Bar for Canvas */}
-          <div className="w-full max-w-[760px] mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs border-b border-[#c6c6cd]/30 pb-3">
-            <div className="flex flex-wrap items-center gap-2 text-[#0b1c30] font-mono">
-              <select
-                value={selectedChapterNumber}
-                onChange={(e) => {
-                  const num = Number(e.target.value);
-                  setSelectedChapterNumber(num);
-                  const ch = chaptersList.find((c) => c.number === num);
-                  if (ch) setSelectedVerNum(ch.currentVersion || 1);
-                }}
-                className="font-bold text-xs bg-white border border-[#c6c6cd] rounded px-2 py-1 max-w-[200px] truncate"
-              >
-                {chaptersList.map((ch) => (
-                  <option key={ch.id} value={ch.number}>
-                    Chapitre {ch.number}: {ch.title}
-                  </option>
-                ))}
-              </select>
+      <div className="flex min-h-[calc(100vh-61px)] flex-col overflow-y-auto lg:flex-row lg:overflow-hidden">
+        <main className="flex-1 overflow-y-auto bg-[#f8f5f0] p-4 sm:p-6 md:p-10">
+          <div className="mx-auto flex w-full max-w-[760px] flex-col">
+            <div className="mb-4 flex flex-col gap-3 border-b border-[#c6c6cd]/30 pb-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-wrap items-center gap-2 text-xs font-mono text-[#0b1c30]">
+                {chapters.length ? (
+                  <select
+                    value={activeChapter?.number ?? ""}
+                    onChange={(event) => {
+                      const number = Number(event.target.value);
+                      setSelectedChapterNumber(number);
+                      const chapter = chapters.find((item) => item.number === number);
+                      setSelectedVersionNumber(chapter?.currentVersion ?? null);
+                    }}
+                    className="max-w-[240px] rounded border border-[#c6c6cd] bg-white px-2 py-1 font-bold"
+                    aria-label="Sélectionner un chapitre"
+                  >
+                    {chapters.map((chapter) => (
+                      <option key={chapter.id} value={chapter.number}>
+                        Chapitre {chapter.number}: {chapter.title}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <span className="text-[#76777d]">Aucun chapitre disponible</span>
+                )}
+                <StudioDecisionState status={activeChapter?.status} />
+              </div>
 
-              <span
-                className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                  activeChapter?.status === "approved"
-                    ? "bg-[#d3e4fe] text-[#0b1c30]"
-                    : activeChapter?.status === "rejected"
-                    ? "bg-[#ffdad6] text-[#ba1a1a]"
-                    : "bg-[#ffddb8] text-[#2a1700]"
-                }`}
-              >
-                {activeChapter?.status === "approved" ? "Approuvé (Canon)" : activeChapter?.status || "Brouillon"}
-              </span>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="font-mono text-[#76777d] text-xs">
-                {wordCount} mots
-              </span>
-
-              <button
-                onClick={handleGenerateVersion}
-                disabled={isValidating || !project.outlineApproved}
-                className="px-3 py-1.5 rounded bg-[#0b1c30] text-[#ffddb8] font-semibold text-xs flex items-center gap-1.5 hover:bg-[#131b2e] transition-colors shadow-xs disabled:opacity-40 cursor-pointer"
-              >
-                <Sparkles className={`w-3.5 h-3.5 ${isValidating ? "animate-spin" : ""}`} />
-                <span>Générer Nouvelle Version</span>
-              </button>
-
-              <button
-                onClick={handleReviewCurrent}
-                disabled={isValidating}
-                className="px-3 py-1.5 rounded bg-[#eff4ff] text-[#0b1c30] border border-[#c6c6cd]/40 font-semibold text-xs flex items-center gap-1.5 hover:bg-[#e5eeff] transition-colors cursor-pointer"
-              >
-                <RotateCcw className="w-3.5 h-3.5 text-[#b87500]" />
-                <span>Critique & Lint</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Workflow Actions Bar */}
-          <div className="w-full max-w-[760px] mb-4 p-3 bg-white rounded-lg border border-[#c6c6cd]/30 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="font-mono text-[#76777d]">
-                Version courante: <strong>v{selectedVerNum}</strong>
-              </span>
-              <span className="text-[#c6c6cd] hidden sm:inline">|</span>
-              <span className="text-[#45464d]">
-                Objectif: <em>{activeChapter?.objective || "Non spécifié"}</em>
-              </span>
-            </div>
-
-            <div className="flex items-center gap-2 shrink-0">
-              <button
-                onClick={handleApproveChapter}
-                className="px-3 py-1 bg-[#b87500] text-white font-bold rounded hover:bg-[#9a6200] flex items-center gap-1 text-[11px] cursor-pointer"
-              >
-                <Check className="w-3.5 h-3.5" /> Approuver (Canon)
-              </button>
-
-              <button
-                onClick={handleRejectChapter}
-                className="px-3 py-1 bg-[#ffdad6] text-[#ba1a1a] font-bold rounded hover:bg-[#ffb4ab] flex items-center gap-1 text-[11px] cursor-pointer"
-              >
-                <X className="w-3.5 h-3.5" /> Rejeter
-              </button>
-            </div>
-          </div>
-
-          {/* PARCHMENT SHEET */}
-          <div className="w-full max-w-[760px] bg-[#f8f5f0] min-h-[450px] sm:min-h-[550px] p-5 sm:p-8 md:p-12 shadow-xs border border-[#c6c6cd]/20 rounded relative flex flex-col">
-            <div className="mb-6 pb-4 border-b border-[#c6c6cd]/20">
-              <h1 className="font-playfair text-2xl sm:text-3xl font-bold text-[#0f172a] mb-2">
-                {activeChapter?.title || "Chapitre Sans Titre"}
-              </h1>
-              <p className="font-courier text-xs text-[#5f5e5b]">
-                {activeChapter?.objective || "Objectif canonique du chapitre..."}
-              </p>
-            </div>
-
-            {/* Manuscript Editor Area */}
-            <textarea
-              value={editorContent}
-              onChange={(e) => setEditorContent(e.target.value)}
-              placeholder="Commencez à écrire votre récit ici ou générez une version avec l'IA..."
-              className="w-full flex-1 bg-transparent border-none outline-none font-merriweather text-sm sm:text-base leading-[1.8] text-[#0f172a] resize-none focus:ring-0 selection:bg-[#ffddb8]"
-              rows={14}
-            />
-
-            {/* Subtle Footer watermark */}
-            <div className="mt-8 pt-4 border-t border-[#c6c6cd]/20 flex flex-wrap justify-between items-center text-[11px] font-mono text-[#76777d] gap-2">
-              <span>Manuscript Studio — Parchment Canvas</span>
-              <span>Canon State: {activeChapter?.status}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* RIGHT PANE: TABBED PANEL (Manuscript Insights / Version History / Context Inspector) */}
-        <div className="w-full lg:w-[360px] shrink-0 bg-[#f8f9ff] border-t lg:border-t-0 lg:border-l border-[#c6c6cd]/30 h-auto lg:h-full overflow-y-auto p-4 flex flex-col gap-4">
-          {/* Tab Controls */}
-          <div className="flex items-center gap-1 bg-[#e5eeff] p-1 rounded-lg border border-[#c6c6cd]/30 text-xs font-mono font-bold text-[#0b1c30]">
-            <button
-              onClick={() => setActiveTab("manuscript")}
-              className={`flex-1 py-1.5 rounded transition-all flex items-center justify-center gap-1 cursor-pointer ${
-                activeTab === "manuscript" ? "bg-white shadow-xs text-[#0b1c30]" : "text-[#76777d]"
-              }`}
-            >
-              <Sparkles className="w-3.5 h-3.5 text-[#b87500]" /> Review
-            </button>
-
-            <button
-              onClick={() => setActiveTab("history")}
-              className={`flex-1 py-1.5 rounded transition-all flex items-center justify-center gap-1 cursor-pointer ${
-                activeTab === "history" ? "bg-white shadow-xs text-[#0b1c30]" : "text-[#76777d]"
-              }`}
-            >
-              <History className="w-3.5 h-3.5 text-[#0b1c30]" /> Versions ({versionsList.length})
-            </button>
-
-            <button
-              onClick={() => setActiveTab("context")}
-              className={`flex-1 py-1.5 rounded transition-all flex items-center justify-center gap-1 cursor-pointer ${
-                activeTab === "context" ? "bg-white shadow-xs text-[#0b1c30]" : "text-[#76777d]"
-              }`}
-            >
-              <Info className="w-3.5 h-3.5 text-[#b87500]" /> Context
-            </button>
-          </div>
-
-          {/* TAB 1: MANUSCRIPT REVIEW */}
-          {activeTab === "manuscript" && (
-            <div className="space-y-4">
-              {reviewsList.length > 0 && (
-                <div className="p-4 bg-white rounded-xl border border-[#c6c6cd]/30 shadow-xs space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-[#0b1c30] flex items-center gap-1.5">
-                      <Sparkles className="w-4 h-4 text-[#b87500]" /> Dernière Évaluation
-                    </span>
-                    <span className="text-[10px] font-mono text-[#76777d]">
-                      {reviewsList[0].timestamp || "À l'instant"}
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2 text-center my-2">
-                    <div className="p-2 bg-[#f8f9ff] rounded border border-[#c6c6cd]/20">
-                      <div className="text-[10px] text-[#45464d]">Score Style</div>
-                      <div className="text-sm font-bold text-[#0b1c30]">
-                        {reviewsList[0].scoreStyle || reviewsList[0].score || 8}/10
-                      </div>
-                    </div>
-                    <div className="p-2 bg-[#f8f9ff] rounded border border-[#c6c6cd]/20">
-                      <div className="text-[10px] text-[#45464d]">Cohérence</div>
-                      <div className="text-sm font-bold text-[#0b1c30]">
-                        {reviewsList[0].scoreCoherence || reviewsList[0].score || 8}/10
-                      </div>
-                    </div>
-                  </div>
-
-                  {reviewsList[0].critique && (
-                    <p className="text-xs text-[#45464d] font-merriweather italic leading-normal">
-                      "{reviewsList[0].critique}"
-                    </p>
-                  )}
-
-                  {(reviewsList[0].issues || []).length > 0 && (
-                    <div className="p-2.5 bg-[#ffdad6] text-[#93000a] text-xs rounded space-y-1">
-                      <span className="font-bold flex items-center gap-1">
-                        <AlertTriangle className="w-3.5 h-3.5" /> Problèmes Détectés:
-                      </span>
-                      <ul className="list-disc list-inside text-[11px] space-y-0.5">
-                        {(reviewsList[0].issues || []).map((iss, i) => (
-                          <li key={i}>{iss}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Active Character Focus */}
-              <div className="p-4 bg-white rounded-xl border border-[#c6c6cd]/30 space-y-2">
-                <span className="text-[11px] font-mono uppercase text-[#76777d] block font-bold">
-                  Personnage Canonique Actif
-                </span>
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-[#0b1c30] text-[#ffddb8] flex items-center justify-center font-bold text-xs">
-                    V
-                  </div>
-                  <div>
-                    <div className="text-xs font-bold text-[#0b1c30]">
-                      Archiviste Valerius
-                    </div>
-                    <div className="text-[10px] text-[#45464d]">
-                      Protagoniste • Provenance: Auteur
-                    </div>
-                  </div>
-                </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-mono text-[#76777d]">{wordCount} mots</span>
+                <button
+                  type="button"
+                  onClick={handleGenerateVersion}
+                  disabled={isWorking || !activeChapter || !project.outlineApproved}
+                  className="flex items-center gap-1.5 rounded bg-[#0b1c30] px-3 py-1.5 text-xs font-semibold text-[#ffddb8] shadow-xs disabled:opacity-40"
+                >
+                  <Sparkles className={`h-3.5 w-3.5 ${isWorking ? "animate-spin" : ""}`} />
+                  Générer une version
+                </button>
+                <button
+                  type="button"
+                  onClick={handleReview}
+                  disabled={isWorking || !activeChapter}
+                  className="flex items-center gap-1.5 rounded border border-[#c6c6cd]/40 bg-[#eff4ff] px-3 py-1.5 text-xs font-semibold text-[#0b1c30] disabled:opacity-40"
+                >
+                  <RotateCcw className="h-3.5 w-3.5 text-[#b87500]" />
+                  Critiquer
+                </button>
               </div>
             </div>
+
+            <section className="mb-4 flex flex-col gap-3 rounded-lg border border-[#c6c6cd]/40 bg-[#fffdfc] p-4 shadow-xs sm:flex-row sm:items-center sm:justify-between" aria-live="polite">
+              <div className="min-w-0">
+                <p className="font-mono text-xs text-[#506070]">
+                  {activeVersion ? `Version v${activeVersion.versionNumber}` : "Aucune version sélectionnée"}
+                </p>
+                {activeChapter?.objective && (
+                  <p className="mt-1 text-xs text-[#13243a]">Objectif : <em>{activeChapter.objective}</em></p>
+                )}
+              </div>
+              {canDecide && (
+                <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+                  <button type="button" onClick={handleApprove} className="flex items-center justify-center gap-1.5 rounded bg-[#9a6617] px-3 py-2 text-[11px] font-bold text-white">
+                    <Check className="h-3.5 w-3.5" /> Approuver dans le Canon
+                  </button>
+                  <button type="button" onClick={handleReject} className="flex items-center justify-center gap-1.5 rounded border border-[#d98980] bg-white px-3 py-2 text-[11px] font-bold text-[#a33b32]">
+                    <X className="h-3.5 w-3.5" /> Rejeter
+                  </button>
+                </div>
+              )}
+            </section>
+
+            <section className="min-h-[450px] rounded border border-[#c6c6cd]/20 bg-[#f8f5f0] p-5 shadow-xs sm:p-8 md:p-12">
+              {activeChapter ? (
+                <>
+                  <div className="mb-6 border-b border-[#c6c6cd]/20 pb-4">
+                    <h1 className="mb-2 font-playfair text-2xl font-bold text-[#0f172a] sm:text-3xl">{activeChapter.title}</h1>
+                    {activeChapter.objective && <p className="font-courier text-xs text-[#5f5e5b]">{activeChapter.objective}</p>}
+                  </div>
+                  <textarea
+                    value={editorContent}
+                    onChange={(event) => setEditorContent(event.target.value)}
+                    placeholder="Écrivez votre récit ici ou générez une proposition avec l’IA."
+                    className="min-h-[360px] w-full resize-none border-none bg-transparent font-merriweather text-sm leading-[1.8] text-[#0f172a] outline-none focus:ring-0 sm:text-base"
+                    aria-label="Manuscrit du chapitre"
+                  />
+                  <div className="mt-8 flex flex-wrap justify-between gap-2 border-t border-[#c6c6cd]/20 pt-4 text-[11px] font-mono text-[#76777d]">
+                    <span>Le texte affiché provient de la version sélectionnée.</span>
+                    <StudioDecisionState status={activeChapter.status} />
+                  </div>
+                </>
+              ) : (
+                <div className="flex min-h-[360px] items-center justify-center text-center text-sm text-[#76777d]">
+                  Créez ou sélectionnez un chapitre pour commencer.
+                </div>
+              )}
+            </section>
+          </div>
+        </main>
+
+        <aside className="w-full shrink-0 overflow-y-auto border-t border-[#c6c6cd]/30 bg-[#f8f9ff] p-4 lg:w-[360px] lg:border-l lg:border-t-0">
+          <div className="mb-4 flex gap-1 rounded-lg border border-[#c6c6cd]/30 bg-[#e5eeff] p-1 text-xs font-mono font-bold text-[#0b1c30]">
+            {(["manuscript", "history", "context"] as const).map((tab) => (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setActiveTab(tab)}
+                className={`flex-1 rounded py-1.5 ${activeTab === tab ? "bg-white shadow-xs" : "text-[#76777d]"}`}
+              >
+                {tab === "manuscript" && "Analyse"}
+                {tab === "history" && `Versions (${versions.length})`}
+                {tab === "context" && "Canon"}
+              </button>
+            ))}
+          </div>
+
+          {activeTab === "manuscript" && (
+            <div className="space-y-4">
+              {latestReview ? (
+                <section className="rounded-xl border border-[#c6c6cd]/30 bg-white p-4 shadow-xs">
+                  <div className="mb-3 flex items-center justify-between">
+                    <span className="text-xs font-bold text-[#0b1c30]">Dernière évaluation</span>
+                    {latestReview.timestamp && <span className="text-[10px] font-mono text-[#76777d]">{latestReview.timestamp}</span>}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-center">
+                    <div className="rounded border border-[#c6c6cd]/20 bg-[#f8f9ff] p-2">
+                      <div className="text-[10px] text-[#45464d]">Style</div>
+                      <div className="text-sm font-bold">{latestReview.scoreStyle ?? "—"}{latestReview.scoreStyle !== undefined ? "/10" : ""}</div>
+                    </div>
+                    <div className="rounded border border-[#c6c6cd]/20 bg-[#f8f9ff] p-2">
+                      <div className="text-[10px] text-[#45464d]">Cohérence</div>
+                      <div className="text-sm font-bold">{latestReview.scoreCoherence ?? "—"}{latestReview.scoreCoherence !== undefined ? "/10" : ""}</div>
+                    </div>
+                  </div>
+                  {latestReview.critique && <p className="mt-3 text-xs italic text-[#45464d]">{latestReview.critique}</p>}
+                </section>
+              ) : (
+                <div className="rounded-xl border border-dashed border-[#c6c6cd]/50 p-5 text-xs text-[#76777d]">Aucune évaluation disponible.</div>
+              )}
+
+              {project.characters?.length ? (
+                <section className="rounded-xl border border-[#c6c6cd]/30 bg-white p-4">
+                  <span className="mb-2 block text-[11px] font-mono font-bold uppercase text-[#76777d]">Personnages du livre</span>
+                  <div className="space-y-2">
+                    {project.characters.slice(0, 5).map((character) => (
+                      <div key={character.id} className="flex items-center gap-2">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#0b1c30] text-xs font-bold text-[#ffddb8]">{character.name.charAt(0)}</div>
+                        <div>
+                          <div className="text-xs font-bold text-[#0b1c30]">{character.name}</div>
+                          <div className="text-[10px] text-[#45464d]">{character.role}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              ) : null}
+            </div>
           )}
 
-          {/* TAB 2: VERSION HISTORY */}
           {activeTab === "history" && (
             <div className="space-y-3">
-              <span className="text-xs font-mono font-bold text-[#76777d] uppercase tracking-wider block">
-                Historique des Versions ({versionsList.length})
-              </span>
-
-              {versionsList.length === 0 ? (
-                <div className="p-4 bg-white rounded border border-[#c6c6cd]/30 text-xs text-[#76777d] text-center">
-                  Aucune version archivée pour ce chapitre. Cliquez sur "Générer Nouvelle Version".
-                </div>
-              ) : (
-                versionsList.map((ver) => {
-                  const isSel = ver.versionNumber === selectedVerNum;
-                  return (
-                    <div
-                      key={ver.id || ver.versionNumber}
-                      onClick={() => setSelectedVerNum(ver.versionNumber)}
-                      className={`p-3.5 rounded-xl border transition-all cursor-pointer space-y-2 ${
-                        isSel
-                          ? "bg-[#0b1c30] text-white border-[#0b1c30] shadow-xs"
-                          : "bg-white text-[#0b1c30] border-[#c6c6cd]/40 hover:bg-[#eff4ff]"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-mono font-bold text-xs">
-                          v{ver.versionNumber} — Source: {ver.source}
-                        </span>
-                        <span
-                          className={`text-[10px] font-mono px-2 py-0.5 rounded font-bold uppercase ${
-                            ver.status === "approved"
-                              ? "bg-[#ffddb8] text-[#2a1700]"
-                              : ver.status === "rejected"
-                              ? "bg-[#ffdad6] text-[#ba1a1a]"
-                              : "bg-[#d3e4fe] text-[#0b1c30]"
-                          }`}
-                        >
-                          {ver.status}
-                        </span>
-                      </div>
-
-                      <p
-                        className={`text-xs font-merriweather line-clamp-2 ${
-                          isSel ? "text-[#c6c6cd]" : "text-[#5f5e5b]"
-                        }`}
-                      >
-                        {ver.content}
-                      </p>
-
-                      {ver.review && (
-                        <div
-                          className={`text-[11px] font-mono p-1.5 rounded flex items-center justify-between ${
-                            isSel ? "bg-white/10 text-[#ffddb8]" : "bg-[#f8f5f0] text-[#b87500]"
-                          }`}
-                        >
-                          <span>Score Linter: {ver.review.score}/10</span>
-                          <span>{ver.review.approved ? "Conforme" : "Issues"}</span>
-                        </div>
-                      )}
+              <span className="block text-xs font-mono font-bold uppercase tracking-wider text-[#76777d]">Historique des versions</span>
+              {versions.length ? versions.map((version) => {
+                const selected = version.versionNumber === activeVersion?.versionNumber;
+                return (
+                  <button
+                    key={version.id || version.versionNumber}
+                    type="button"
+                    onClick={() => setSelectedVersionNumber(version.versionNumber)}
+                    className={`w-full rounded-xl border p-3.5 text-left ${selected ? "border-[#0b1c30] bg-[#0b1c30] text-white" : "border-[#c6c6cd]/40 bg-white text-[#0b1c30]"}`}
+                  >
+                    <div className="flex items-center justify-between gap-2 text-xs font-mono font-bold">
+                      <span>v{version.versionNumber} · {version.source}</span>
+                      <span>{version.status}</span>
                     </div>
-                  );
-                })
-              )}
+                    <p className={`mt-2 line-clamp-3 text-xs font-merriweather ${selected ? "text-[#c6c6cd]" : "text-[#5f5e5b]"}`}>{version.content}</p>
+                  </button>
+                );
+              }) : <div className="rounded border border-dashed border-[#c6c6cd]/50 p-4 text-xs text-[#76777d]">Aucune version archivée.</div>}
             </div>
           )}
 
-          {/* TAB 3: CONTEXT INSPECTOR */}
           {activeTab === "context" && (
             <div className="space-y-3">
-              <span className="text-xs font-mono font-bold text-[#76777d] uppercase tracking-wider block">
-                Context Inspector — Invariants Canoniques
-              </span>
-
-              {canonicalContext ? (
+              <span className="block text-xs font-mono font-bold uppercase tracking-wider text-[#76777d]">Contexte canonique</span>
+              {contextError ? (
+                <div className="rounded border border-[#e8aaa3] bg-[#ffdad6] p-3 text-xs text-[#a33b32]">{contextError}</div>
+              ) : canonicalContext ? (
                 <div className="space-y-3 text-xs">
-                  <div className="p-3 bg-white rounded-lg border border-[#c6c6cd]/30 space-y-1">
-                    <span className="font-mono font-bold text-[#0b1c30] flex items-center gap-1">
-                      <User className="w-3.5 h-3.5 text-[#b87500]" /> Intention Auteur
-                    </span>
-                    <p className="font-merriweather text-[#45464d] text-[11px]">
-                      {canonicalContext.authorIdea}
-                    </p>
-                  </div>
-
-                  <div className="p-3 bg-white rounded-lg border border-[#c6c6cd]/30 space-y-1">
-                    <span className="font-mono font-bold text-[#0b1c30] flex items-center gap-1">
-                      <Compass className="w-3.5 h-3.5 text-[#b87500]" /> Lore & Bible Canonique
-                    </span>
-                    <p className="font-merriweather text-[#45464d] text-[11px]">
-                      {canonicalContext.lore}
-                    </p>
-                  </div>
-
-                  <div className="p-3 bg-white rounded-lg border border-[#c6c6cd]/30 space-y-1">
-                    <span className="font-mono font-bold text-[#0b1c30] flex items-center gap-1">
-                      <Sliders className="w-3.5 h-3.5 text-[#b87500]" /> Contraintes Actives
-                    </span>
-                    <ul className="list-disc list-inside text-[11px] text-[#45464d]">
-                      {canonicalContext.constraints.map((c, i) => (
-                        <li key={i}>{c}</li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  <div className="p-3 bg-white rounded-lg border border-[#c6c6cd]/30 space-y-1">
-                    <span className="font-mono font-bold text-[#0b1c30] flex items-center gap-1">
-                      <BookOpen className="w-3.5 h-3.5 text-[#b87500]" /> Résumés Précédents
-                    </span>
-                    <p className="font-merriweather text-[#45464d] text-[11px] whitespace-pre-wrap">
-                      {canonicalContext.previousSummaries || "Aucun chapitre précédent approuvé."}
-                    </p>
-                  </div>
-
-                  <details className="p-3 bg-white rounded-lg border border-[#c6c6cd]/30 space-y-1 text-[11px] font-mono">
-                    <summary className="font-bold text-[#0b1c30] cursor-pointer">
-                      Aperçu du Prompt Formaté Envoyé au LLM
-                    </summary>
-                    <pre className="p-2 bg-[#f8f5f0] rounded text-[#45464d] whitespace-pre-wrap font-mono mt-2 text-[10px]">
-                      {canonicalContext.formattedContext}
-                    </pre>
-                  </details>
+                  <div className="rounded-lg border border-[#c6c6cd]/30 bg-white p-3"><strong>Intention auteur</strong><p className="mt-1 text-[#45464d]">{canonicalContext.authorIdea}</p></div>
+                  <div className="rounded-lg border border-[#c6c6cd]/30 bg-white p-3"><strong>Lore & Bible canonique</strong><p className="mt-1 text-[#45464d]">{canonicalContext.lore}</p></div>
+                  <div className="rounded-lg border border-[#c6c6cd]/30 bg-white p-3"><strong>Contraintes actives</strong><ul className="mt-1 list-disc pl-4 text-[#45464d]">{canonicalContext.constraints.map((constraint, index) => <li key={index}>{constraint}</li>)}</ul></div>
+                  <div className="rounded-lg border border-[#c6c6cd]/30 bg-white p-3"><strong>Résumés précédents</strong><p className="mt-1 whitespace-pre-wrap text-[#45464d]">{canonicalContext.previousSummaries || "Aucun chapitre précédent approuvé."}</p></div>
                 </div>
               ) : (
-                <div className="text-xs text-[#76777d]">Chargement du contexte canonique...</div>
+                <div className="rounded border border-dashed border-[#c6c6cd]/50 p-4 text-xs text-[#76777d]">Aucun contexte canonique disponible.</div>
               )}
             </div>
           )}
-        </div>
+        </aside>
       </div>
     </StudioLayout>
   );

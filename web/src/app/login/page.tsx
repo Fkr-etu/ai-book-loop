@@ -3,13 +3,13 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Mail, Lock, Eye, EyeOff, ArrowRight, BookOpen, Feather } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, ArrowRight, Feather } from "lucide-react";
 import { getApiClient } from "@/services/api";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("auteur@manuscript.studio");
-  const [password, setPassword] = useState("••••••••");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -32,7 +32,6 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-[#f8f5f0] text-[#0f172a] flex flex-col justify-between font-inter selection:bg-[#ffddb8] selection:text-[#0f172a] relative overflow-hidden">
-      {/* Background glow */}
       <div
         className="absolute inset-0 pointer-events-none opacity-40"
         style={{
@@ -86,7 +85,7 @@ export default function LoginPage() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="auteur@manuscript.studio"
+                  placeholder="votre@email.com"
                   required
                   className="w-full pl-10 pr-3 py-2.5 text-sm border-b border-[#c6c6cd] focus:border-[#b87500] focus:outline-none bg-transparent transition-colors"
                 />
@@ -98,12 +97,6 @@ export default function LoginPage() {
                 <label className="block text-xs font-semibold text-[#45464d]">
                   Mot de passe
                 </label>
-                <a
-                  href="#"
-                  className="text-xs text-[#45464d] hover:text-[#0f172a] underline decoration-dotted"
-                >
-                  Mot de passe oublié ?
-                </a>
               </div>
               <div className="relative">
                 <Lock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#76777d]" />
@@ -111,7 +104,7 @@ export default function LoginPage() {
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
+                  placeholder="Votre mot de passe"
                   required
                   className="w-full pl-10 pr-10 py-2.5 text-sm border-b border-[#c6c6cd] focus:border-[#b87500] focus:outline-none bg-transparent transition-colors"
                 />
@@ -119,6 +112,7 @@ export default function LoginPage() {
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-[#76777d] hover:text-[#0f172a]"
+                  aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -144,38 +138,15 @@ export default function LoginPage() {
               Créer un compte
             </Link>
           </div>
-
-          <div className="mt-8 pt-6 border-t border-[#c6c6cd]/30">
-            <p className="text-[10px] font-mono text-[#76777d] uppercase tracking-wider text-center mb-3">
-              Reprendre le travail
-            </p>
-            <button
-              onClick={() => router.push("/studio")}
-              className="w-full flex items-center justify-between p-3 rounded-lg border border-[#c6c6cd]/30 hover:border-[#ffddb8] hover:bg-[#f8f5f0] transition-all group text-left"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-full bg-[#f8f5f0] border border-[#c6c6cd]/30 flex items-center justify-center shrink-0">
-                  <BookOpen className="w-4 h-4 text-[#0f172a]" />
-                </div>
-                <div>
-                  <h3 className="text-xs font-semibold text-[#0f172a]">
-                    La Porte d'Obsidienne
-                  </h3>
-                  <p className="text-[11px] text-[#76777d]">Modifié il y a 2h</p>
-                </div>
-              </div>
-              <ArrowRight className="w-4 h-4 text-[#b87500] opacity-0 group-hover:opacity-100 transition-all transform group-hover:translate-x-1" />
-            </button>
-          </div>
         </div>
       </main>
 
       <footer className="p-6 text-center text-xs text-[#76777d] border-t border-[#c6c6cd]/20 max-w-5xl mx-auto w-full flex flex-col md:flex-row justify-between items-center gap-2 relative z-10">
-        <div>© 2025 Manuscript Studio - Tous droits réservés.</div>
+        <div>© 2026 Manuscript Studio - Tous droits réservés.</div>
         <div className="flex gap-4">
-          <a href="#" className="hover:text-[#0f172a]">Conditions</a>
-          <a href="#" className="hover:text-[#0f172a]">Confidentialité</a>
-          <a href="#" className="hover:text-[#0f172a]">Support Auteur</a>
+          <span>Conditions</span>
+          <span>Confidentialité</span>
+          <span>Support Auteur</span>
         </div>
       </footer>
     </div>

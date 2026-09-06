@@ -14,7 +14,7 @@ import type { BookApi } from "@/services/api";
 
 const EMPTY_BOOK_ID = "proj-001";
 
-function emptyBook(): BookState {
+export function emptyBook(): BookState {
   return {
     id: EMPTY_BOOK_ID,
     title: "",
