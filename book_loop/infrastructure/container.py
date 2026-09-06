@@ -98,9 +98,6 @@ class Container:
             raise ValueError("Unsupported LINGUISTIC_CHECKER value; use disabled, languagetool, spacy, canon, both or all")
         return LinguisticValidationService(checkers)
 
-    def _contextualize_linguistic_diagnostics(self, chapter: str, diagnostics):
-        return self.linguistic_contextualizer.review(chapter=chapter, diagnostics=diagnostics)
-
     def create_book(self) -> CreateBook:
         return CreateBook(self.repository)
 
