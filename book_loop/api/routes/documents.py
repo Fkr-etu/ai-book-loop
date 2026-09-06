@@ -5,9 +5,8 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from book_loop.api.dependencies import get_container
+from book_loop.api.dependencies import get_book, get_container
 from book_loop.infrastructure.container import Container
-from book_loop.api.routes.books import get_book
 
 router = APIRouter(prefix="/api/books/{book_id}/documents", tags=["documents"])
 
