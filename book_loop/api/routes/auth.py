@@ -62,14 +62,14 @@ def _consume_or_raise(container: Container, *keys: str, limit: int, window_secon
 
 @router.post("/register", status_code=201)
 def register(payload: RegisterPayload, response: Response, request: Request, container: Container = Depends(get_container)) -> dict[str, Any]:
-    event_ids = _consume_or_raise(
+    _consume_or_raise(
         container,
         ip_key(_client_ip(request)),
         limit=container.settings.auth_register_rate_limit,
         window_seconds=container.settings.auth_register_rate_window_seconds,
     )
     if container.repository.get_user_by_email(payload.email):
-        return _reject_registration(container, event_ids)
+        raise HTTPException(status_code=400, detail=GENERIC_REGISTER_ERROR)
     user = User(
         id=f"usr-{uuid.uuid4().hex}",
         email=payload.email,
@@ -77,17 +77,9 @@ def register(payload: RegisterPayload, response: Response, request: Request, con
         name=payload.name,
     )
     created = container.repository.create_user(user)
-    for event_id in event_ids:
-        container.auth_rate_limiter.release(event_id)
     public = UserPublic(id=created.id, email=created.email, name=created.name, plan=created.plan)
     set_session_cookie(response, create_access_token(public, secret_key=container.settings.auth_secret_key), container)
     return {"user": public.model_dump(mode="json")}
-
-
-def _reject_registration(container: Container, event_ids: list[int]) -> Any:
-    for event_id in event_ids:
-        container.auth_rate_limiter.release(event_id)
-    raise HTTPException(status_code=400, detail=GENERIC_REGISTER_ERROR)
 
 
 @router.post("/login")
