@@ -85,6 +85,8 @@ def test_login_is_rate_limited_per_account_and_returns_generic_error(client: Tes
         auth_secret_key=TEST_SECRET,
         auth_login_rate_limit=2,
         auth_login_rate_window_seconds=900,
+        auth_login_ip_rate_limit=100,
+        auth_login_ip_rate_window_seconds=900,
         auth_register_rate_limit=100,
         auth_register_rate_window_seconds=900,
     )
@@ -111,6 +113,8 @@ def test_login_success_resets_account_failure_counter(client: TestClient) -> Non
         auth_secret_key=TEST_SECRET,
         auth_login_rate_limit=2,
         auth_login_rate_window_seconds=900,
+        auth_login_ip_rate_limit=100,
+        auth_login_ip_rate_window_seconds=900,
         auth_register_rate_limit=100,
         auth_register_rate_window_seconds=900,
     )
