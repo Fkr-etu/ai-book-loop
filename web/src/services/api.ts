@@ -1,13 +1,5 @@
-import type {
-  Assertion,
-  BookState,
-  CanonicalContextResponse,
-  Character,
-  IngestionResult,
-  LoreItem,
-  SceneReview,
-  UserProfile,
-} from "@/types";
+import type { Assertion, BookState, CanonicalContextResponse, Character, IngestionResult, LoreItem, SceneReview, UserProfile } from "@/types";
+import type { BackendWorkflowRun } from "@/types/api";
 import { initialProjectData } from "@/lib/mockData";
 import { USE_REAL_API } from "@/services/config";
 import { typedBookApi } from "@/services/bookApiAdapter";
@@ -22,7 +14,8 @@ export interface BookApi {
   generateOutline(id: string): Promise<BookState>;
   approveOutline(id: string): Promise<BookState>;
   addChapter(id: string, title: string, objective: string): Promise<BookState>;
-  generateChapter(id: string, chapterNumber: number): Promise<{ book: BookState; versionNumber: number; content: string }>;
+  generateChapter(id: string, chapterNumber: number): Promise<{ book: BookState; versionNumber: number; content: string; run: BackendWorkflowRun }>;
+  getChapterWorkflowRun(id: string, chapterNumber: number, runId: string): Promise<BackendWorkflowRun>;
   reviewChapter(id: string, chapterNumber: number, versionNumber?: number, draftText?: string): Promise<{ book: BookState; review: SceneReview }>;
   approveChapter(id: string, chapterNumber: number): Promise<BookState>;
   rejectChapter(id: string, chapterNumber: number): Promise<BookState>;
@@ -42,228 +35,39 @@ export interface BookApi {
   getCurrentUser(): Promise<UserProfile | null>;
 }
 
-function loadStorageProject(): BookState {
-  if (typeof window === "undefined") return initialProjectData;
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as BookState) : initialProjectData;
-  } catch {
-    return initialProjectData;
-  }
-}
-
-function saveStorageProject(state: BookState): void {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  } catch {
-    // Local persistence is best-effort in mock mode.
-  }
-}
-
-function loadAssertions(): Assertion[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = localStorage.getItem(ASSERTIONS_STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as Assertion[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveAssertions(assertions: Assertion[]): void {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(ASSERTIONS_STORAGE_KEY, JSON.stringify(assertions));
-  } catch {
-    // Local persistence is best-effort in mock mode.
-  }
-}
+function loadStorageProject(): BookState { if (typeof window === "undefined") return initialProjectData; try { const raw = localStorage.getItem(STORAGE_KEY); return raw ? JSON.parse(raw) as BookState : initialProjectData; } catch { return initialProjectData; } }
+function saveStorageProject(state: BookState): void { if (typeof window === "undefined") return; try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch {} }
+function loadAssertions(): Assertion[] { if (typeof window === "undefined") return []; try { const raw = localStorage.getItem(ASSERTIONS_STORAGE_KEY); return raw ? JSON.parse(raw) as Assertion[] : []; } catch { return []; } }
+function saveAssertions(assertions: Assertion[]): void { if (typeof window === "undefined") return; try { localStorage.setItem(ASSERTIONS_STORAGE_KEY, JSON.stringify(assertions)); } catch {} }
 
 export class MockBookApi implements BookApi {
   async getBook(): Promise<BookState> { return loadStorageProject(); }
-
-  async createBook(book: Partial<BookState>): Promise<BookState> {
-    const state: BookState = {
-      ...initialProjectData,
-      id: `proj-${Date.now()}`,
-      title: book.title || "Nouveau Livre",
-      theme: book.theme || "",
-      authorIdea: book.authorIdea || "",
-      lore: book.lore || "",
-      constraints: book.constraints || [],
-      outlineApproved: false,
-      chapters: [],
-    };
-    saveStorageProject(state);
-    return state;
-  }
-
-  async updateBook(id: string, updates: Partial<BookState>): Promise<BookState> {
-    const state = { ...loadStorageProject(), ...updates, id };
-    saveStorageProject(state);
-    return state;
-  }
-
-  async generateOutline(): Promise<BookState> {
-    const state = loadStorageProject();
-    state.outline = state.outline || "# Structure proposée\n\n## Chapitre 1\nObjectif à définir.";
-    state.outlineApproved = false;
-    saveStorageProject(state);
-    return state;
-  }
-
-  async approveOutline(): Promise<BookState> {
-    const state = loadStorageProject();
-    state.outlineApproved = true;
-    saveStorageProject(state);
-    return state;
-  }
-
-  async addChapter(id: string, title: string, objective: string): Promise<BookState> {
-    const state = loadStorageProject();
-    if (!state.outlineApproved) throw new Error("L'outline doit être approuvé avant d'ajouter un chapitre.");
-    const number = state.chapters.length + 1;
-    state.chapters.push({ id: `ch-${number}`, number, title, objective, status: "draft", currentVersion: 0, versions: [], scenes: [] });
-    saveStorageProject(state);
-    return state;
-  }
-
-  async generateChapter(id: string, chapterNumber: number): Promise<{ book: BookState; versionNumber: number; content: string }> {
-    const state = loadStorageProject();
-    const chapter = state.chapters.find((item) => item.number === chapterNumber);
-    if (!chapter) throw new Error(`Chapitre ${chapterNumber} introuvable.`);
-    const versionNumber = chapter.currentVersion + 1;
-    const content = `[Version ${versionNumber}] Brouillon local du chapitre ${chapterNumber}.`;
-    chapter.currentVersion = versionNumber;
-    chapter.versions = [...(chapter.versions || []), { id: `v-${versionNumber}`, versionNumber, content, createdAt: new Date().toISOString(), source: "ai", status: "proposed" }];
-    chapter.status = "proposed";
-    saveStorageProject(state);
-    return { book: state, versionNumber, content };
-  }
-
-  async reviewChapter(id: string, chapterNumber: number): Promise<{ book: BookState; review: SceneReview }> {
-    const state = loadStorageProject();
-    const review: SceneReview = { id: `review-${Date.now()}`, score: 0, approved: false, issues: ["Revue locale simulée."], suggestions: [] };
-    state.reviews = [review, ...(state.reviews || [])];
-    saveStorageProject(state);
-    return { book: state, review };
-  }
-
-  async approveChapter(id: string, chapterNumber: number): Promise<BookState> { return this.setChapterStatus(chapterNumber, "approved"); }
-  async rejectChapter(id: string, chapterNumber: number): Promise<BookState> { return this.setChapterStatus(chapterNumber, "rejected"); }
-
-  private async setChapterStatus(chapterNumber: number, status: BookState["chapters"][number]["status"]): Promise<BookState> {
-    const state = loadStorageProject();
-    const chapter = state.chapters.find((item) => item.number === chapterNumber);
-    if (chapter) chapter.status = status;
-    saveStorageProject(state);
-    return state;
-  }
-
-  async getCanonicalContext(id: string, chapterNumber: number): Promise<CanonicalContextResponse> {
-    const state = loadStorageProject();
-    const chapter = state.chapters.find((item) => item.number === chapterNumber);
-    const previousSummaries = state.chapters.filter((item) => item.number < chapterNumber && item.summary).map((item) => `${item.title}: ${item.summary}`).join("\n");
-    return {
-      authorIdea: state.authorIdea,
-      theme: state.theme,
-      lore: state.lore,
-      globalOutline: state.outline || "",
-      constraints: state.constraints,
-      previousSummaries,
-      currentObjective: chapter?.objective || "",
-      formattedContext: [state.authorIdea, state.theme, state.lore, state.outline || "", ...state.constraints, previousSummaries, chapter?.objective || ""].join("\n\n"),
-    };
-  }
-
-  async createCharacter(id: string, char: Omit<Character, "id">): Promise<BookState> {
-    const state = loadStorageProject();
-    state.characters = [...(state.characters || []), { ...char, id: `char-${Date.now()}` }];
-    saveStorageProject(state);
-    return state;
-  }
-
-  async updateCharacter(id: string, charId: string, updates: Partial<Character>): Promise<BookState> {
-    const state = loadStorageProject();
-    state.characters = (state.characters || []).map((char) => char.id === charId ? { ...char, ...updates } : char);
-    saveStorageProject(state);
-    return state;
-  }
-
-  async deleteCharacter(id: string, charId: string): Promise<BookState> {
-    const state = loadStorageProject();
-    state.characters = (state.characters || []).filter((char) => char.id !== charId);
-    saveStorageProject(state);
-    return state;
-  }
-
-  async createLoreItem(id: string, item: Omit<LoreItem, "id">): Promise<BookState> {
-    const state = loadStorageProject();
-    state.loreItems = [...(state.loreItems || []), { ...item, id: `lore-${Date.now()}` }];
-    saveStorageProject(state);
-    return state;
-  }
-
-  async updateLoreItem(id: string, loreId: string, updates: Partial<LoreItem>): Promise<BookState> {
-    const state = loadStorageProject();
-    state.loreItems = (state.loreItems || []).map((item) => item.id === loreId ? { ...item, ...updates } : item);
-    saveStorageProject(state);
-    return state;
-  }
-
-  async deleteLoreItem(id: string, loreId: string): Promise<BookState> {
-    const state = loadStorageProject();
-    state.loreItems = (state.loreItems || []).filter((item) => item.id !== loreId);
-    saveStorageProject(state);
-    return state;
-  }
-
-  async ingestDocument(id: string, name: string, content: string, sourceType = "manual"): Promise<IngestionResult> {
-    const now = new Date().toISOString();
-    const sourceDocument = {
-      id: `source-${Date.now()}`,
-      book_id: id,
-      name,
-      source_type: sourceType,
-      content,
-      content_hash: `mock-${content.length}`,
-      version: 1,
-    };
-    const assertion: Assertion = {
-      id: `assertion-${Date.now()}`,
-      source_document_id: sourceDocument.id,
-      chunk_id: `chunk-${Date.now()}`,
-      statement: content,
-      subject: "Valerius",
-      predicate: "a découvert",
-      object: "la seconde relique à Aethelgard",
-      confidence: 1,
-      status: "proposed",
-    };
-    saveAssertions([assertion, ...loadAssertions()]);
-    void now;
-    return { source_document: sourceDocument, assertions: [assertion] };
-  }
-
+  async createBook(book: Partial<BookState>): Promise<BookState> { const state = { ...initialProjectData, id: `proj-${Date.now()}`, title: book.title || "Nouveau Livre", theme: book.theme || "", authorIdea: book.authorIdea || "", lore: book.lore || "", constraints: book.constraints || [], outlineApproved: false, chapters: [] }; saveStorageProject(state); return state; }
+  async updateBook(id: string, updates: Partial<BookState>): Promise<BookState> { const state = { ...loadStorageProject(), ...updates, id }; saveStorageProject(state); return state; }
+  async generateOutline(): Promise<BookState> { const state = loadStorageProject(); state.outline = state.outline || "# Structure proposée\n\n## Chapitre 1\nObjectif à définir."; state.outlineApproved = false; saveStorageProject(state); return state; }
+  async approveOutline(): Promise<BookState> { const state = loadStorageProject(); state.outlineApproved = true; saveStorageProject(state); return state; }
+  async addChapter(id: string, title: string, objective: string): Promise<BookState> { const state = loadStorageProject(); if (!state.outlineApproved) throw new Error("L'outline doit être approuvé avant d'ajouter un chapitre."); const number = state.chapters.length + 1; state.chapters.push({ id: `ch-${number}`, number, title, objective, status: "draft", currentVersion: 0, versions: [], scenes: [] }); saveStorageProject(state); return state; }
+  async generateChapter(id: string, chapterNumber: number): Promise<{ book: BookState; versionNumber: number; content: string; run: BackendWorkflowRun }> { const state = loadStorageProject(); const chapter = state.chapters.find((item) => item.number === chapterNumber); if (!chapter) throw new Error(`Chapitre ${chapterNumber} introuvable.`); const versionNumber = chapter.currentVersion + 1; const content = `[Version ${versionNumber}] Brouillon local du chapitre ${chapterNumber}.`; const run: BackendWorkflowRun = { id: `mock-run-${Date.now()}`, book_id: state.id, chapter_number: chapterNumber, idempotency_key: `mock-${Date.now()}`, status: "completed", step: "summarize", attempt: versionNumber, draft: content, review: null, decision: "accept", summary: null, error: null }; chapter.currentVersion = versionNumber; chapter.versions = [...(chapter.versions || []), { id: `v-${versionNumber}`, versionNumber, content, createdAt: new Date().toISOString(), source: "ai", status: "proposed" }]; chapter.status = "proposed"; saveStorageProject(state); return { book: state, versionNumber, content, run }; }
+  async getChapterWorkflowRun(_id: string, _chapterNumber: number, runId: string): Promise<BackendWorkflowRun> { return { id: runId, book_id: loadStorageProject().id, chapter_number: 1, idempotency_key: "mock", status: "completed", step: "summarize", attempt: 0, draft: "", review: null, decision: "accept", summary: null, error: null }; }
+  async reviewChapter(): Promise<{ book: BookState; review: SceneReview }> { const state = loadStorageProject(); const review = { id: `review-${Date.now()}`, score: 0, approved: false, issues: ["Revue locale simulée."], suggestions: [] }; state.reviews = [review, ...(state.reviews || [])]; saveStorageProject(state); return { book: state, review }; }
+  async approveChapter(_id: string, n: number): Promise<BookState> { return this.setChapterStatus(n, "approved"); }
+  async rejectChapter(_id: string, n: number): Promise<BookState> { return this.setChapterStatus(n, "rejected"); }
+  private async setChapterStatus(n: number, status: BookState["chapters"][number]["status"]): Promise<BookState> { const state = loadStorageProject(); const chapter = state.chapters.find((item) => item.number === n); if (chapter) chapter.status = status; saveStorageProject(state); return state; }
+  async getCanonicalContext(_id: string, n: number): Promise<CanonicalContextResponse> { const state = loadStorageProject(); const chapter = state.chapters.find((item) => item.number === n); const previousSummaries = state.chapters.filter((item) => item.number < n && item.summary).map((item) => `${item.title}: ${item.summary}`).join("\n"); return { authorIdea: state.authorIdea, theme: state.theme, lore: state.lore, globalOutline: state.outline || "", constraints: state.constraints, previousSummaries, currentObjective: chapter?.objective || "", formattedContext: [state.authorIdea, state.theme, state.lore, state.outline || "", ...state.constraints, previousSummaries, chapter?.objective || ""].join("\n\n") }; }
+  async createCharacter(_id: string, char: Omit<Character, "id">): Promise<BookState> { const state = loadStorageProject(); state.characters = [...(state.characters || []), { ...char, id: `char-${Date.now()}` }]; saveStorageProject(state); return state; }
+  async updateCharacter(_id: string, charId: string, updates: Partial<Character>): Promise<BookState> { const state = loadStorageProject(); state.characters = (state.characters || []).map((char) => char.id === charId ? { ...char, ...updates } : char); saveStorageProject(state); return state; }
+  async deleteCharacter(_id: string, charId: string): Promise<BookState> { const state = loadStorageProject(); state.characters = (state.characters || []).filter((char) => char.id !== charId); saveStorageProject(state); return state; }
+  async createLoreItem(_id: string, item: Omit<LoreItem, "id">): Promise<BookState> { const state = loadStorageProject(); state.loreItems = [...(state.loreItems || []), { ...item, id: `lore-${Date.now()}` }]; saveStorageProject(state); return state; }
+  async updateLoreItem(_id: string, loreId: string, updates: Partial<LoreItem>): Promise<BookState> { const state = loadStorageProject(); state.loreItems = (state.loreItems || []).map((item) => item.id === loreId ? { ...item, ...updates } : item); saveStorageProject(state); return state; }
+  async deleteLoreItem(_id: string, loreId: string): Promise<BookState> { const state = loadStorageProject(); state.loreItems = (state.loreItems || []).filter((item) => item.id !== loreId); saveStorageProject(state); return state; }
+  async ingestDocument(id: string, name: string, content: string, sourceType = "manual"): Promise<IngestionResult> { const sourceDocument = { id: `source-${Date.now()}`, book_id: id, name, source_type: sourceType, content, content_hash: `mock-${content.length}`, version: 1 }; const assertion: Assertion = { id: `assertion-${Date.now()}`, source_document_id: sourceDocument.id, chunk_id: `chunk-${Date.now()}`, statement: content, subject: "Valerius", predicate: "a découvert", object: "la seconde relique à Aethelgard", confidence: 1, status: "proposed" }; saveAssertions([assertion, ...loadAssertions()]); return { source_document: sourceDocument, assertions: [assertion] }; }
   async listAssertions(): Promise<Assertion[]> { return loadAssertions(); }
-
-  async reviewAssertion(id: string, assertionId: string, decision: "accept" | "reject" | "defer"): Promise<void> {
-    const status: Assertion["status"] = decision === "accept" ? "accepted" : decision === "reject" ? "rejected" : "deferred";
-    saveAssertions(loadAssertions().map((assertion) => assertion.id === assertionId ? { ...assertion, status } : assertion));
-  }
-
-  async registerUser(email: string, pass: string, name = ""): Promise<UserProfile> { return { id: "mock-user", email, name, plan: "pro" }; }
-  async loginUser(email: string, pass: string): Promise<UserProfile> { return { id: "mock-user", email, name: "Auteur", plan: "pro" }; }
+  async reviewAssertion(_id: string, assertionId: string, decision: "accept" | "reject" | "defer"): Promise<void> { const status = decision === "accept" ? "accepted" : decision === "reject" ? "rejected" : "deferred"; saveAssertions(loadAssertions().map((assertion) => assertion.id === assertionId ? { ...assertion, status } : assertion)); }
+  async registerUser(email: string, _pass: string, name = ""): Promise<UserProfile> { return { id: "mock-user", email, name, plan: "pro" }; }
+  async loginUser(email: string, _pass: string): Promise<UserProfile> { return { id: "mock-user", email, name: "Auteur", plan: "pro" }; }
   async logoutUser(): Promise<void> {}
   async getCurrentUser(): Promise<UserProfile | null> { return null; }
 }
-
 let apiInstance: BookApi | null = null;
-
-export function getApiClient(): BookApi {
-  if (!apiInstance) apiInstance = USE_REAL_API ? typedBookApi : new MockBookApi();
-  return apiInstance;
-}
-
+export function getApiClient(): BookApi { if (!apiInstance) apiInstance = USE_REAL_API ? typedBookApi : new MockBookApi(); return apiInstance; }
 export function setApiClient(client: BookApi): void { apiInstance = client; }
