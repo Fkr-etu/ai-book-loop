@@ -15,9 +15,9 @@ class ApproveChapter:
         if chapter.status != ChapterStatus.NEEDS_REVIEW:
             raise ValueError(f"Chapter {chapter_number} must be reviewed before approval")
 
-        version = version_number or chapter.current_version
-        if version <= 0:
-            raise ValueError(f"Chapter {chapter_number} has no version to approve")
+        version = version_number or chapter.reviewed_version
+        if version is None or version <= 0:
+            raise ValueError(f"Chapter {chapter_number} has no reviewed version to approve")
         self.repository.get_chapter_version(book.id, chapter_number, version)
         chapter.current_version = version
         chapter.status = ChapterStatus.APPROVED
