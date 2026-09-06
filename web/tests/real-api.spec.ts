@@ -3,26 +3,30 @@ import { test, expect } from "@playwright/test";
 const email = `e2e-${Date.now()}@example.test`;
 const password = "BookLoop-E2E-123!";
 
+const realApiEnabled = process.env.NEXT_PUBLIC_USE_REAL_API === "true";
+
 test.describe("Book Loop — real API author journey", () => {
+  test.skip(!realApiEnabled, "Requires NEXT_PUBLIC_USE_REAL_API=true");
+
   test("registers, configures, approves the outline and generates a chapter", async ({ page }) => {
     await page.goto("/register");
-    await page.getByLabel("Nom complet / Pseudonyme d'auteur").fill("E2E Author");
-    await page.getByLabel("Adresse e-mail").fill(email);
-    await page.getByLabel("Mot de passe").fill(password);
+    await page.getByPlaceholder("Votre nom ou pseudonyme").fill("E2E Author");
+    await page.getByPlaceholder("votre@email.com").fill(email);
+    await page.getByPlaceholder("8 caractères minimum").fill(password);
     await page.getByRole("button", { name: "Démarrer le Setup du Premier Projet" }).click();
 
     await expect(page).toHaveURL(/\/setup$/);
-    await page.getByLabel("Titre du Livre").fill("Le livre E2E");
-    await page.getByLabel("Genre Littéraire").fill("Fantasy");
-    await page.getByLabel("Thème Central & Intentions Narratives").fill("Le choix de l'auteur face aux propositions de l'IA.");
+    await page.getByRole("textbox").nth(0).fill("Le livre E2E");
+    await page.getByRole("textbox").nth(1).fill("Fantasy");
+    await page.getByRole("textbox").nth(2).fill("Le choix de l'auteur face aux propositions de l'IA.");
     await page.getByTestId("next-step-btn").click();
 
     await expect(page.getByRole("heading", { name: "Règles, Reliques et Lieux Canoniques" })).toBeVisible();
-    await page.getByLabel("Résumé Global du Lore / Contextualisation").fill("Un monde où les décisions de l'auteur restent canoniques.");
+    await page.getByPlaceholder("Ex: Dans l'Empire de Cendres, les mages utilisent l'Obsidienne pour capturer la mémoire...").fill("Un monde où les décisions de l'auteur restent canoniques.");
     await page.getByTestId("next-step-btn").click();
 
     await expect(page.getByRole("heading", { name: "Ton, Voix Narrative & Verrouillage Canon" })).toBeVisible();
-    await page.getByLabel("Style et Ton Général").fill("Sobre, immersif et précis.");
+    await page.getByPlaceholder("Ex: Scholastique, poétique, sombre, rythme soutenu mais descriptif.").fill("Sobre, immersif et précis.");
     await page.getByRole("button", { name: "Ouvrir l'Atelier de Rédaction" }).click();
 
     await expect(page).toHaveURL(/\/studio$/);
@@ -36,8 +40,8 @@ test.describe("Book Loop — real API author journey", () => {
     await expect(page.getByText("Plan approuvé")).toBeVisible();
 
     await page.getByTestId("add-chapter-btn").click();
-    await page.getByLabel("Titre", { exact: true }).fill("Le premier seuil");
-    await page.getByLabel("Objectif", { exact: true }).fill("Poser le conflit initial.");
+    await page.locator('form input[type="text"]').nth(0).fill("Le premier seuil");
+    await page.locator('form input[type="text"]').nth(1).fill("Poser le conflit initial.");
     await page.getByRole("button", { name: "Créer le chapitre" }).click();
     await expect(page.getByRole("heading", { name: "Le premier seuil" })).toBeVisible();
 
