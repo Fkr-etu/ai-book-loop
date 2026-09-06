@@ -51,6 +51,22 @@ class BookRepositoryMixin:
         )
         self._connection.commit()
 
+    def list_chapter_versions(self, book_id: str, chapter_number: int) -> list[dict[str, Any]]:
+        """Return all persisted drafts for a chapter in version order."""
+        rows = self._connection.execute(
+            "SELECT id, version, draft, created_at FROM chapter_versions WHERE book_id = ? AND chapter_number = ? ORDER BY version",
+            (book_id, chapter_number),
+        ).fetchall()
+        return [
+            {
+                "id": str(row["id"]),
+                "version": int(row["version"]),
+                "draft": str(row["draft"]),
+                "created_at": str(row["created_at"]),
+            }
+            for row in rows
+        ]
+
     def get_chapter_version(self, book_id: str, chapter_number: int, version: int) -> str:
         row = self._connection.execute(
             "SELECT draft FROM chapter_versions WHERE book_id = ? AND chapter_number = ? AND version = ?",
@@ -103,17 +119,11 @@ class BookRepositoryMixin:
         self._connection.commit()
 
     def list_evidence(self, *, book_id: str) -> list[Evidence]:
-        rows = self._connection.execute(
-            "SELECT e.* FROM evidence e JOIN source_documents s ON s.id = e.source_document_id WHERE s.book_id = ? ORDER BY e.id",
-            (book_id,),
-        ).fetchall()
+        rows = self._connection.execute("SELECT e.* FROM evidence e JOIN source_documents s ON s.id = e.source_document_id WHERE s.book_id = ? ORDER BY e.id", (book_id,)).fetchall()
         return [Evidence(id=row["id"], assertion_id=row["assertion_id"], source_document_id=row["source_document_id"], chunk_id=row["chunk_id"], start_offset=row["start_offset"], end_offset=row["end_offset"], excerpt=row["excerpt"]) for row in rows]
 
     def list_assertions(self, *, book_id: str) -> list[Assertion]:
-        rows = self._connection.execute(
-            "SELECT a.* FROM assertions a JOIN source_documents s ON s.id = a.source_document_id WHERE s.book_id = ? ORDER BY a.id",
-            (book_id,),
-        ).fetchall()
+        rows = self._connection.execute("SELECT a.* FROM assertions a JOIN source_documents s ON s.id = a.source_document_id WHERE s.book_id = ? ORDER BY a.id", (book_id,)).fetchall()
         return [self._assertion_from_row(row) for row in rows]
 
     def save_conflict(self, conflict: Conflict) -> None:
@@ -135,17 +145,11 @@ class BookRepositoryMixin:
 
     def resolve_conflict(self, left_assertion_id: str, right_assertion_id: str, resolution_assertion_id: str) -> None:
         left, right = sorted((left_assertion_id, right_assertion_id))
-        self._connection.execute(
-            "UPDATE conflicts SET status = 'resolved', resolution_assertion_id = ? WHERE left_assertion_id = ? AND right_assertion_id = ?",
-            (resolution_assertion_id, left, right),
-        )
+        self._connection.execute("UPDATE conflicts SET status = 'resolved', resolution_assertion_id = ? WHERE left_assertion_id = ? AND right_assertion_id = ?", (resolution_assertion_id, left, right))
         self._connection.commit()
 
     def save_review_decision(self, decision: ReviewDecision) -> None:
-        self._connection.execute(
-            "INSERT INTO review_decisions(id, assertion_id, decision, reviewer_id, rationale) VALUES(?, ?, ?, ?, ?)",
-            (decision.id, decision.assertion_id, decision.decision.value, decision.reviewer_id, decision.rationale),
-        )
+        self._connection.execute("INSERT INTO review_decisions(id, assertion_id, decision, reviewer_id, rationale) VALUES(?, ?, ?, ?, ?)", (decision.id, decision.assertion_id, decision.decision.value, decision.reviewer_id, decision.rationale))
         self._connection.commit()
 
     def list_review_decisions(self, *, assertion_id: str) -> list[ReviewDecision]:
@@ -153,24 +157,15 @@ class BookRepositoryMixin:
         return [ReviewDecision(id=row["id"], assertion_id=row["assertion_id"], decision=row["decision"], reviewer_id=row["reviewer_id"], rationale=row["rationale"], created_at=row["created_at"]) for row in rows]
 
     def next_canonical_version(self, *, book_id: str, subject: str, predicate: str) -> int:
-        row = self._connection.execute(
-            "SELECT COALESCE(MAX(version), 0) + 1 AS next_version FROM canonical_facts WHERE book_id = ? AND subject = ? AND predicate = ?",
-            (book_id, subject, predicate),
-        ).fetchone()
+        row = self._connection.execute("SELECT COALESCE(MAX(version), 0) + 1 AS next_version FROM canonical_facts WHERE book_id = ? AND subject = ? AND predicate = ?", (book_id, subject, predicate)).fetchone()
         return int(row["next_version"])
 
     def deactivate_canonical_facts(self, *, book_id: str, subject: str, predicate: str) -> None:
-        self._connection.execute(
-            "UPDATE canonical_facts SET active = FALSE WHERE book_id = ? AND subject = ? AND predicate = ? AND active = TRUE",
-            (book_id, subject, predicate),
-        )
+        self._connection.execute("UPDATE canonical_facts SET active = FALSE WHERE book_id = ? AND subject = ? AND predicate = ? AND active = TRUE", (book_id, subject, predicate))
         self._connection.commit()
 
     def save_canonical_fact(self, fact: CanonicalFact) -> None:
-        self._connection.execute(
-            "INSERT INTO canonical_facts(id, book_id, assertion_id, statement, subject, predicate, object, decision_id, version, active, previous_fact_id) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (fact.id, fact.book_id, fact.assertion_id, fact.statement, fact.subject, fact.predicate, fact.object, fact.decision_id, fact.version, fact.active, fact.previous_fact_id),
-        )
+        self._connection.execute("INSERT INTO canonical_facts(id, book_id, assertion_id, statement, subject, predicate, object, decision_id, version, active, previous_fact_id) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", (fact.id, fact.book_id, fact.assertion_id, fact.statement, fact.subject, fact.predicate, fact.object, fact.decision_id, fact.version, fact.active, fact.previous_fact_id))
         self._connection.commit()
 
     def list_active_canonical_facts(self, *, book_id: str) -> list[CanonicalFact]:
@@ -206,12 +201,10 @@ class BookRepositoryMixin:
 
     def get_user_by_email(self, email: str) -> User | None:
         row = self._connection.execute("SELECT id, email, password_hash, name, plan, created_at FROM users WHERE lower(email) = ?", (email.lower().strip(),)).fetchone()
-        if row is None:
-            return None
+        if row is None: return None
         return User(id=row["id"], email=row["email"], password_hash=row["password_hash"], name=row["name"], plan=SubscriptionPlan(row["plan"]), created_at=row["created_at"])
 
     def get_user_by_id(self, user_id: str) -> User | None:
         row = self._connection.execute("SELECT id, email, password_hash, name, plan, created_at FROM users WHERE id = ?", (user_id,)).fetchone()
-        if row is None:
-            return None
+        if row is None: return None
         return User(id=row["id"], email=row["email"], password_hash=row["password_hash"], name=row["name"], plan=SubscriptionPlan(row["plan"]), created_at=row["created_at"])
