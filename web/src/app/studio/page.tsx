@@ -24,7 +24,7 @@ const chapterStatus = {
   approved: { label: "Canon approuvé", detail: "Cette version est la référence pour la suite du récit.", className: "bg-[#f3e7cb] text-[#76500f] border-[#d8b36e]" },
   canonical: { label: "Canon approuvé", detail: "Cette version est la référence pour la suite du récit.", className: "bg-[#f3e7cb] text-[#76500f] border-[#d8b36e]" },
   rejected: { label: "Rejetée", detail: "Cette proposition reste dans l'historique et ne modifie pas le Canon.", className: "bg-[#ffdad6] text-[#a33b32] border-[#e8aaa3]" },
-  needs_review: { label: "À votre décision", detail: "Vérifiez les findings avant de décider si cette version rejoint le Canon.", className: "bg-[#dcebf3] text-[#24536d] border-[#9bbfd3]" },
+  needs_review: { label: "À votre décision", detail: "Vérifiez les points signalés avant de décider si cette version rejoint le Canon.", className: "bg-[#dcebf3] text-[#24536d] border-[#9bbfd3]" },
   proposed: { label: "Proposition", detail: "Cette version n'a pas encore été vérifiée ni approuvée.", className: "bg-[#dcebf3] text-[#24536d] border-[#9bbfd3]" },
   draft: { label: "Brouillon", detail: "Continuez d'écrire ou lancez une vérification avant toute décision.", className: "bg-[#eef0f2] text-[#506070] border-[#c8d0d8]" },
   in_progress: { label: "En cours", detail: "La génération ou la vérification est encore en cours.", className: "bg-[#eef0f2] text-[#506070] border-[#c8d0d8]" },
@@ -111,8 +111,7 @@ export default function StudioDeskPage() {
 
   const wordCount = editorContent.trim().split(/\s+/).filter(Boolean).length;
   const status = chapterStatus[activeChapter?.status ?? "draft"];
-  const isCanonical = activeChapter?.status === "approved" || activeChapter?.status === "canonical";
-  const canDecide = !isCanonical && activeChapter?.status !== "rejected";
+  const canDecide = activeChapter?.status === "needs_review";
 
   return (
     <StudioLayout>

@@ -3,13 +3,13 @@
 @layer base {
   :root {
     --surface: #f7f2e9;
-    --surface-dim: #cbdbf5;
-    --surface-bright: #f8f9ff;
-    --surface-container-lowest: #ffffff;
-    --surface-container-low: #eff4ff;
-    --surface-container: #e5eeff;
-    --surface-container-high: #dce9ff;
-    --surface-container-highest: #d3e4fe;
+    --surface-dim: #e7ded2;
+    --surface-bright: #fffdfc;
+    --surface-container-lowest: #fffdfc;
+    --surface-container-low: #f4efe8;
+    --surface-container: #ede5d9;
+    --surface-container-high: #e5dacb;
+    --surface-container-highest: #dccfbe;
     --on-surface: #0b1c30;
     --on-surface-variant: #45464d;
     --inverse-surface: #213145;
