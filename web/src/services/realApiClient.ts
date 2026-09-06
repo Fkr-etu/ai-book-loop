@@ -6,6 +6,7 @@ import type {
   BackendIngestionResult,
   BackendSceneReview,
   BackendUser,
+  BackendWorkflowRun,
 } from "@/types/api";
 import { API_BASE_URL } from "@/services/config";
 
@@ -21,6 +22,7 @@ export interface GenerateChapterResult {
   book: BackendBook;
   versionNumber: number;
   content: string;
+  workflowRun: BackendWorkflowRun;
 }
 
 export interface ReviewChapterResult {
@@ -183,6 +185,14 @@ export class RealApiClient {
 
   generateChapter(bookId: string, chapterNumber: number): Promise<GenerateChapterResult> {
     return this.request(`/api/books/${encodeURIComponent(bookId)}/chapters/${chapterNumber}/generate`, { method: "POST" });
+  }
+
+  getLatestChapterWorkflowRun(bookId: string, chapterNumber: number): Promise<BackendWorkflowRun> {
+    return this.request(`/api/books/${encodeURIComponent(bookId)}/chapters/${chapterNumber}/workflow-run`);
+  }
+
+  getChapterWorkflowRun(bookId: string, chapterNumber: number, runId: string): Promise<BackendWorkflowRun> {
+    return this.request(`/api/books/${encodeURIComponent(bookId)}/chapters/${chapterNumber}/workflow-runs/${encodeURIComponent(runId)}`);
   }
 
   reviewChapter(bookId: string, chapterNumber: number, versionNumber?: number, draftText?: string): Promise<ReviewChapterResult> {
