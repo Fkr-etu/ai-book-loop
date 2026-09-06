@@ -130,6 +130,7 @@ jobs:
       DATABASE_URL: postgresql://book_loop:book_loop@localhost:5432/book_loop_e2e
       LLM_PROVIDER: fake
       GEMINI_API_KEY: ""
+      AUTH_SECRET_KEY: "book-loop-e2e-test-secret"
       NEXT_PUBLIC_USE_REAL_API: "true"
       NEXT_PUBLIC_API_URL: "http://127.0.0.1:8000"
     steps:
