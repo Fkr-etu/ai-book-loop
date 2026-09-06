@@ -1,12 +1,16 @@
 from __future__ import annotations
 
-from book_loop.domain.models import BookState
+from datetime import datetime, timezone
+
+from book_loop.application.services.plan_limits import limits_for
+from book_loop.domain.models import BookState, SubscriptionPlan
 from book_loop.workflow.chapter_graph import ChapterWorkflow, ChapterWorkflowState
 
 
 class GenerateChapter:
-    def __init__(self, workflow: ChapterWorkflow) -> None:
+    def __init__(self, workflow: ChapterWorkflow, repository=None) -> None:
         self.workflow = workflow
+        self.repository = repository
 
     def execute(
         self,
@@ -34,10 +38,25 @@ class GenerateChapter:
             )
 
         # The default key represents the next chapter version. Repeating the same
-        # request while that version is still in progress therefore resumes it;
-        # after completion current_version advances and a later call intentionally
-        # creates a new generation run.
+        # request while that version is still in progress resumes it; after completion
+        # current_version advances and a later call intentionally creates a new run.
         key = idempotency_key or f"chapter:{book.id}:{chapter_number}:v{chapter.current_version + 1}"
+
+        if self.repository is not None and hasattr(self.repository, "consume_workflow_capacity"):
+            user = self.repository.get_user_by_id(book.owner_id)
+            if user is None:
+                raise PermissionError("Unknown owner")
+            plan = SubscriptionPlan(user.plan)
+            period_start = datetime.now(timezone.utc).date().isoformat()
+            allowed = self.repository.consume_workflow_capacity(
+                user_id=user.id,
+                period_start=period_start,
+                idempotency_key=key,
+                monthly_limit=limits_for(plan).monthly_workflow_runs,
+            )
+            if not allowed:
+                raise PermissionError("Monthly workflow capacity reached for the current plan")
+
         return self.workflow.run(
             book=book,
             chapter_number=chapter_number,
