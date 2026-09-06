@@ -28,6 +28,20 @@ def create_book(test_client: TestClient, title: str = "Test Book") -> str:
     return response.json()["id"]
 
 
+def generate_chapter(test_client: TestClient, book_id: str, chapter_number: int) -> dict:
+    response = test_client.post(f"/api/books/{book_id}/chapters/{chapter_number}/generate")
+    assert response.status_code == 202
+    run = response.json()["run"]
+    assert run["id"]
+
+    status = test_client.get(f"/api/books/{book_id}/chapters/{chapter_number}/workflow-runs/{run['id']}")
+    assert status.status_code == 200
+    completed_run = status.json()["run"]
+    assert completed_run["id"] == run["id"]
+    assert completed_run["status"] in {"completed", "needs_review"}
+    return completed_run
+
+
 def test_get_book(test_client):
     book_id = create_book(test_client)
     response = test_client.get(f"/api/books/{book_id}")
@@ -66,20 +80,18 @@ def test_generate_chapter_api_runs_complete_loop(test_client):
     assert test_client.put(f"/api/books/{book_id}/outline", json=outline).status_code == 200
     assert test_client.post(f"/api/books/{book_id}/outline/approve").status_code == 200
     assert test_client.post(f"/api/books/{book_id}/chapters", json={"chapter_number": 1}).status_code == 200
-    res = test_client.post(f"/api/books/{book_id}/chapters/1/generate")
-    assert res.status_code == 200
-    data = res.json()
-    assert data["versionNumber"] == 1
-    assert data["content"]
-    assert data["book"]["chapters"][0]["status"] == "approved"
-    assert data["book"]["chapters"][0]["current_version"] == 1
-    assert data["book"]["chapters"][0]["summary"] == "Résumé canonique du chapitre."
+    run = generate_chapter(test_client, book_id, 1)
+    assert run["chapter_number"] == 1
+    data = test_client.get(f"/api/books/{book_id}").json()
+    assert data["chapters"][0]["status"] == "approved"
+    assert data["chapters"][0]["current_version"] == 1
+    assert data["chapters"][0]["summary"] == "Résumé canonique du chapitre."
     context = test_client.get(f"/api/books/{book_id}/chapters/1/context").json()
     assert context["currentObjective"] == "Découvrir le premier fragment mémoire"
     assert "AUTHOR IDEA:" in context["formattedContext"]
     assert test_client.post(f"/api/books/{book_id}/chapters/2/generate").status_code == 400
     assert test_client.post(f"/api/books/{book_id}/chapters", json={"chapter_number": 2}).status_code == 200
-    assert test_client.post(f"/api/books/{book_id}/chapters/2/generate").status_code == 200
+    generate_chapter(test_client, book_id, 2)
     context = test_client.get(f"/api/books/{book_id}/chapters/2/context").json()
     assert "Résumé canonique du chapitre." in context["previousSummaries"]
 
@@ -121,7 +133,7 @@ def test_approving_chapter_syncs_proposed_canon(test_client):
     assert test_client.put(f"/api/books/{book_id}/outline", json=outline).status_code == 200
     assert test_client.post(f"/api/books/{book_id}/outline/approve").status_code == 200
     assert test_client.post(f"/api/books/{book_id}/chapters", json={"chapter_number": 1}).status_code == 200
-    assert test_client.post(f"/api/books/{book_id}/chapters/1/generate").status_code == 200
+    generate_chapter(test_client, book_id, 1)
     review = test_client.post(f"/api/books/{book_id}/chapters/1/review", json={"versionNumber": 1})
     assert review.status_code == 200
     assert review.json()["review"]["approved"] is True

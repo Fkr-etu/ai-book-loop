@@ -6,6 +6,24 @@ export type BackendChapterStatus =
   | "canonical"
   | "needs_review";
 
+export type BackendWorkflowRunStatus = "running" | "completed" | "needs_review" | "failed";
+export type BackendWorkflowStep = "write" | "review" | "correct" | "summarize";
+
+export interface BackendWorkflowRun {
+  id: string;
+  book_id: string;
+  chapter_number: number;
+  idempotency_key: string;
+  status: BackendWorkflowRunStatus;
+  step: BackendWorkflowStep;
+  attempt: number;
+  draft: string;
+  review: BackendSceneReview | null;
+  decision: string | null;
+  summary: string | null;
+  error: string | null;
+}
+
 export interface BackendOutlineChapter {
   number: number;
   title: string;
@@ -13,9 +31,7 @@ export interface BackendOutlineChapter {
   synopsis: string;
 }
 
-export interface BackendOutline {
-  chapters: BackendOutlineChapter[];
-}
+export interface BackendOutline { chapters: BackendOutlineChapter[]; }
 
 export interface BackendChapter {
   id: string;
@@ -50,29 +66,11 @@ export interface BackendBook {
   chapters: BackendChapter[];
 }
 
-export interface BackendUser {
-  id: string;
-  email: string;
-  name: string;
-}
+export interface BackendUser { id: string; email: string; name: string; }
 
-export interface BackendSceneReview {
-  score: number;
-  approved: boolean;
-  issues: string[];
-  suggestions: string[];
-}
+export interface BackendSceneReview { score: number; approved: boolean; issues: string[]; suggestions: string[]; }
 
-export interface BackendSourceDocument {
-  id: string;
-  book_id: string;
-  name: string;
-  source_type: string;
-  content: string;
-  content_hash: string;
-  metadata: Record<string, string>;
-  version: number;
-}
+export interface BackendSourceDocument { id: string; book_id: string; name: string; source_type: string; content: string; content_hash: string; metadata: Record<string, string>; version: number; }
 
 export interface BackendAssertion {
   id: string;
@@ -87,31 +85,8 @@ export interface BackendAssertion {
   evidence_id: string;
 }
 
-export interface BackendConflict {
-  id: string;
-  book_id: string;
-  left_assertion_id: string;
-  right_assertion_id: string;
-  status: "open" | "resolved";
-  resolution_assertion_id: string | null;
-}
+export interface BackendConflict { id: string; book_id: string; left_assertion_id: string; right_assertion_id: string; status: "open" | "resolved"; resolution_assertion_id: string | null; }
 
-export interface BackendCanonicalFact {
-  id: string;
-  book_id: string;
-  assertion_id: string;
-  statement: string;
-  subject: string;
-  predicate: string;
-  object: string;
-  decision_id: string;
-  version: number;
-  active: boolean;
-  previous_fact_id: string | null;
-}
+export interface BackendCanonicalFact { id: string; book_id: string; assertion_id: string; statement: string; subject: string; predicate: string; object: string; decision_id: string; version: number; active: boolean; previous_fact_id: string | null; }
 
-export interface BackendIngestionResult {
-  source_document: BackendSourceDocument;
-  assertions: BackendAssertion[];
-  already_ingested: boolean;
-}
+export interface BackendIngestionResult { source_document: BackendSourceDocument; assertions: BackendAssertion[]; already_ingested: boolean; }

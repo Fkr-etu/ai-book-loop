@@ -11,6 +11,7 @@ class WorkflowRunStatus(StrEnum):
     RUNNING = "running"
     COMPLETED = "completed"
     NEEDS_REVIEW = "needs_review"
+    FAILED = "failed"
 
 
 class WorkflowStep(StrEnum):
@@ -32,3 +33,4 @@ class ChapterWorkflowRun(BaseModel):
     review: SceneReview | None = None
     decision: str | None = None
     summary: str | None = None
+    error: str | None = None
