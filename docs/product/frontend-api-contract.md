@@ -160,17 +160,46 @@ Le numéro doit correspondre au workflow métier du backend. Le frontend ne doit
 
 ### `POST /api/books/{bookId}/chapters/{chapterNumber}/generate`
 
-Retour actuel :
+Retour :
 
 ```json
 {
   "book": "BackendBook",
   "versionNumber": 1,
-  "content": "string"
+  "content": "string",
+  "workflowRun": "BackendWorkflowRun"
 }
 ```
 
-Le backend exécute actuellement le workflow avant de répondre. Le frontend peut afficher le résultat retourné, mais **ne doit pas présenter ce endpoint comme un suivi durable de progression** tant qu'un endpoint de lecture du `ChapterWorkflowRun` n'est pas exposé.
+Le backend persiste `ChapterWorkflowRun` et retourne son état après l'exécution de la génération. Le frontend peut donc identifier le run sans inventer d'état local.
+
+### `GET /api/books/{bookId}/chapters/{chapterNumber}/workflow-run`
+
+Retourne le dernier `BackendWorkflowRun` persisté pour ce chapitre, ou `404` si aucune exécution n'existe.
+
+### `GET /api/books/{bookId}/chapters/{chapterNumber}/workflow-runs/{runId}`
+
+Retourne le `BackendWorkflowRun` demandé si le run appartient bien au livre et au chapitre ciblés.
+
+`BackendWorkflowRun` contient :
+
+```text
+id
+book_id
+chapter_number
+idempotency_key
+status: running | needs_review | completed
+step: write | review | correct | summarize
+attempt
+draft
+review | null
+decision | null
+summary | null
+```
+
+**Règle UI :** le frontend peut rafraîchir/poller ces endpoints et doit arrêter le polling sur un état terminal. Il ne doit pas fabriquer de pourcentage de progression ni transformer un timeout réseau en état métier.
+
+> Limite actuelle : l'endpoint `POST .../generate` exécute encore le workflow avant de répondre. FE-2B.6 rend l'état d'exécution lisible et reconstructible ; le déplacement de l'exécution dans un worker/background job est un chantier backend distinct.
 
 ### `POST /api/books/{bookId}/chapters/{chapterNumber}/review`
 
@@ -220,13 +249,13 @@ Le client réel doit conserver le statut HTTP via `RealApiError.status`.
 
 Ces éléments existent dans le domaine/backend mais ne sont pas encore lisibles de façon suffisante par le frontend après un reload :
 
-1. **Workflow durable** — `ChapterWorkflowRun` est persisté côté backend, mais aucun endpoint frontend public de lecture d'un run n'est exposé. Le Studio ne peut donc pas reconstruire fidèlement `running / needs_review / completed`, `step`, `attempt`, `review`, `summary` et `run id` après navigation.
+1. **Workflow durable** — résolu pour FE-2B.6 : lecture du dernier run et lecture par `run_id` sont maintenant exposées.
 2. **Historique des versions** — le modèle de domaine persiste des versions immuables, mais l'API publique ne propose pas de liste/lecture des versions d'un chapitre. Le Studio ne peut pas afficher un historique fiable après reload.
 3. **Evidence Canon** — les assertions exposent `evidence_id`, mais l'API publique ne propose pas encore de lecture des `Evidence` liées. Le frontend peut afficher le statut d'une assertion, pas sa preuve complète de manière fiable après reload.
 4. **Review détaillée persistée** — le chapitre expose `reviewed_version`, mais le `BookState` ne contient pas la review détaillée. Une API de lecture de review/version est nécessaire pour reconstruire la file de décision.
-5. **Statut métier vs exécution** — `ChapterStatus` et `WorkflowRunStatus` sont deux concepts différents. Le frontend doit les modéliser séparément dès que le contrat de workflow sera exposé.
+5. **Statut métier vs exécution** — `ChapterStatus` et `WorkflowRunStatus` sont désormais modélisés séparément côté frontend.
 
-**Conséquence :** FE-2B.2 peut construire la coque du Studio avec les données disponibles, mais FE-2B.5/6 ne doit pas simuler ces données. Les gaps ci-dessus doivent être traités dans l'API/backend avant de promettre un Studio pleinement reconstructible.
+**Conséquence :** le Studio ne doit pas simuler les informations encore absentes. Les gaps restants doivent être traités dans l'API/backend avant de promettre un Studio pleinement reconstructible.
 
 ## 11. Frontend adapter
 
