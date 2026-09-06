@@ -39,6 +39,13 @@ export function Sidebar({ onCloseMobile }: SidebarProps) {
       description: "Chapitres et scènes"
     },
     {
+      name: "Chapitres",
+      href: "/studio/chapters",
+      icon: ListOrdered,
+      description: "Génération, revue et décisions",
+      badge: (project.chapters || []).length
+    },
+    {
       name: "Personnages",
       href: "/studio/characters",
       icon: Users,
@@ -79,42 +86,28 @@ export function Sidebar({ onCloseMobile }: SidebarProps) {
   ];
 
   const handleNavClick = () => {
-    if (onCloseMobile) {
-      onCloseMobile();
-    }
+    if (onCloseMobile) onCloseMobile();
   };
 
   return (
     <aside className="w-full h-full flex flex-col justify-between p-4 overflow-y-auto">
       <div className="space-y-6">
-        {/* Mobile Header with Close Button */}
         {onCloseMobile && (
           <div className="flex items-center justify-between pb-2 border-b border-[#c6c6cd]/30 md:hidden">
-            <span className="font-playfair font-bold text-sm text-[#0b1c30]">
-              Navigation Studio
-            </span>
-            <button
-              onClick={onCloseMobile}
-              className="p-1 rounded text-[#45464d] hover:text-[#0b1c30] hover:bg-[#e5eeff]"
-              aria-label="Fermer le menu"
-            >
+            <span className="font-playfair font-bold text-sm text-[#0b1c30]">Navigation Studio</span>
+            <button onClick={onCloseMobile} className="p-1 rounded text-[#45464d] hover:text-[#0b1c30] hover:bg-[#e5eeff]" aria-label="Fermer le menu">
               <X className="w-5 h-5" />
             </button>
           </div>
         )}
 
-        {/* Active Project Banner */}
         <div className="p-3 bg-[#ffffff] rounded border border-[#c6c6cd]/40 shadow-xs">
           <div className="flex items-center justify-between text-[10px] font-mono uppercase text-[#45464d] mb-1">
             <span>Projet en cours</span>
             <Bookmark className="w-3 h-3 text-[#b87500]" />
           </div>
-          <h2 className="font-playfair text-sm font-bold text-[#0b1c30] truncate">
-            {project.title}
-          </h2>
-          <p className="text-[11px] text-[#45464d] truncate mt-0.5">
-            {project.genre}
-          </p>
+          <h2 className="font-playfair text-sm font-bold text-[#0b1c30] truncate">{project.title}</h2>
+          <p className="text-[11px] text-[#45464d] truncate mt-0.5">{project.genre}</p>
           <div className="mt-2 pt-2 border-t border-[#c6c6cd]/20 flex items-center justify-between text-[11px] font-mono text-[#45464d]">
             <span>Mots: {(project.currentWordCount || 0).toLocaleString()}</span>
             <span className="text-[#b87500] font-semibold">
@@ -123,7 +116,6 @@ export function Sidebar({ onCloseMobile }: SidebarProps) {
           </div>
         </div>
 
-        {/* Navigation Section */}
         <div>
           <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-wider text-[#76777d] px-2 mb-2">
             <span>Espaces de Travail</span>
@@ -141,41 +133,19 @@ export function Sidebar({ onCloseMobile }: SidebarProps) {
                   href={item.href}
                   onClick={handleNavClick}
                   aria-current={isActive ? "page" : undefined}
-                  className={`flex items-start gap-3 p-2.5 rounded transition-all text-left ${
-                    isActive
-                      ? "bg-[#0b1c30] text-[#ffffff] shadow-xs"
-                      : "text-[#0b1c30] hover:bg-[#e5eeff] text-[#45464d]"
-                  }`}
+                  className={`flex items-start gap-3 p-2.5 rounded transition-all text-left ${isActive ? "bg-[#0b1c30] text-[#ffffff] shadow-xs" : "text-[#0b1c30] hover:bg-[#e5eeff] text-[#45464d]"}`}
                 >
-                  <Icon
-                    className={`w-4 h-4 mt-0.5 shrink-0 ${
-                      isActive ? "text-[#ffddb8]" : "text-[#5f5e5b]"
-                    }`}
-                  />
+                  <Icon className={`w-4 h-4 mt-0.5 shrink-0 ${isActive ? "text-[#ffddb8]" : "text-[#5f5e5b]"}`} />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold leading-none block truncate">
-                        {item.name}
-                      </span>
+                      <span className="text-xs font-semibold leading-none block truncate">{item.name}</span>
                       {item.badge !== undefined && (
-                        <span
-                          className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
-                            isActive
-                              ? "bg-[#ffddb8] text-[#2a1700]"
-                              : "bg-[#d3e4fe] text-[#0b1c30]"
-                          }`}
-                        >
+                        <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${isActive ? "bg-[#ffddb8] text-[#2a1700]" : "bg-[#d3e4fe] text-[#0b1c30]"}`}>
                           {item.badge}
                         </span>
                       )}
                     </div>
-                    <span
-                      className={`text-[10px] block truncate mt-1 ${
-                        isActive ? "text-[#7c839b]" : "text-[#76777d]"
-                      }`}
-                    >
-                      {item.description}
-                    </span>
+                    <span className={`text-[10px] block truncate mt-1 ${isActive ? "text-[#7c839b]" : "text-[#76777d]"}`}>{item.description}</span>
                   </div>
                 </Link>
               );
@@ -184,12 +154,9 @@ export function Sidebar({ onCloseMobile }: SidebarProps) {
         </div>
       </div>
 
-      {/* Footer Info */}
       <div className="pt-4 border-t border-[#c6c6cd]/30 text-[11px] font-mono text-[#76777d] flex items-center justify-between">
         <span>Manuscript v1.0</span>
-        <span className="inline-flex items-center gap-1 text-[#b87500]">
-          ● Mode Studio
-        </span>
+        <span className="inline-flex items-center gap-1 text-[#b87500]">● Mode Studio</span>
       </div>
     </aside>
   );
