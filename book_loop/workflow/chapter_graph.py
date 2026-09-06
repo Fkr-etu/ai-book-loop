@@ -17,15 +17,7 @@ from book_loop.application.policies.review import ReviewDecision, decide
 from book_loop.application.services.context import ContextBuilder
 from book_loop.application.services.linguistic_validation import LinguisticValidationService
 from book_loop.application.services.linter import ChapterLinter
-from book_loop.domain.models import (
-    BookState,
-    ChapterStatus,
-    Diagnostic,
-    DiagnosticSeverity,
-    DiagnosticSource,
-    LinguisticCheckStatus,
-    SceneReview,
-)
+from book_loop.domain.models import BookState, ChapterStatus, Diagnostic, DiagnosticSeverity, DiagnosticSource, LinguisticCheckStatus, SceneReview
 from book_loop.domain.workflow import ChapterWorkflowRun, WorkflowRunStatus, WorkflowStep
 from book_loop.domain.protocols import BookRepository
 from book_loop.infrastructure.observability import ObservabilityEvent, ObservabilityStore
@@ -299,4 +291,11 @@ class ChapterWorkflow:
             run = self.workflow_store.get_or_create(book_id=book.id, chapter_number=chapter_number, idempotency_key=key)
             if run.status in {WorkflowRunStatus.COMPLETED, WorkflowRunStatus.NEEDS_REVIEW}:
                 return self._state_from_run(book, run)
-            return self._run_stepwise(book=book, run=run)
+            try:
+                return self._run_stepwise(book=book, run=run)
+            except Exception as exc:
+                run.status = WorkflowRunStatus.FAILED
+                run.error = str(exc)
+                self._checkpoint(run)
+                self._emit("WorkflowFailed", self._state_from_run(book, run), status="error", error_type=type(exc).__name__)
+                raise
