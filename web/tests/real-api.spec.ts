@@ -53,14 +53,31 @@ test.describe("Book Loop — real API author journey", () => {
     await expect(page.getByText("Plan approuvé")).toBeVisible();
 
     const proposedOutline = await page.locator("pre").innerText();
-    const firstChapterTitle = proposedOutline.match(/^## Chapitre 1: (.+)$/m)?.[1];
+    const firstChapterTitle = proposedOutline.match(/^## Chapitre 1: (.+)$/m)?.[1]?.trim();
     expect(firstChapterTitle).toBeTruthy();
 
     await page.getByTestId("add-chapter-btn").click();
     await page.locator('form input[type="text"]').nth(0).fill(firstChapterTitle!);
     await page.locator('form input[type="text"]').nth(1).fill("Poser le conflit initial.");
+
+    const createChapterResponsePromise = page.waitForResponse(
+      (response) =>
+        response.url().includes("/api/books/") &&
+        response.url().endsWith("/chapters") &&
+        response.request().method() === "POST"
+    );
     await page.getByRole("button", { name: "Créer le chapitre" }).click();
-    await expect(page.getByRole("heading", { name: firstChapterTitle! })).toBeVisible();
+
+    const createChapterResponse = await createChapterResponsePromise;
+    expect(createChapterResponse.ok()).toBeTruthy();
+    const createdBook = (await createChapterResponse.json()) as {
+      chapters?: Array<{ number: number; title: string }>;
+    };
+    const createdChapter = createdBook.chapters?.at(-1);
+    expect(createdChapter?.number).toBe(1);
+    expect(createdChapter?.title).toBe(firstChapterTitle);
+
+    await expect(page.getByRole("heading", { name: firstChapterTitle!, exact: true })).toBeVisible();
 
     await page.goto("/studio/chapters");
     await expect(page.getByRole("heading", { name: "Rédiger, vérifier, décider" })).toBeVisible();
