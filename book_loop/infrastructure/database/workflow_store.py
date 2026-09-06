@@ -19,5 +19,17 @@ class InMemoryWorkflowRunStore:
             self.runs[key] = run
         return run.model_copy(deep=True)
 
+    def get(self, run_id: str) -> ChapterWorkflowRun:
+        for run in self.runs.values():
+            if run.id == run_id:
+                return run.model_copy(deep=True)
+        raise KeyError(run_id)
+
+    def get_latest(self, *, book_id: str, chapter_number: int) -> ChapterWorkflowRun:
+        candidates = [run for run in self.runs.values() if run.book_id == book_id and run.chapter_number == chapter_number]
+        if not candidates:
+            raise KeyError((book_id, chapter_number))
+        return max(candidates, key=lambda run: run.id)
+
     def save(self, run: ChapterWorkflowRun) -> None:
         self.runs[(run.book_id, run.chapter_number, run.idempotency_key)] = run.model_copy(deep=True)
