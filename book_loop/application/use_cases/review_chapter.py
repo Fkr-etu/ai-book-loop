@@ -76,8 +76,10 @@ class ReviewChapter:
 
         if decision == ReviewDecision.ACCEPT:
             chapter.status = ChapterStatus.NEEDS_REVIEW
+            chapter.reviewed_version = version
         else:
             chapter.status = ChapterStatus.REJECTED
+            chapter.reviewed_version = None
 
         self.repository.save(book)
         return book, review

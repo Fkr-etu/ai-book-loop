@@ -64,6 +64,7 @@ class Chapter(BaseModel):
     objective: str
     status: ChapterStatus = ChapterStatus.DRAFT
     current_version: int = Field(default=0, ge=0)
+    reviewed_version: int | None = Field(default=None, ge=1)
     summary: str | None = None
 
 
