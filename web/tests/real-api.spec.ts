@@ -47,7 +47,7 @@ test.describe("Book Loop — real API author journey", () => {
     await expect(page.getByRole("heading", { name: "Plan global" })).toBeVisible();
 
     await page.getByRole("button", { name: "Générer le plan IA" }).click();
-    await expect(page.getByText("Plan proposé")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Plan proposé", exact: true })).toBeVisible();
     await expect(page.getByTestId("approve-outline-btn")).toBeEnabled();
     await page.getByTestId("approve-outline-btn").click();
     await expect(page.getByText("Plan approuvé")).toBeVisible();
