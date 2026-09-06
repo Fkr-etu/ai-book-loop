@@ -155,8 +155,8 @@ export function Sidebar({ onCloseMobile }: SidebarProps) {
       </div>
 
       <div className="pt-4 border-t border-[#c6c6cd]/30 text-[11px] font-mono text-[#76777d] flex items-center justify-between">
-        <span>Manuscript v1.0</span>
-        <span className="inline-flex items-center gap-1 text-[#b87500]">● Mode Studio</span>
+        <span>AI Book Loop</span>
+        <span className="inline-flex items-center gap-1 text-[#b87500]">● Studio</span>
       </div>
     </aside>
   );
