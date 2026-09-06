@@ -5,7 +5,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
-from book_loop.api.dependencies import get_container, get_owned_book
+from book_loop.api.dependencies import get_container, get_current_user, get_owned_book
 from book_loop.domain.models import ReviewDecisionType, UserPublic
 from book_loop.infrastructure.container import Container
 
@@ -41,7 +41,7 @@ def list_canonical_facts(book_id: str, request: Request, container: Container = 
 @router.post("/assertions/{assertion_id}/review")
 def review_assertion(book_id: str, assertion_id: str, payload: ReviewAssertionPayload, request: Request, container: Container = Depends(get_container)) -> dict[str, Any]:
     get_owned_book(book_id, request, container)
-    current_user: UserPublic = get_owned_book_user(request, container)
+    current_user: UserPublic = get_current_user(request)
     try:
         decision_enum = ReviewDecisionType(payload.decision.lower())
         review = container.review_assertion().execute(
@@ -56,10 +56,3 @@ def review_assertion(book_id: str, assertion_id: str, payload: ReviewAssertionPa
         raise HTTPException(status_code=400, detail=str(exc))
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
-
-
-def get_owned_book_user(request: Request, container: Container) -> UserPublic:
-    """Return the authenticated principal after ownership has been checked."""
-    from book_loop.api.dependencies import get_current_user
-
-    return get_current_user(request)
