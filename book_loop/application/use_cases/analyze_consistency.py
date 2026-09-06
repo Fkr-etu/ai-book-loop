@@ -37,12 +37,17 @@ class AnalyzeConsistency:
 
     def execute(self, *, book_id: str) -> list[ConsistencyIssue]:
         self._detect_conflicts.execute(book_id=book_id)
+        return self.list_existing(book_id=book_id)
+
+    def list_existing(self, *, book_id: str) -> list[ConsistencyIssue]:
+        """Return persisted conflict state without causing a write as a side effect."""
         conflicts = self.repository.list_conflicts(book_id=book_id)
         assertions = {a.id: a for a in self.repository.list_assertions(book_id=book_id)}
         evidence = {e.id: e for e in self.repository.list_evidence(book_id=book_id)}
         return [
             self._to_issue(conflict, assertions=assertions, evidence=evidence)
             for conflict in conflicts
+            if conflict.left_assertion_id in assertions and conflict.right_assertion_id in assertions
         ]
 
     @staticmethod
