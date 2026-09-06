@@ -19,12 +19,29 @@ Ce document décrit le contrat réellement exposé par l'API au moment du démar
 
 | Méthode | Endpoint | Réponse | Erreurs principales |
 | --- | --- | --- | --- |
-| POST | `/api/auth/register` | `UserPublic` ou enveloppe utilisateur | `4xx` validation / conflit |
-| POST | `/api/auth/login` | `UserPublic` ou enveloppe utilisateur | `401` |
+| POST | `/api/auth/register` | `UserPublic` ou enveloppe utilisateur | `400` générique / `422` validation / `429` throttling |
+| POST | `/api/auth/login` | `UserPublic` ou enveloppe utilisateur | `401` générique / `429` throttling |
 | POST | `/api/auth/logout` | message | `4xx` |
 | GET | `/api/auth/me` | `UserPublic` | `401` si session absente/expirée |
 
 La session utilise un cookie HTTP-only et l'API accepte également `Authorization: Bearer ...`. Le client réel envoie `credentials: include`.
+
+### Protection anti-brute-force
+
+Le login est protégé par deux limites indépendantes, évaluées côté backend :
+
+- **par compte** : 5 tentatives sur une fenêtre glissante de 15 minutes ;
+- **par IP** : 5 tentatives sur une fenêtre glissante de 15 minutes.
+
+La persistance est assurée par PostgreSQL afin que la protection reste cohérente entre plusieurs instances Cloud Run. Une réussite de connexion réinitialise le compteur associé au compte. Le backend renvoie `429` avec un message générique ; le frontend ne doit pas afficher quel compteur a été dépassé.
+
+L'inscription est également limitée par IP (10 créations sur 15 minutes) pour réduire l'abus automatisé.
+
+### Anti-enumeration
+
+Les échecs de connexion utilisent toujours le même message, que l'adresse existe ou non : `Adresse e-mail ou mot de passe incorrect.` Le backend effectue également une vérification de hash factice lorsqu'aucun compte n'existe afin de réduire les différences de temps de réponse.
+
+Une tentative d'inscription avec une adresse déjà utilisée ne confirme pas l'existence du compte et retourne un message générique.
 
 ## 3. Livres
 
@@ -209,10 +226,11 @@ Cette opération peut servir à alimenter le Canon, mais l'ingestion ne constitu
 
 Le client réel doit conserver le statut HTTP via `RealApiError.status`.
 
-- `401` : session absente/expirée → retour `/login`.
+- `401` sur login : message générique `Adresse e-mail ou mot de passe incorrect.`
+- `400` sur inscription pour conflit : message générique ; ne pas confirmer qu'un compte existe.
+- `422` : erreur de validation exploitable par l'UI (notamment la politique de mot de passe).
+- `429` : opération temporairement limitée → afficher une explication utilisateur simple et ne pas indiquer quel compteur a déclenché la limite.
 - `404` : livre/ressource introuvable ou livre d'un autre compte → écran/not-found approprié, sans fuite d'existence.
-- `400` : requête valide syntaxiquement mais refusée par une règle métier → afficher le message `detail`.
-- `429` : opération temporairement indisponible ou limite métier → ne pas transformer en erreur générique.
 - `408/429/500/502/503/504` sur GET : retry limité déjà implémenté par `RealApiClient`.
 - timeout réseau : message explicite ; ne pas masquer l'erreur sous un faux état métier.
 
