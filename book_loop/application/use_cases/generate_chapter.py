@@ -37,9 +37,6 @@ class GenerateChapter:
                 f"Chapter {chapter_number - 1} must be approved before generating chapter {chapter_number}"
             )
 
-        # The default key represents the next chapter version. Repeating the same
-        # request while that version is still in progress resumes it; after completion
-        # current_version advances and a later call intentionally creates a new run.
         key = idempotency_key or f"chapter:{book.id}:{chapter_number}:v{chapter.current_version + 1}"
 
         if self.repository is not None and hasattr(self.repository, "consume_workflow_capacity"):
@@ -47,7 +44,8 @@ class GenerateChapter:
             if user is None:
                 raise PermissionError("Unknown owner")
             plan = SubscriptionPlan(user.plan)
-            period_start = datetime.now(timezone.utc).date().isoformat()
+            now = datetime.now(timezone.utc)
+            period_start = now.date().replace(day=1).isoformat()
             allowed = self.repository.consume_workflow_capacity(
                 user_id=user.id,
                 period_start=period_start,
