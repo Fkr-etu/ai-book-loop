@@ -31,19 +31,15 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: pip
-
       - name: Install dependencies
         run: python -m pip install -e ".[dev]"
-
       - name: Apply database migrations
         run: alembic upgrade head
-
       - name: Run tests
         run: pytest
 
@@ -56,20 +52,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "22"
           cache: npm
           cache-dependency-path: web/package-lock.json
-
       - name: Install dependencies
         run: npm ci
-
       - name: Lint
         run: npm run lint
-
       - name: Build
         run: npm run build
 
@@ -81,29 +73,95 @@ jobs:
       run:
         working-directory: web
     env:
-      # E2E deliberately uses the local deterministic API facade.
-      # No backend credentials or Gemini key are provided to this job.
       NEXT_PUBLIC_USE_REAL_API: "false"
       NEXT_PUBLIC_API_URL: "http://localhost:8000"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "22"
           cache: npm
           cache-dependency-path: web/package-lock.json
-
       - name: Install dependencies
         run: npm ci
-
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
-
       - name: Build E2E app
         run: npm run build
-
       - name: Run Playwright E2E
         run: npm run test:e2e
+
+  e2e-real-api:
+    name: Frontend E2E (real backend API)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: book_loop
+          POSTGRES_PASSWORD: book_loop
+          POSTGRES_DB: book_loop_e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U book_loop -d book_loop_e2e"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://book_loop:book_loop@localhost:5432/book_loop_e2e
+      LLM_PROVIDER: fake
+      GEMINI_API_KEY: ""
+      AUTH_SECRET_KEY: "book-loop-e2e-test-secret"
+      NEXT_PUBLIC_USE_REAL_API: "true"
+      NEXT_PUBLIC_API_URL: "http://localhost:8000"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install backend dependencies
+        run: python -m pip install -e ".[dev]"
+      - name: Apply database migrations
+        run: alembic upgrade head
+      - name: Start backend API
+        run: |
+          nohup uvicorn book_loop.api.app:app --host 0.0.0.0 --port 8000 > /tmp/book-loop-api.log 2>&1 &
+          for attempt in {1..30}; do
+            curl --fail --silent http://127.0.0.1:8000/health && exit 0
+            sleep 1
+          done
+          cat /tmp/book-loop-api.log
+          exit 1
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install frontend dependencies
+        working-directory: web
+        run: npm ci
+      - name: Install Playwright browsers
+        working-directory: web
+        run: npx playwright install --with-deps chromium
+      - name: Build E2E app against real API
+        working-directory: web
+        run: npm run build
+      - name: Run real API Playwright journey
+        id: real-api-test
+        continue-on-error: true
+        working-directory: web
+        run: npx playwright test tests/real-api.spec.ts
+      - name: Print backend API log after E2E failure
+        if: steps.real-api-test.conclusion == 'failure'
+        run: cat /tmp/book-loop-api.log
+      - name: Fail job after diagnostics
+        if: steps.real-api-test.conclusion == 'failure'
+        run: exit 1
