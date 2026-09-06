@@ -27,7 +27,34 @@ Run from the repository root after configuring the GCP project and granting Clou
 gcloud builds submit --config=cloudbuild.yaml
 ```
 
-The frontend currently deploys with `NEXT_PUBLIC_USE_REAL_API=false`. This is deliberate: the frontend integration must be completed and tested before production traffic is switched to the real API.
+By default the frontend image is built with `NEXT_PUBLIC_USE_REAL_API=false`. This keeps CI and a fresh infrastructure deployment deterministic until the real API URL and authenticated journey have been validated.
+
+## Enable the real API
+
+`NEXT_PUBLIC_*` variables are consumed by the Next.js client bundle at **image build time**. Setting them only with Cloud Run runtime environment variables is therefore insufficient.
+
+Once the API service is ready, obtain its Cloud Run URL:
+
+```bash
+gcloud run services describe book-loop-api \
+  --region=europe-west9 \
+  --format='value(status.url)'
+```
+
+Then build and deploy the frontend with the real API enabled:
+
+```bash
+gcloud builds submit --config=cloudbuild.yaml \
+  --substitutions=_API_URL=https://YOUR-API-URL,_USE_REAL_API=true
+```
+
+The frontend uses the API's existing HttpOnly session cookie. The real API client therefore sends `credentials: include`; do not move authentication secrets into `NEXT_PUBLIC_*` variables.
+
+## Authentication / IAM
+
+The application API has its own user authentication and book authorization. Cloud Run's `--allow-unauthenticated` controls access to the HTTP service itself; it does not replace application authentication. During the integration phase the API can remain publicly reachable at the transport layer while `/api/books/*` stays protected by the application's session.
+
+If Cloud Build reports that it cannot set the `allUsers` invoker policy for `book-loop-api`, grant the Cloud Build service account the required Cloud Run/IAM permissions rather than weakening application authentication. The API must still reject unauthenticated book requests with HTTP 401.
 
 ## Important
 
