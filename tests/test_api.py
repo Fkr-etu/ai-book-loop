@@ -11,13 +11,14 @@ from book_loop.infrastructure.container import Container
 
 TEST_SECRET = "test-secret-key-for-api"
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://book_loop:book_loop@localhost:5432/book_loop_test")
+VALID_PASSWORD = "SecurePassword123!"
 
 
 @pytest.fixture
 def test_client():
     settings = Settings(database_url=DATABASE_URL, auth_secret_key=TEST_SECRET)
     client = TestClient(create_app(Container(settings=settings)))
-    response = client.post("/api/auth/register", json={"email": "author@example.com", "password": "password123", "name": "Author"})
+    response = client.post("/api/auth/register", json={"email": "author@example.com", "password": VALID_PASSWORD, "name": "Author"})
     assert response.status_code == 201
     yield client
 
@@ -105,8 +106,8 @@ def test_api_requires_authentication(test_client):
 def test_books_are_isolated_between_users(test_client):
     book_id = create_book(test_client, "Private Book")
     test_client.post("/api/auth/logout")
-    assert test_client.post("/api/auth/login", json={"email": "b@example.com", "password": "password123"}).status_code == 401
-    register = test_client.post("/api/auth/register", json={"email": "b@example.com", "password": "password123"})
+    assert test_client.post("/api/auth/login", json={"email": "b@example.com", "password": "wrong-password"}).status_code == 401
+    register = test_client.post("/api/auth/register", json={"email": "b@example.com", "password": VALID_PASSWORD})
     assert register.status_code == 201
     assert test_client.get(f"/api/books/{book_id}").status_code == 404
     assert test_client.post(f"/api/books/{book_id}/outline/generate").status_code == 404
