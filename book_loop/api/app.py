@@ -6,7 +6,15 @@ from fastapi.responses import JSONResponse
 
 from book_loop.api.dependencies import get_current_user
 from book_loop.api.routes import auth, books, canon, chapters, documents, outline
+from book_loop.infrastructure.auth import COOKIE_NAME
 from book_loop.infrastructure.container import Container
+
+
+def _origin_is_allowed(request: Request, container: Container) -> bool:
+    origin = request.headers.get("origin")
+    if not origin:
+        return False
+    return origin in container.settings.cors_allowed_origins
 
 
 def create_app(container: Container | None = None) -> FastAPI:
@@ -28,6 +36,29 @@ def create_app(container: Container | None = None) -> FastAPI:
     def health() -> dict[str, str]:
         """Lightweight liveness endpoint for Cloud Run and load balancers."""
         return {"status": "ok"}
+
+    @app.middleware("http")
+    async def protect_cookie_authenticated_mutations(request: Request, call_next):
+        """Reject cross-origin state changes when secure browser auth uses a session cookie.
+
+        Local HTTP clients intentionally use ``auth_cookie_secure=False`` and may not send
+        browser Origin headers. Production uses a secure cookie, so browser mutations must
+        carry an Origin from the configured CORS allowlist.
+        """
+        unsafe_method = request.method not in {"GET", "HEAD", "OPTIONS"}
+        has_session_cookie = bool(request.cookies.get(COOKIE_NAME))
+        csrf_protection_enabled = container.settings.auth_cookie_secure
+        if (
+            unsafe_method
+            and has_session_cookie
+            and csrf_protection_enabled
+            and not _origin_is_allowed(request, container)
+        ):
+            return JSONResponse(
+                status_code=403,
+                content={"detail": "Requête d'origine non autorisée."},
+            )
+        return await call_next(request)
 
     @app.middleware("http")
     async def protect_book_routes(request: Request, call_next):
