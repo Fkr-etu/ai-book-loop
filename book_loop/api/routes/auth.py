@@ -4,11 +4,11 @@ import uuid
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Response
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from book_loop.api.dependencies import get_container, get_current_user, set_session_cookie
 from book_loop.domain.models import User, UserPublic
-from book_loop.infrastructure.auth import create_access_token, hash_password, verify_password
+from book_loop.infrastructure.auth import create_access_token, hash_password, validate_password, verify_password
 from book_loop.infrastructure.container import Container
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -16,8 +16,13 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 class RegisterPayload(BaseModel):
     email: EmailStr
-    password: str = Field(min_length=8)
+    password: str = Field(min_length=12)
     name: str = ""
+
+    @field_validator("password")
+    @classmethod
+    def validate_password_policy(cls, value: str) -> str:
+        return validate_password(value)
 
 
 class LoginPayload(BaseModel):
