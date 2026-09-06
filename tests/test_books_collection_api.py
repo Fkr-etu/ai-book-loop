@@ -14,13 +14,14 @@ from book_loop.infrastructure.container import Container
 
 TEST_SECRET = "test-secret-key-for-books"
 DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://book_loop:book_loop@localhost:5432/book_loop_test")
+VALID_PASSWORD = "SecurePassword123!"
 
 
 def _user(email: str) -> User:
     return User(
         id=f"usr-{uuid.uuid4().hex}",
         email=email,
-        password_hash=hash_password("securePassword123"),
+        password_hash=hash_password(VALID_PASSWORD),
         name=email.split("@")[0],
     )
 
@@ -57,7 +58,7 @@ def test_list_books_returns_only_current_users_books() -> None:
     container.repository.save(book_a)
     container.repository.save(book_b)
 
-    login = client.post("/api/auth/login", json={"email": user_a.email, "password": "securePassword123"})
+    login = client.post("/api/auth/login", json={"email": user_a.email, "password": VALID_PASSWORD})
     assert login.status_code == 200
 
     response = client.get("/api/books")
@@ -71,7 +72,7 @@ def test_list_books_returns_empty_collection_for_new_user() -> None:
     user = _user(f"empty-{uuid.uuid4().hex}@example.com")
     container.repository.create_user(user)
 
-    login = client.post("/api/auth/login", json={"email": user.email, "password": "securePassword123"})
+    login = client.post("/api/auth/login", json={"email": user.email, "password": VALID_PASSWORD})
     assert login.status_code == 200
 
     response = client.get("/api/books")
