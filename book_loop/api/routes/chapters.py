@@ -2,14 +2,12 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Request
+from fastapi import APIRouter, Body, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from book_loop.api.dependencies import get_container
+from book_loop.api.dependencies import get_book, get_container
 from book_loop.application.services.context import ContextBuilder
-from book_loop.domain.models import UserPublic
 from book_loop.infrastructure.container import Container
-from book_loop.api.routes.books import get_book
 
 router = APIRouter(prefix="/api/books/{book_id}/chapters", tags=["chapters"])
 context_builder = ContextBuilder()
