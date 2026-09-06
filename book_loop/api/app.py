@@ -6,7 +6,6 @@ from fastapi.responses import JSONResponse
 
 from book_loop.api.dependencies import get_current_user
 from book_loop.api.routes import auth, books, canon, chapters, documents, outline
-from book_loop.domain.models import BookState, UserPublic
 from book_loop.infrastructure.auth import COOKIE_NAME
 from book_loop.infrastructure.container import Container
 
@@ -40,13 +39,7 @@ def create_app(container: Container | None = None) -> FastAPI:
 
     @app.middleware("http")
     async def protect_cookie_authenticated_mutations(request: Request, call_next):
-        """Reject cross-origin state changes when browser auth uses a session cookie.
-
-        Bearer-token API clients are not subject to CSRF because browsers do not attach
-        their Authorization header automatically. Cookie-authenticated mutations must
-        carry an allowed Origin, providing an explicit server-side CSRF defense in
-        addition to SameSite cookies and CORS.
-        """
+        """Reject cross-origin state changes when browser auth uses a session cookie."""
         unsafe_method = request.method not in {"GET", "HEAD", "OPTIONS"}
         has_session_cookie = bool(request.cookies.get(COOKIE_NAME))
         if unsafe_method and has_session_cookie and not _origin_is_allowed(request, container):
