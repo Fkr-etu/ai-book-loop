@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import traceback
 from typing import Any
 from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -14,11 +15,16 @@ class AddChapterPayload(BaseModel): chapter_number: int = Field(gt=0)
 class ReviewPayload(BaseModel): versionNumber: int | None = None; draftText: str | None = None
 
 def _run_chapter_workflow(container: Container, book_id: str, chapter_number: int, idempotency_key: str) -> None:
+    print(f"[chapter-workflow] start book={book_id} chapter={chapter_number} key={idempotency_key}", flush=True)
     try:
         book = container.repository.get(book_id)
-        container.chapter_workflow.run(book=book, chapter_number=chapter_number, idempotency_key=idempotency_key)
-    except Exception:
-        return
+        print(f"[chapter-workflow] loaded book={book_id} chapters={len(book.chapters)} outline_approved={book.outline_approved}", flush=True)
+        state = container.chapter_workflow.run(book=book, chapter_number=chapter_number, idempotency_key=idempotency_key)
+        print(f"[chapter-workflow] finished book={book_id} chapter={chapter_number} run={state.workflow_run_id} attempt={state.attempt} step={state.step} summary={bool(state.summary)}", flush=True)
+    except Exception as exc:
+        print(f"[chapter-workflow] FAILED book={book_id} chapter={chapter_number} key={idempotency_key} error={type(exc).__name__}: {exc}", flush=True)
+        traceback.print_exc()
+        raise
 
 @router.post("")
 def add_chapter(book_id: str, payload: AddChapterPayload, container: Container = Depends(get_container)) -> dict[str, Any]:
@@ -33,12 +39,15 @@ def generate_chapter(book_id: str, chapter_number: int, background_tasks: Backgr
     try: run = container.generate_chapter().start(book, chapter_number=chapter_number)
     except PermissionError as exc: raise HTTPException(status_code=429, detail=str(exc))
     except ValueError as exc: raise HTTPException(status_code=400, detail=str(exc))
+    print(f"[chapter-workflow] queued book={book_id} chapter={chapter_number} run={run.id} key={run.idempotency_key} status={run.status.value}", flush=True)
     background_tasks.add_task(_run_chapter_workflow, container, book_id, chapter_number, run.idempotency_key)
     return {"run": run.model_dump(mode="json")}
 
 @router.get("/{chapter_number}/workflow-runs/latest")
 def get_latest_workflow_run(book_id: str, chapter_number: int, container: Container = Depends(get_container)) -> dict[str, Any]:
     run = container.workflow_store.latest(book_id=book_id, chapter_number=chapter_number)
+    if run is not None:
+        print(f"[chapter-workflow] latest book={book_id} chapter={chapter_number} run={run.id} status={run.status.value} step={run.step.value} attempt={run.attempt} error={run.error!r}", flush=True)
     return {"run": run.model_dump(mode="json") if run is not None else None}
 
 @router.get("/{chapter_number}/workflow-runs/{run_id}")
@@ -46,6 +55,7 @@ def get_workflow_run(book_id: str, chapter_number: int, run_id: str, container: 
     try: run = container.workflow_store.get(run_id)
     except KeyError: raise HTTPException(status_code=404, detail="Workflow run introuvable.")
     if run.book_id != book_id or run.chapter_number != chapter_number: raise HTTPException(status_code=404, detail="Workflow run introuvable.")
+    print(f"[chapter-workflow] poll book={book_id} chapter={chapter_number} run={run.id} status={run.status.value} step={run.step.value} attempt={run.attempt} error={run.error!r}", flush=True)
     return {"run": run.model_dump(mode="json")}
 
 @router.post("/{chapter_number}/review")
