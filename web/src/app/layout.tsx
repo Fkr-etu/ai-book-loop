@@ -30,8 +30,11 @@ const courier = Courier_Prime({
 });
 
 export const metadata: Metadata = {
-  title: "Manuscript Studio - L'Architecte de Récits IA",
-  description: "Plateforme haut de gamme d'assistance à la création littéraire par IA.",
+  title: {
+    default: "Book Loop — Gardez votre histoire cohérente",
+    template: "%s — Book Loop",
+  },
+  description: "Écrivez avec l'IA sans perdre le fil de votre histoire. Book Loop protège la cohérence de votre univers au fil de ses évolutions.",
 };
 
 export default function RootLayout({
@@ -40,10 +43,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="fr"
-      className={`${playfair.variable} ${merriweather.variable} ${inter.variable} ${courier.variable}`}
-    >
+    <html lang="fr" className={`${playfair.variable} ${merriweather.variable} ${inter.variable} ${courier.variable}`}>
       <body className="antialiased min-h-screen bg-[#f8f9ff] text-[#0b1c30] selection:bg-[#ffddb8] selection:text-[#0b1c30]">
         <Providers>{children}</Providers>
       </body>

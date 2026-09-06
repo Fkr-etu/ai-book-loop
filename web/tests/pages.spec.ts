@@ -1,9 +1,9 @@
 import { test, expect } from "@playwright/test";
 
-test.describe("Manuscript Studio - Complete Page Coverage Suite", () => {
+test.describe("Book Loop - Complete Page Coverage Suite", () => {
   test("1. Login Page (/login) renders and allows navigation", async ({ page }) => {
     await page.goto("/login");
-    await expect(page).toHaveTitle(/Manuscript Studio/);
+    await expect(page).toHaveTitle(/Book Loop/);
     await expect(page.getByRole("heading", { name: "Manuscript Studio" })).toBeVisible();
     await expect(page.getByPlaceholder("auteur@manuscript.studio")).toBeVisible();
     await expect(page.getByRole("button", { name: "Connexion" })).toBeVisible();
@@ -103,10 +103,12 @@ test.describe("Manuscript Studio - Complete Page Coverage Suite", () => {
 
   test("13. Pricing Page (/pricing)", async ({ page }) => {
     await page.goto("/pricing");
-    await expect(page.getByRole("heading", { name: "Investissez dans la clarté de vos récits" })).toBeVisible();
-    await expect(page.getByText("Auteur Indépendant")).toBeVisible();
-    await expect(page.getByText("Architecte Littéraire")).toBeVisible();
-    await expect(page.getByText("Maison d'Édition")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Payez pour créer. Pas pour compter les tokens." })).toBeVisible();
+    await expect(page.getByText("Free", { exact: true })).toBeVisible();
+    await expect(page.getByText("Creator", { exact: true })).toBeVisible();
+    await expect(page.getByText("Pro", { exact: true })).toBeVisible();
+    await expect(page.getByText("19 €")).toBeVisible();
+    await expect(page.getByText("39 €")).toBeVisible();
   });
 
   test("14. Business Workflow — Outline approval gate blocks chapter creation until approved", async ({ page }) => {
@@ -169,19 +171,15 @@ test.describe("Manuscript Studio - Complete Page Coverage Suite", () => {
 
   test("20. Business Workflow — Generate → review → approve chapter in Studio", async ({ page }) => {
     await page.goto("/studio");
-
     const generate = page.getByRole("button", { name: "Générer Nouvelle Version" });
     const review = page.getByRole("button", { name: "Critique & Lint" });
     const approve = page.getByRole("button", { name: "Approuver (Canon)" });
-
     await expect(generate).toBeEnabled();
     await generate.click();
     await expect(page.getByText(/Brouillon local du chapitre/)).toBeVisible();
-
     await review.click();
     await expect(page.getByText("Dernière Évaluation")).toBeVisible();
     await expect(page.getByText("Revue locale simulée.")).toBeVisible();
-
     await approve.click();
     await expect(page.getByText("Approuvé (Canon)")).toBeVisible();
   });
