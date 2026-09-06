@@ -12,14 +12,55 @@ substitutions:
 steps:
   # The API must be deployed before the web image is built so Next.js can
   # bake the real Cloud Run API URL into the client bundle.
+  # Pull the previous images in parallel so Docker can reuse unchanged layers.
+  - id: pull-api-cache
+    name: gcr.io/cloud-builders/docker
+    entrypoint: bash
+    args:
+      - "-c"
+      - "docker pull ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_API_REPOSITORY}/api:latest || exit 0"
+    waitFor: ["-"]
+
+  - id: pull-web-cache
+    name: gcr.io/cloud-builders/docker
+    entrypoint: bash
+    args:
+      - "-c"
+      - "docker pull ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_WEB_REPOSITORY}/web:latest || exit 0"
+    waitFor: ["-"]
+
+  # API and Web builds are independent and run concurrently.
   - id: build-api
     name: gcr.io/cloud-builders/docker
+    waitFor: [pull-api-cache]
     args:
       - "build"
+      - "--cache-from"
+      - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_API_REPOSITORY}/api:latest"
       - "-t"
       - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_API_REPOSITORY}/api:$BUILD_ID"
+      - "-t"
+      - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_API_REPOSITORY}/api:latest"
       - "."
 
+  - id: build-web
+    name: gcr.io/cloud-builders/docker
+    waitFor: [pull-web-cache]
+    args:
+      - "build"
+      - "--cache-from"
+      - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_WEB_REPOSITORY}/web:latest"
+      - "--build-arg"
+      - "NEXT_PUBLIC_API_URL=${_API_URL}"
+      - "--build-arg"
+      - "NEXT_PUBLIC_USE_REAL_API=${_USE_REAL_API}"
+      - "-t"
+      - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_WEB_REPOSITORY}/web:$BUILD_ID"
+      - "-t"
+      - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_WEB_REPOSITORY}/web:latest"
+      - "./web"
+
+  # Push API and Web images independently, in parallel.
   - id: push-api
     name: gcr.io/cloud-builders/docker
     waitFor: [build-api]
@@ -27,6 +68,28 @@ steps:
       - "push"
       - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_API_REPOSITORY}/api:$BUILD_ID"
 
+  - id: push-api-cache
+    name: gcr.io/cloud-builders/docker
+    waitFor: [build-api]
+    args:
+      - "push"
+      - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_API_REPOSITORY}/api:latest"
+
+  - id: push-web
+    name: gcr.io/cloud-builders/docker
+    waitFor: [build-web]
+    args:
+      - "push"
+      - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_WEB_REPOSITORY}/web:$BUILD_ID"
+
+  - id: push-web-cache
+    name: gcr.io/cloud-builders/docker
+    waitFor: [build-web]
+    args:
+      - "push"
+      - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_WEB_REPOSITORY}/web:latest"
+
+  # Migrations remain a strict barrier before either deployment.
   - id: migrate
     name: gcr.io/google.com/cloudsdktool/cloud-sdk
     entrypoint: gcloud
@@ -56,10 +119,11 @@ steps:
       - "--region=${_REGION}"
       - "--wait"
 
+  # API and Web deployments run concurrently after migrations succeed.
   - id: deploy-api
     name: gcr.io/google.com/cloudsdktool/cloud-sdk
     entrypoint: gcloud
-    waitFor: [execute-migrations]
+    waitFor: [execute-migrations, push-api]
     args:
       - "run"
       - "deploy"
@@ -104,7 +168,7 @@ steps:
   - id: deploy-web
     name: gcr.io/google.com/cloudsdktool/cloud-sdk
     entrypoint: gcloud
-    waitFor: [push-web]
+    waitFor: [execute-migrations, push-web]
     args:
       - "run"
       - "deploy"
@@ -119,7 +183,3 @@ steps:
       - "--memory=512Mi"
       - "--concurrency=40"
       - "--port=8080"
-
-images:
-  - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_API_REPOSITORY}/api:$BUILD_ID"
-  - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_WEB_REPOSITORY}/web:$BUILD_ID"
