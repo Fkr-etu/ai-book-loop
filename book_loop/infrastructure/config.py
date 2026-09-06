@@ -17,4 +17,8 @@ class Settings(BaseSettings):
     auth_secret_key: str = ""
     auth_cookie_secure: bool = False
     auth_cookie_samesite: str = "lax"
+    auth_login_rate_limit: int = 5
+    auth_login_rate_window_seconds: int = 900
+    auth_register_rate_limit: int = 10
+    auth_register_rate_window_seconds: int = 900
     cors_allowed_origins: list[str] = ["http://localhost:3000", "http://localhost:5173"]
