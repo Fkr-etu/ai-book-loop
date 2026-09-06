@@ -8,7 +8,9 @@ export function AnalyticsBootstrap() {
   const pathname = usePathname();
 
   useEffect(() => {
-    track("page_viewed");
+    if (pathname === "/") {
+      track("landing_viewed");
+    }
   }, [pathname]);
 
   return null;
