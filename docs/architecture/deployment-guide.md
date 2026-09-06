@@ -13,7 +13,7 @@ Pour les raisons et compromis de cette architecture, voir [`gcp-architecture.md`
 - **Secrets** : Secret Manager.
 - **Migrations** : Alembic exécuté par Cloud Run Job.
 - **CI/CD** : GitHub Actions pour la validation, Cloud Build pour la production.
-- **Région** : `europe-west1`.
+- **Région** : `europe-west9` (Paris).
 
 ## 2. Pré-requis GCP
 
