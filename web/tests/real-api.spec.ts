@@ -16,6 +16,13 @@ test.describe("Book Loop — real API author journey", () => {
     });
 
     await page.goto("/register");
+
+    const cookieBanner = page.getByRole("complementary", { name: "Préférences de cookies" });
+    if (await cookieBanner.isVisible()) {
+      await cookieBanner.getByRole("button", { name: "Refuser" }).click();
+      await expect(cookieBanner).toBeHidden();
+    }
+
     await page.getByPlaceholder("Votre nom ou pseudonyme").fill("E2E Author");
     await page.getByPlaceholder("votre@email.com").fill(email);
     await page.getByPlaceholder("8 caractères minimum").fill(password);
