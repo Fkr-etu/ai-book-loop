@@ -10,6 +10,14 @@ function adaptChapter(chapter: BackendChapter): Chapter {
     status: chapter.status,
     currentVersion: chapter.current_version,
     summary: chapter.summary ?? undefined,
+    versions: chapter.versions.map((version) => ({
+      id: version.id,
+      versionNumber: version.versionNumber,
+      content: version.content,
+      createdAt: version.createdAt,
+      source: version.source,
+      status: version.status,
+    })),
   };
 }
 
