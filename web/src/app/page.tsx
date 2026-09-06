@@ -2,6 +2,16 @@ import Link from "next/link";
 import { ArrowRight, Check } from "lucide-react";
 import { Navbar } from "@/components/Navbar";
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://book-loop-web-nddyzebo7a-od.a.run.app";
+
+const structuredData = {
+  "@context": "https://schema.org",
+  "@graph": [
+    { "@type": "SoftwareApplication", name: "Book Loop", applicationCategory: "WritingApplication", operatingSystem: "Web", url: SITE_URL, inLanguage: "fr-FR", description: "Atelier d’écriture IA pour les histoires longues, avec un Canon narratif pour préserver la cohérence de l’univers au fil des chapitres." },
+    { "@type": "WebSite", name: "Book Loop", url: SITE_URL, inLanguage: "fr-FR" },
+  ],
+};
+
 const audiences = [
   "Auteur — Écrivez avec l’IA sans perdre le fil de votre roman.",
   "Scénariste — Faites évoluer votre scénario sans casser sa continuité.",
@@ -18,6 +28,7 @@ const principles = [
 export default function Home() {
   return (
     <div className="min-h-screen bg-[#f8f5f0] text-[#0f172a] font-inter">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }} />
       <Navbar />
       <main>
         <section className="max-w-6xl mx-auto px-4 sm:px-6 pt-16 pb-20 md:pt-24 md:pb-28">
