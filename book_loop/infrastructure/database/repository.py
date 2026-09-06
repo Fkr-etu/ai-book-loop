@@ -36,6 +36,14 @@ class BookRepositoryMixin:
             raise KeyError(f"Unknown book: {book_id}")
         return BookState.model_validate(json.loads(row["data"]))
 
+    def list_books_for_owner(self, owner_id: str) -> list[BookState]:
+        """Return only the books owned by one user, in stable id order."""
+        rows = self._connection.execute(
+            "SELECT data FROM books WHERE data::jsonb ->> 'owner_id' = ? ORDER BY id",
+            (owner_id,),
+        ).fetchall()
+        return [BookState.model_validate(json.loads(row["data"])) for row in rows]
+
     def save_chapter_version(self, book_id: str, chapter_number: int, version: int, draft: str) -> None:
         self._connection.execute(
             "INSERT INTO chapter_versions(book_id, chapter_number, version, draft) VALUES(?, ?, ?, ?)",
