@@ -27,7 +27,8 @@ from book_loop.application.use_cases.set_creative_brief import SetCreativeBrief
 from book_loop.application.use_cases.update_book import UpdateBook
 from book_loop.application.use_cases.update_outline import UpdateOutline
 from book_loop.infrastructure.config import Settings
-from book_loop.infrastructure.database.postgres import PostgresBookRepository, PostgresWorkflowRunStore
+from book_loop.infrastructure.database.postgres import PostgresBookRepository
+from book_loop.infrastructure.database.workflow_reader import PostgresWorkflowRunReader
 from book_loop.infrastructure.llm.assertion_extractor import LLMAssertionExtractor
 from book_loop.infrastructure.llm.factory import create_llm
 from book_loop.infrastructure.linguistic.languagetool import LanguageToolChecker
@@ -44,7 +45,7 @@ class Container:
         if not self.settings.database_url.startswith(("postgresql://", "postgres://", "postgresql+psycopg://")):
             raise ValueError("Unsupported DATABASE_URL; PostgreSQL is required (postgresql://...)")
         self.repository = PostgresBookRepository(self.settings.database_url)
-        self.workflow_store = PostgresWorkflowRunStore(self.settings.database_url)
+        self.workflow_store = PostgresWorkflowRunReader(self.settings.database_url)
         self.observability = ObservabilityStore(self.settings.database_url)
         self.llm = create_llm(self.settings)
 
