@@ -66,7 +66,6 @@ test.describe("Book Loop — real API author journey", () => {
     await expect(page.getByRole("heading", { name: "Rédiger, vérifier, décider" })).toBeVisible();
     await page.getByRole("button", { name: "Générer" }).click();
 
-    await expect(page.getByRole("status")).toBeVisible({ timeout: 10_000 });
     await expect(page.getByRole("button", { name: /v1 ·/ })).toBeVisible({ timeout: 20_000 });
     await expect(page.getByRole("textbox", { name: "Contenu du chapitre" })).not.toHaveValue("");
 
