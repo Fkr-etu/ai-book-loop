@@ -2,7 +2,6 @@ substitutions:
   _REGION: europe-west9
   _API_SERVICE: book-loop-api
   _WEB_SERVICE: book-loop-web
-  _WEB_ORIGIN: https://book-loop-web-166519352057.europe-west9.run.app
   _API_REPOSITORY: book-loop-api
   _WEB_REPOSITORY: book-loop-web
   _DB_INSTANCE: book-loop-postgres
@@ -27,6 +26,20 @@ steps:
       - "-c"
       - "docker pull ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_WEB_REPOSITORY}/web:latest || exit 0"
     waitFor: ["-"]
+
+  # Resolve the current frontend Cloud Run URL from GCP. This avoids hard-coding
+  # the generated *.run.app hostname in the repository.
+  - id: resolve-web-url
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: bash
+    waitFor: ["-"]
+    args:
+      - "-c"
+      - |
+        gcloud run services describe ${_WEB_SERVICE} \
+          --region=${_REGION} \
+          --format='value(status.url)' > /workspace/web-url
+        test -s /workspace/web-url
 
   # Build the API first; the web image is built only after the API is deployed
   # so Next.js can bake the real Cloud Run API URL into the client bundle.
@@ -89,26 +102,28 @@ steps:
 
   - id: deploy-api
     name: gcr.io/google.com/cloudsdktool/cloud-sdk
-    entrypoint: gcloud
-    waitFor: [execute-migrations, push-api]
+    entrypoint: bash
+    waitFor: [execute-migrations, push-api, resolve-web-url]
     args:
-      - "run"
-      - "deploy"
-      - "${_API_SERVICE}"
-      - "--image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_API_REPOSITORY}/api:$BUILD_ID"
-      - "--region=${_REGION}"
-      - "--platform=managed"
-      - "--allow-unauthenticated"
-      - "--service-account=${_API_SERVICE_ACCOUNT}"
-      - "--add-cloudsql-instances=$PROJECT_ID:${_REGION}:${_DB_INSTANCE}"
-      - "--set-secrets=DATABASE_URL=DATABASE_URL:latest,GEMINI_API_KEY=GEMINI_API_KEY:1,AUTH_SECRET_KEY=AUTH_SECRET_KEY:latest"
-      - "--set-env-vars=CORS_ALLOWED_ORIGINS=[\"${_WEB_ORIGIN}\"]"
-      - "--min=0"
-      - "--max=3"
-      - "--cpu=1"
-      - "--memory=512Mi"
-      - "--concurrency=8"
-      - "--port=8080"
+      - "-c"
+      - |
+        WEB_ORIGIN="$$(cat /workspace/web-url)"
+        test -n "$${WEB_ORIGIN}"
+        gcloud run deploy ${_API_SERVICE} \
+          --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_API_REPOSITORY}/api:$BUILD_ID \
+          --region=${_REGION} \
+          --platform=managed \
+          --allow-unauthenticated \
+          --service-account=${_API_SERVICE_ACCOUNT} \
+          --add-cloudsql-instances=$PROJECT_ID:${_REGION}:${_DB_INSTANCE} \
+          --set-secrets=DATABASE_URL=DATABASE_URL:latest,GEMINI_API_KEY=GEMINI_API_KEY:1,AUTH_SECRET_KEY=AUTH_SECRET_KEY:latest \
+          --set-env-vars="CORS_ALLOWED_ORIGINS=[\"$${WEB_ORIGIN}\"]" \
+          --min=0 \
+          --max=3 \
+          --cpu=1 \
+          --memory=512Mi \
+          --concurrency=8 \
+          --port=8080
 
   # Resolve the deployed API URL in a gcloud step, then pass it to a Docker
   # builder step. The Docker builder is required because cloud-sdk does not
