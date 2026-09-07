@@ -29,6 +29,7 @@ dev = [
   "pytest-cov>=6.0,<7.0",
 ]
 nlp = [
+  "dateparser>=1.2,<2.0",
   "spacy>=3.8,<4.0",
 ]
 
