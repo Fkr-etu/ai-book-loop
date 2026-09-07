@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from collections.abc import Iterable
+from dataclasses import dataclass
 
-from book_loop.domain.models import Assertion, CanonicalFact, Evidence
 from book_loop.application.services.change_impact import ChangeImpactAnalyzer
+from book_loop.domain.models import Assertion, CanonicalFact, Evidence
 
 
 @dataclass(frozen=True)
@@ -49,7 +49,6 @@ class RegressionReportBuilder:
     ) -> RegressionReport:
         facts_list = list(facts)
         impact = self._analyzer.analyze(facts_list, changed_fact_id=changed_fact_id)
-        impacted_ids = set(impact.affected_fact_ids)
 
         fact_by_id = {fact.id: fact for fact in facts_list}
         assertions_by_id = {assertion.id: assertion for assertion in assertions}
