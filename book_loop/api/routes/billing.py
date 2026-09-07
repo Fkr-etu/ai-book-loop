@@ -17,6 +17,17 @@ class CheckoutRequest(BaseModel):
     billing_cycle: Literal["monthly", "yearly"]
 
 
+@router.get("/me")
+def get_billing_state(request: Request) -> dict:
+    current_user = get_current_user(request)
+    container = request.app.state.container
+    try:
+        state = container.billing.get_billing_state(user_id=current_user.id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return state
+
+
 @router.post("/checkout")
 def create_checkout(request: Request, payload: CheckoutRequest) -> dict[str, str]:
     current_user = get_current_user(request)
