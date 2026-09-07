@@ -17,7 +17,11 @@ _DEATH_PREDICATES = {"death", "died", "death_date", "date_of_death"}
 
 
 class TimelineConsistencyDetector:
-    """Detect impossible birth/death chronology using explicit assertion dates."""
+    """Detect impossible birth/death chronology using explicit or normalized dates.
+
+    Relative expressions are intentionally ignored: without a narrative reference date,
+    interpreting them would make consistency results depend on the current clock.
+    """
 
     rule_id = "TIMELINE_BIRTH_AFTER_DEATH"
 
