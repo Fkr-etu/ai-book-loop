@@ -64,6 +64,9 @@ def test_timeline_detector_reports_birth_after_death_with_evidence() -> None:
     assert issues[0].severity == "error"
     assert issues[0].left_evidence == "Marie birth_date 1985"
     assert issues[0].right_evidence == "Marie death_date 1972"
+    assert issues[0].confidence == 0.95
+    assert issues[0].rule_id == "TIMELINE_BIRTH_AFTER_DEATH"
+    assert issues[0].metadata == {"detector": "narrative"}
 
 
 def test_timeline_detector_is_idempotent_and_ignores_rejected_assertions() -> None:

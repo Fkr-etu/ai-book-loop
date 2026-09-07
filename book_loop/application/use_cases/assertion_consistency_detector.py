@@ -9,6 +9,8 @@ from book_loop.domain.protocols import KnowledgeRepository
 class AssertionConsistencyDetector:
     """Adapter exposing the existing assertion conflict rule to the unified engine."""
 
+    rule_id = "ASSERTION_SUBJECT_PREDICATE_CONFLICT"
+
     def __init__(self, repository: KnowledgeRepository) -> None:
         self.repository = repository
         self._detect_conflicts = DetectConflicts(repository)
@@ -27,8 +29,9 @@ class AssertionConsistencyDetector:
             if conflict.left_assertion_id in assertions and conflict.right_assertion_id in assertions
         ]
 
-    @staticmethod
+    @classmethod
     def _to_issue(
+        cls,
         conflict: Conflict,
         *,
         assertions: dict[str, Assertion],
@@ -50,5 +53,8 @@ class AssertionConsistencyDetector:
             right_statement=right.statement,
             left_evidence=left_evidence.excerpt if left_evidence else "",
             right_evidence=right_evidence.excerpt if right_evidence else "",
+            confidence=min(left.confidence, right.confidence),
+            rule_id=cls.rule_id,
+            metadata={"detector": "assertion"},
             resolution_assertion_id=conflict.resolution_assertion_id,
         )
