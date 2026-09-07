@@ -76,7 +76,8 @@ export interface BackendBook {
   chapters: BackendChapter[];
 }
 
-export interface BackendUser { id: string; email: string; name: string; }
+export type BackendSubscriptionPlan = "free" | "creator" | "pro";
+export interface BackendUser { id: string; email: string; name: string; plan: BackendSubscriptionPlan; }
 
 export interface BackendSceneReview { score: number; approved: boolean; issues: string[]; suggestions: string[]; }
 
