@@ -120,7 +120,10 @@ The canonical documentation index is [`docs/README.md`](docs/README.md).
 
 ### For contributors and AI agents
 
-Start with [`AGENTS.md`](AGENTS.md), then follow [`docs/development/ai-agent-workflow.md`](docs/development/ai-agent-workflow.md). The current documentation audit is tracked in [`docs/architecture/documentation-audit.md`](docs/architecture/documentation-audit.md).
+Start with [`AGENTS.md`](AGENTS.md).
+
+- [`docs/architecture/system-map.md`](docs/architecture/system-map.md) — **canonical navigation map**: where capabilities live, which implementation owns each responsibility, current consistency architecture, source-of-truth hierarchy, and anti-duplication rules
+- [`docs/development/ai-agent-workflow.md`](docs/development/ai-agent-workflow.md) — step-by-step reconnaissance and implementation protocol for AI coding agents
 
 ### Product
 
@@ -135,18 +138,14 @@ Start with [`AGENTS.md`](AGENTS.md), then follow [`docs/development/ai-agent-wor
 - [`docs/architecture/overview.md`](docs/architecture/overview.md) — current architecture
 - [`docs/architecture/principles.md`](docs/architecture/principles.md) — architectural invariants
 - [`docs/architecture/boundaries.md`](docs/architecture/boundaries.md) — dependency boundaries
-- [`docs/architecture/workflows.md`](docs/architecture/workflows.md) — current workflows and recovery semantics
-- [`docs/architecture/data-model.md`](docs/architecture/data-model.md) — persisted model
-- [`docs/architecture/consistency-engine.md`](docs/architecture/consistency-engine.md) — consistency detector responsibilities
-- [`docs/architecture/canon-assertion-extraction.md`](docs/architecture/canon-assertion-extraction.md) — assertion extraction
-- [`docs/architecture/canonical-review.md`](docs/architecture/canonical-review.md) — Canon review
-- [`docs/architecture/canonical-context.md`](docs/architecture/canonical-context.md) — Canon context
-- [`docs/architecture/chapter-workflow-recovery.md`](docs/architecture/chapter-workflow-recovery.md) — workflow recovery
-- [`docs/architecture/document-ingestion.md`](docs/architecture/document-ingestion.md) — document ingestion
-- [`docs/architecture/generation-review-correction.md`](docs/architecture/generation-review-correction.md) — generation/review/correction
-- [`docs/architecture/deployment-guide.md`](docs/architecture/deployment-guide.md) — deployment
-- [`docs/architecture/gcp-architecture.md`](docs/architecture/gcp-architecture.md) — GCP reference architecture
-- [`docs/architecture/hosting-options.md`](docs/architecture/hosting-options.md) — hosting decision
+- [`docs/architecture/workflows.md`](docs/architecture/workflows.md) — current book/chapter workflows and recovery semantics
+- [`docs/architecture/data-model.md`](docs/architecture/data-model.md) — persisted domain and workflow-run model
+- [`docs/architecture/chapter-workflow-recovery.md`](docs/architecture/chapter-workflow-recovery.md) — durable checkpoints, idempotency and known limitations
+- [`docs/architecture/canonical-review.md`](docs/architecture/canonical-review.md) — current Canon review semantics
+- [`docs/architecture/canon-assertion-extraction.md`](docs/architecture/canon-assertion-extraction.md) — assertion extraction boundaries
+- [`docs/architecture/canonical-context.md`](docs/architecture/canonical-context.md) — canonical context assembly
+- [`docs/architecture/consistency-engine.md`](docs/architecture/consistency-engine.md) — consistency detector responsibilities and extension rules
+- [`docs/architecture/document-ingestion.md`](docs/architecture/document-ingestion.md) — document-ingestion design
 - [`docs/architecture/decisions/`](docs/architecture/decisions/) — historical architecture decisions
 
 ### Development
@@ -165,11 +164,10 @@ Start with [`AGENTS.md`](AGENTS.md), then follow [`docs/development/ai-agent-wor
 3. LLM providers are replaceable infrastructure.
 4. Creator intent and canonical continuity are first-class concerns.
 5. Preserve generated history rather than silently overwriting it.
-6. Consistency detection reports evidence; explicit review decides Canon.
-7. Avoid unnecessary LLM calls and bound retries.
-8. Tests must run without external LLM services.
-9. Search the current repository before adding a capability.
-10. Reuse or extend existing implementations before creating parallel abstractions.
-11. Architecture and documentation evolve together.
+6. Avoid unnecessary LLM calls and bound retries.
+7. Tests must run without external LLM services.
+8. Search the current repository before adding a capability.
+9. Reuse or extend existing implementations before creating parallel abstractions.
+10. Architecture and documentation evolve together.
 
-See `AGENTS.md` and `docs/README.md` for the complete documentation and agent rules.
+See `AGENTS.md` and `docs/architecture/system-map.md` for the complete agent and architecture rules.
