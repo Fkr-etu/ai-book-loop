@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ANALYTICS_CONSENT_EVENT, ANALYTICS_CONSENT_KEY } from "@/lib/analytics";
 
-const STORAGE_KEY = "book-loop-cookie-consent";
+const STORAGE_KEY = ANALYTICS_CONSENT_KEY;
 
 type Consent = "accepted" | "rejected";
 
@@ -15,6 +16,7 @@ export function CookieConsent() {
 
   const save = (consent: Consent) => {
     localStorage.setItem(STORAGE_KEY, consent);
+    window.dispatchEvent(new Event(ANALYTICS_CONSENT_EVENT));
     setVisible(false);
   };
 
