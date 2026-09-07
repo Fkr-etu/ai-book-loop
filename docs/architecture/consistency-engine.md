@@ -13,13 +13,13 @@ The consistency engine is therefore a **detection and explanation layer**, not a
 ```text
                          UnifiedConsistencyEngine
                                   |
-              +-------------------+----------------------+
-              |          |                |              |
-       Assertion       Timeline       Character        World
-       detector        detector        detector        detector
-              |          |                |              |
-        DetectConflicts |                |              |
-              |          +----------------+--------------+
+              +-------------------+-------------------------+
+              |          |                |        |        |
+       Assertion       Timeline       Temporal  Character  World
+       detector        detector       relation   detector detector
+              |          |                |        |        |
+        DetectConflicts |                |        |        |
+              |          +----------------+--------+--------+
               |                           |
               +---------------------------+
                           |
@@ -35,7 +35,7 @@ Assertion extraction + active Canon
 Assertion ↔ Canon
 ```
 
-The unified engine currently combines persisted assertion conflicts with three deterministic narrative detectors. The existing chapter-validation path remains distinct: **do not implement a second Canon-vs-text detector.** If that capability is exposed through the unified engine later, adapt the existing `CanonDiagnosticChecker` behind the shared detector contract.
+The unified engine currently combines persisted assertion conflicts with deterministic narrative detectors. The existing chapter-validation path remains distinct: **do not implement a second Canon-vs-text detector.** If that capability is exposed through the unified engine later, adapt the existing `CanonDiagnosticChecker` behind the shared detector contract.
 
 ## Existing implementations
 
@@ -68,6 +68,21 @@ Current rule:
 - a finding is raised only when birth year is strictly later than death year.
 
 This detector is intentionally narrow. It does not infer chronology from arbitrary prose or assume that two events are contradictory merely because they concern the same character.
+
+### `TemporalRelationConsistencyDetector`
+
+Location: `book_loop/application/use_cases/temporal_relation_consistency_detector.py`
+
+Responsibility: detect explicit contradictions between ordered narrative events or states.
+
+Current rule set is intentionally small:
+
+- `before` / `precedes` establish a directed temporal order;
+- `after` / `follows` are normalized to the equivalent `before` relation;
+- `not_before` / `does_not_precede` explicitly negate an order;
+- a finding is raised when two active assertions impose opposite orders, or when an asserted order is explicitly negated.
+
+The detector operates only on explicit assertion predicates. It does not infer event chronology from prose, dates, or narrative context.
 
 ### `CharacterContinuityDetector`
 
@@ -105,7 +120,7 @@ Detectors are read-only projections: the narrative detectors do not persist conf
 
 Location: `book_loop/application/use_cases/analyze_consistency.py`
 
-Responsibility: application entry point for consistency analysis. It runs the assertion detector plus the three narrative detectors through `UnifiedConsistencyEngine` and preserves the existing API contract.
+Responsibility: application entry point for consistency analysis. It runs the assertion detector plus the deterministic narrative detectors through `UnifiedConsistencyEngine` and preserves the existing API contract.
 
 `list_existing()` remains a read-only projection of persisted assertion conflicts.
 
@@ -125,8 +140,8 @@ The current progression is:
 
 1. deterministic assertion conflicts;
 2. deterministic narrative invariants with explicit predicates;
-3. existing Canon-vs-new-text diagnostics integrated without duplication;
-4. richer temporal and relationship constraints;
+3. deterministic temporal and relationship constraints;
+4. existing Canon-vs-new-text diagnostics integrated without duplication;
 5. semantic/NLI/LLM-assisted detection where deterministic rules cannot express the relation;
 6. incremental and asynchronous analysis when corpus size requires it.
 
