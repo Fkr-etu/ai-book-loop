@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 
 import pytest
 import stripe
-from stripe.error import SignatureVerificationError
+from stripe import SignatureVerificationError
 
 from book_loop.domain.models import SubscriptionPlan
 from book_loop.infrastructure.config import Settings
