@@ -5,6 +5,7 @@ from typing import Protocol, TypeVar
 
 from pydantic import BaseModel
 
+from book_loop.domain.canon_change import CanonChangeProposal, CanonChangeProposalStatus
 from book_loop.domain.models import (
     Assertion,
     AssertionStatus,
@@ -24,16 +25,7 @@ StructuredModel = TypeVar("StructuredModel", bound=BaseModel)
 
 class LLMProvider(Protocol):
     def generate(self, *, system_prompt: str, user_prompt: str) -> str: ...
-
-    def generate_structured(
-        self,
-        *,
-        system_prompt: str,
-        user_prompt: str,
-        schema: type[StructuredModel],
-        thinking_level: str = "medium",
-        max_output_tokens: int | None = None,
-    ) -> StructuredModel: ...
+    def generate_structured(self, *, system_prompt: str, user_prompt: str, schema: type[StructuredModel], thinking_level: str = "medium", max_output_tokens: int | None = None) -> StructuredModel: ...
 
 
 class EmbeddingProvider(Protocol):
@@ -95,3 +87,7 @@ class KnowledgeRepository(Protocol):
     def list_active_canonical_facts(self, *, book_id: str) -> list[CanonicalFact]: ...
     def list_canonical_fact_history(self, *, book_id: str, subject: str, predicate: str) -> list[CanonicalFact]: ...
     def set_assertion_status(self, assertion_id: str, status: AssertionStatus) -> None: ...
+    def save_canon_change_proposal(self, proposal: CanonChangeProposal) -> None: ...
+    def get_canon_change_proposal(self, proposal_id: str) -> CanonChangeProposal: ...
+    def list_canon_change_proposals(self, *, book_id: str) -> list[CanonChangeProposal]: ...
+    def set_canon_change_proposal_status(self, proposal_id: str, status: CanonChangeProposalStatus) -> None: ...
