@@ -37,15 +37,17 @@ Approval gate
      ↓
 Draft / new content
      ↓
-Validation + structured review
-  ↙                    ↘
-Correct / retry       Accept
-     ↓                    ↓
-Review again          Summary
-                          ↓
-                    Approved Canon
-                          ↓
-                 Next chapter / revision
+Validation + consistency + structured review
+  ↙                                      ↘
+Correct / retry                         Accept
+     ↓                                      ↓
+Review again                            Summary
+                                            ↓
+                                  Explicit Canon review
+                                            ↓
+                                       Approved Canon
+                                            ↓
+                                  Next chapter / revision
 ```
 
 Each chapter run has durable execution state and an idempotency identity. Generated versions remain immutable. Canonical knowledge is updated only through explicit application review decisions.
@@ -54,7 +56,7 @@ The creator remains the source of creative intent. LLMs propose and critique; ap
 
 ## Project Architecture & Structure
 
-- **Backend Core Engine (`book_loop/`):** layered/hexagonal Python architecture, chapter workflow orchestration, SQLite persistence, Canon support, and CLI interface.
+- **Backend Core Engine (`book_loop/`):** layered/hexagonal Python architecture, chapter workflow orchestration, PostgreSQL persistence, Canon/consistency support, and CLI interface.
 - **Frontend Studio (`web/`):** Next.js App Router application ("Manuscript Studio") built with TypeScript, Tailwind CSS v4, React Flow (`@xyflow/react`), API service layer, and Playwright E2E testing suite.
 
 ## Quick start
@@ -106,13 +108,15 @@ Application use cases + policies
 Domain + ports
       ↑
 Infrastructure adapters
-      ├── SQLite
+      ├── PostgreSQL
       └── Configurable LLM provider
 ```
 
-The chapter workflow is isolated from the rest of the application. `LangGraph` remains an implementation-compatible orchestration representation; the durable `ChapterWorkflow.run()` path uses a persisted Python state machine so execution can resume after a process restart.
+The chapter workflow is isolated from the rest of the application. `LangGraph` remains an implementation-compatible orchestration representation; the durable `ChapterWorkflow.run()` path uses persisted workflow state so execution can resume after a process restart.
 
 ## Documentation
+
+The canonical documentation index is [`docs/README.md`](docs/README.md).
 
 ### For contributors and AI agents
 
@@ -123,13 +127,11 @@ Start with [`AGENTS.md`](AGENTS.md).
 
 ### Product
 
-- [`docs/product/vision.md`](docs/product/vision.md) — product vision, narrative consistency category, Canon and creator expansion
-- [`docs/product/positioning.md`](docs/product/positioning.md) — product positioning, personas, competition, differentiation and business-model hypothesis
-- [`docs/product/strategy.md`](docs/product/strategy.md) — strategic choices, moat, and sequencing logic
+- [`docs/product/positioning.md`](docs/product/positioning.md) — positioning and differentiation hypotheses
 - [`docs/product/scope.md`](docs/product/scope.md) — current MVP boundary
-- [`docs/product/roadmap.md`](docs/product/roadmap.md) — product sequence, creator validation and expansion gates
-- [`docs/product/pricing-strategy.md`](docs/product/pricing-strategy.md) — pricing and unit-economics hypotheses
-- [`docs/product/infrastructure-costs.md`](docs/product/infrastructure-costs.md) — infrastructure planning scenarios
+- [`docs/product/roadmap.md`](docs/product/roadmap.md) — product sequence and future work
+- [`docs/product/pricing-strategy.md`](docs/product/pricing-strategy.md) — pricing hypotheses
+- [`docs/product/infrastructure-costs.md`](docs/product/infrastructure-costs.md) — infrastructure scenarios
 
 ### Architecture
 
@@ -151,6 +153,7 @@ Start with [`AGENTS.md`](AGENTS.md).
 - [`docs/development/setup.md`](docs/development/setup.md) — local setup
 - [`docs/development/testing.md`](docs/development/testing.md) — testing strategy
 - [`docs/development/configuration.md`](docs/development/configuration.md) — configuration rules
+- [`docs/development/migrations.md`](docs/development/migrations.md) — migration guidance
 - [`docs/development/contributing.md`](docs/development/contributing.md) — contribution workflow
 - [`docs/glossary.md`](docs/glossary.md) — project terminology
 
