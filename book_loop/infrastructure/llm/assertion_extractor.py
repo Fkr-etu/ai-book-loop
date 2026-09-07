@@ -58,8 +58,8 @@ class LLMAssertionExtractor:
         *,
         chunk_content: str,
         draft: ExtractedAssertionDraft,
-        predicate_normalizer: PredicateNormalizer,
-        language: str,
+        predicate_normalizer: PredicateNormalizer | None = None,
+        language: str = "fr",
     ) -> ExtractedAssertion:
         """Build source provenance only when the statement has one unique source location."""
         positions: list[int] = []
@@ -76,11 +76,12 @@ class LLMAssertionExtractor:
         if len(positions) > 1:
             raise ValueError("Assertion extractor returned an ambiguous statement found multiple times in source chunk")
 
+        normalizer = predicate_normalizer or RuleBasedPredicateNormalizer()
         start = positions[0]
         return ExtractedAssertion(
             statement=draft.statement,
             subject=draft.subject,
-            predicate=predicate_normalizer.normalize(predicate=draft.predicate, language=language),
+            predicate=normalizer.normalize(predicate=draft.predicate, language=language),
             object=draft.object,
             confidence=draft.confidence,
             start_offset=start,
