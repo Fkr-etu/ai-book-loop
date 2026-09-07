@@ -92,7 +92,7 @@ test.describe("Book Loop — real API author journey", () => {
 
     await expect(page.getByRole("button", { name: "Approuver" })).toBeVisible();
     await page.getByRole("button", { name: "Approuver" }).click();
-    await expect(page.getByText("approved")).toBeVisible();
+    await expect(page.getByText("Canon approuvé")).toBeVisible();
 
     await page.goto("/studio/canon");
     await expect(page.getByRole("heading", { name: "Revue du Canon" })).toBeVisible();
@@ -102,8 +102,8 @@ test.describe("Book Loop — real API author journey", () => {
     const acceptButton = page.getByRole("button", { name: "Accepter" });
     await expect(acceptButton).toBeVisible();
     await acceptButton.click();
-    await expect(page.getByText("Propositions à décider").locator("..") ).toContainText("0");
-    await expect(page.getByText("Faits acceptés").locator("..") ).toContainText("1");
+    await expect(page.getByText("Propositions à décider").locator("..")).toContainText("0");
+    await expect(page.getByText("Faits acceptés").locator("..")).toContainText("1");
 
     const analyzeImpactButton = page.getByRole("button", { name: "Analyser l'impact" }).first();
     await expect(analyzeImpactButton).toBeVisible();
