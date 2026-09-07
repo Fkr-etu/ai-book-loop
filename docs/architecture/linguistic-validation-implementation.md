@@ -1,28 +1,27 @@
-# Linguistic validation — Phase 0/1/2/3 implementation
+# Linguistic validation — implementation history
 
-This implementation establishes the provider-neutral diagnostic contract, the first external linguistic detector, a labelled French evaluation corpus, baseline metric computation, and a conservative spaCy structural detector. The generation workflow is still unchanged.
+> **Historical implementation note.** This document records the staged introduction of linguistic validation. It is not the current architecture source of truth. For current workflow behavior, use `workflows.md`; for the current diagnostic/consistency architecture, use `consistency-engine.md` and the Canon documentation.
 
-## Included
+## What this implementation established
 
-- `Diagnostic` model with category, severity, source, offsets, original text, suggestions, confidence and provenance metadata.
-- Explicit `NO_ISSUES_FOUND`, `ISSUES_FOUND` and `CHECK_NOT_AVAILABLE` states.
-- `LinguisticValidationService` that aggregates independent checkers and performs deterministic fusion.
-- LanguageTool HTTP adapter using `/v2/check` and French as the default language.
-- LanguageTool rule IDs and replacement suggestions are preserved.
-- Provider/network failures degrade to `CHECK_NOT_AVAILABLE` and never masquerade as a clean validation.
-- Duplicate findings are merged deterministically; highest severity and highest confidence win, while suggestions and provider provenance are preserved.
-- Empty chapter text is treated as a blocking application invariant.
-- Optional spaCy dependency and `SpacyFrenchChecker` infrastructure adapter.
-- Conservative French spaCy signals: subject/verb number disagreement as an error and verb-less sentence structures as warnings.
-- Lazy spaCy model loading so the base application and CI do not require the NLP model.
-- A small labelled French corpus covering spelling, grammar, agreement and literary/dialogue false-positive samples.
-- A provider-neutral evaluation service reporting precision, recall, false positives, false negatives and literary false positives.
+- provider-neutral `Diagnostic` contract with category, severity, source, offsets, suggestions, confidence and provenance metadata;
+- explicit `NO_ISSUES_FOUND`, `ISSUES_FOUND` and `CHECK_NOT_AVAILABLE` states;
+- `LinguisticValidationService` aggregation and deterministic fusion;
+- LanguageTool HTTP adapter and preserved rule IDs/replacement suggestions;
+- explicit handling of provider/network failure;
+- optional spaCy structural detection and lazy model loading;
+- labelled French evaluation corpus and detector-agnostic evaluation metrics.
 
-## Deliberate boundaries
+## Current boundary
 
-This PR does **not** yet wire linguistic validation into Writer → Reviewer → Corrector. It also does not add Canon diagnostics or Gemini contextual classification. Those remain separate phases from the architecture defined in `linguistic-validation.md`.
+Linguistic validation is now part of the implemented validation surface and is wired through the application configuration. It remains distinct from Canon consistency detection.
 
-The spaCy layer intentionally starts with high-confidence structural signals. It does not attempt general grammar correction or automatic rewriting. Literary fragments are warnings rather than blocking errors because fragments are often intentional in prose and dialogue.
+- Linguistic validation produces diagnostics about language/structure.
+- `CanonDiagnosticChecker` compares new text with active Canon facts.
+- `DetectConflicts` detects contradictions between persisted assertions.
+- `UnifiedConsistencyEngine` composes consistency detectors into author-facing `ConsistencyIssue` results.
+
+None of these systems silently promotes information to Canon.
 
 ## Configuration
 
@@ -33,14 +32,15 @@ LINGUISTIC_LANGUAGE=fr
 SPACY_MODEL=fr_core_news_sm
 ```
 
-The linguistic checker remains disabled by default. spaCy is an optional `nlp` dependency and the French model is loaded only when the adapter is used.
+The checker remains configurable and conservative. The base application does not require the optional spaCy model.
 
-## Evaluation baseline
+## Evaluation
 
-The corpus lives at `tests/fixtures/linguistic_corpus.json`. It is deliberately small and version-controlled so the baseline is reproducible. The evaluation service is detector-agnostic and can be reused when the corpus grows from real generated chapters.
+The corpus lives at `tests/fixtures/linguistic_corpus.json`. It remains version-controlled so detector behavior and false-positive cost can be evaluated reproducibly.
 
-Current metrics are category-level metrics; exact span correctness is validated separately by the diagnostic contract tests. The corpus also includes literary fragments and dialogue specifically to make false-positive cost visible before any detector is allowed to drive retries.
+## Where to read current behavior
 
-## Next phase
-
-The next implementation step is Gemini contextual review: deterministic findings should be supplied as structured diagnostics and Gemini should confirm, downgrade or dismiss ambiguous findings without becoming the source of truth for offsets or Canon state.
+- `docs/architecture/overview.md` — system responsibilities;
+- `docs/architecture/workflows.md` — generation/validation workflow;
+- `docs/architecture/consistency-engine.md` — consistency detector architecture;
+- `docs/architecture/canon-assertion-extraction.md` — assertion lifecycle.
