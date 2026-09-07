@@ -27,7 +27,13 @@ class FakeKnowledgeRepository:
         return self.evidence
 
 
-def make_assertion(i: str, subject: str, predicate: str, object_: str, status=AssertionStatus.ACCEPTED):
+def make_assertion(
+    i: str,
+    subject: str,
+    predicate: str,
+    object_: str,
+    status: AssertionStatus = AssertionStatus.ACCEPTED,
+) -> Assertion:
     return Assertion(
         id=i,
         source_document_id="doc-1",
@@ -43,36 +49,44 @@ def make_assertion(i: str, subject: str, predicate: str, object_: str, status=As
 
 
 def test_detects_explicit_positive_negative_pair() -> None:
-    repo = FakeKnowledgeRepository([
-        make_assertion("a", "Alice", "is", "alive"),
-        make_assertion("b", "Alice", "is_not", "alive"),
-    ])
+    repo = FakeKnowledgeRepository(
+        [
+            make_assertion("a", "Alice", "is", "alive"),
+            make_assertion("b", "Alice", "is_not", "alive"),
+        ]
+    )
     issues = BooleanContradictionConsistencyDetector(repo).detect(book_id="book-1")
     assert len(issues) == 1
     assert {issues[0].left_assertion_id, issues[0].right_assertion_id} == {"a", "b"}
 
 
 def test_does_not_flag_unrelated_predicates() -> None:
-    repo = FakeKnowledgeRepository([
-        make_assertion("a", "Alice", "is", "alive"),
-        make_assertion("b", "Alice", "has", "alive"),
-    ])
+    repo = FakeKnowledgeRepository(
+        [
+            make_assertion("a", "Alice", "is", "alive"),
+            make_assertion("b", "Alice", "has", "alive"),
+        ]
+    )
     assert BooleanContradictionConsistencyDetector(repo).detect(book_id="book-1") == []
 
 
 def test_ignores_rejected_assertions() -> None:
-    repo = FakeKnowledgeRepository([
-        make_assertion("a", "Alice", "is", "alive"),
-        make_assertion("b", "Alice", "is_not", "alive", AssertionStatus.REJECTED),
-    ])
+    repo = FakeKnowledgeRepository(
+        [
+            make_assertion("a", "Alice", "is", "alive"),
+            make_assertion("b", "Alice", "is_not", "alive", AssertionStatus.REJECTED),
+        ]
+    )
     assert BooleanContradictionConsistencyDetector(repo).detect(book_id="book-1") == []
 
 
 def test_preserves_evidence() -> None:
-    repo = FakeKnowledgeRepository([
-        make_assertion("a", "Alice", "can", "swim"),
-        make_assertion("b", "Alice", "cannot", "swim"),
-    ])
+    repo = FakeKnowledgeRepository(
+        [
+            make_assertion("a", "Alice", "can", "swim"),
+            make_assertion("b", "Alice", "cannot", "swim"),
+        ]
+    )
     issue = BooleanContradictionConsistencyDetector(repo).detect(book_id="book-1")[0]
     assert issue.left_evidence
     assert issue.right_evidence
