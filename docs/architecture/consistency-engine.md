@@ -13,13 +13,13 @@ The consistency engine is therefore a **detection and explanation layer**, not a
 ```text
                          UnifiedConsistencyEngine
                                   |
-              +-------------------+----------------------+
-              |          |                |              |
-       Assertion       Timeline       Character        World
-       detector        detector        detector        detector
-              |          |                |              |
-        DetectConflicts |                |              |
-              |          +----------------+--------------+
+              +-------------------+-------------------------+
+              |          |                |        |        |
+       Assertion       Timeline       Temporal  Character  World
+       detector        detector       relation   detector detector
+              |          |                |        |        |
+        DetectConflicts |                |        |        |
+              |          +----------------+--------+--------+
               |                           |
               +---------------------------+
                           |
@@ -71,6 +71,36 @@ Current rule:
 
 This detector is intentionally narrow. It does not infer chronology from arbitrary prose or assume that two events are contradictory merely because they concern the same character.
 
+### `TemporalRelationConsistencyDetector`
+
+Location: `book_loop/application/use_cases/temporal_relation_consistency_detector.py`
+
+Responsibility: detect explicit contradictions between ordered narrative events or states.
+
+Current rule set is intentionally small:
+
+- `before` / `precedes` establish a directed temporal order;
+- `after` / `follows` are normalized to the equivalent `before` relation;
+- `not_before` / `does_not_precede` explicitly negate an order;
+- a finding is raised when two active assertions impose opposite orders, or when an asserted order is explicitly negated.
+
+The detector operates only on explicit assertion predicates. It does not infer event chronology from prose, dates, or narrative context.
+
+### `InverseRelationConsistencyDetector`
+
+Location: `book_loop/application/use_cases/inverse_relation_consistency_detector.py`
+
+Responsibility: detect explicit inverse-role contradictions for the same ordered subject/target pair.
+
+Current rule set is deliberately conservative:
+
+- `parent_of` / `parent` are inverse to `child_of` / `child`;
+- `older_than` / `older` are inverse to `younger_than` / `younger`;
+- only assertions with the same subject and target are compared;
+- the detector flags only the impossible same-orientation combination, while the correctly oriented inverse representation remains valid.
+
+It does not infer relationship semantics, family structure, age, or historical state from prose.
+
 ### `CharacterContinuityDetector`
 
 Location: `book_loop/application/use_cases/character_continuity_detector.py`
@@ -107,7 +137,7 @@ Detectors are read-only projections: the narrative detectors do not persist conf
 
 Location: `book_loop/application/use_cases/analyze_consistency.py`
 
-Responsibility: application entry point for consistency analysis. It runs the assertion detector plus the three narrative detectors through `UnifiedConsistencyEngine` and preserves the existing API contract.
+Responsibility: application entry point for consistency analysis. It runs the assertion detector plus the deterministic narrative detectors through `UnifiedConsistencyEngine` and preserves the existing API contract.
 
 `list_existing()` remains a read-only projection of persisted assertion conflicts.
 
