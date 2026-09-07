@@ -89,5 +89,26 @@ test.describe("Book Loop — real API author journey", () => {
     await page.reload();
     await expect(page.getByRole("textbox", { name: "Contenu du chapitre" })).not.toHaveValue("");
     await expect(page.getByText("Version courante")).toBeVisible();
+
+    await expect(page.getByRole("button", { name: "Approuver" })).toBeVisible();
+    await page.getByRole("button", { name: "Approuver" }).click();
+    await expect(page.getByText("approved")).toBeVisible();
+
+    await page.goto("/studio/canon");
+    await expect(page.getByRole("heading", { name: "Revue du Canon" })).toBeVisible();
+    await expect(page.getByText("Proposition IA").first()).toBeVisible();
+    await expect(page.getByText("Aucune proposition ne devient canonique sans décision humaine.")).toBeVisible();
+
+    const acceptButton = page.getByRole("button", { name: "Accepter" });
+    await expect(acceptButton).toBeVisible();
+    await acceptButton.click();
+    await expect(page.getByText("Propositions à décider").locator("..") ).toContainText("0");
+    await expect(page.getByText("Faits acceptés").locator("..") ).toContainText("1");
+
+    const analyzeImpactButton = page.getByRole("button", { name: "Analyser l'impact" }).first();
+    await expect(analyzeImpactButton).toBeVisible();
+    await analyzeImpactButton.click();
+    await expect(page.getByText("Fait analysé")).toBeVisible();
+    await expect(page.getByText("Aucune preuve source affectée trouvée")).toBeVisible();
   });
 });
