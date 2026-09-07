@@ -1,6 +1,6 @@
 # Generation → Review → Correction
 
-Stage 9 makes chapter generation an explicit bounded feedback loop.
+Chapter generation is an explicit bounded feedback loop. The workflow owns execution, persistence and retry policy; Canon and corpus consistency remain separate author-controlled boundaries.
 
 ```text
 START
@@ -35,6 +35,28 @@ Every generated version is persisted before review. Every review is persisted, i
 
 An unsuccessful run returns the `needs_review` decision without summarizing or promoting the chapter. Manual intervention can then inspect the persisted versions and reviews.
 
-## Canon boundary
+## Canon and consistency boundaries
 
-This loop reads context, including relevant Canonical Knowledge through `ContextBuilder`, but it never creates, updates, resolves or promotes Canonical Facts. Canon remains governed by the ingestion/conflict-review workflow.
+Generation reads context, including relevant active `CanonicalFact` records through `ContextBuilder`, but it does not own Canon state transitions.
+
+After an approved chapter version is persisted, assertion extraction can contribute proposed knowledge to the corpus. Consistency/conflict detection may report contradictions, while explicit review remains responsible for Canon promotion or resolution.
+
+The generation loop therefore follows this boundary:
+
+```text
+Canonical knowledge ──read──→ generation context
+                                ↓
+                           Writer / Corrector
+                                ↓
+                         approved chapter
+                                ↓
+                    proposed assertions/evidence
+                                ↓
+                     consistency detection
+                                ↓
+                          human review
+                                ↓
+                         CanonicalFact
+```
+
+Generation must not bypass that review path by directly creating, updating, resolving or promoting Canonical Facts.
