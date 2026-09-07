@@ -111,11 +111,13 @@ steps:
     args:
       - "-c"
       - |
-        PROJECT_NUMBER="$$(gcloud projects describe "$${PROJECT_ID}" --format='value(projectNumber)')"
-        test -n "$${PROJECT_NUMBER}"
-        API_URL="https://${_API_SERVICE}-$${PROJECT_NUMBER}.${_REGION}.run.app"
-        printf '%s\n' "$${API_URL}" > /workspace/api-url
-        echo "Deterministic API_URL=$${API_URL}"
+        PROJECT="$(gcloud config get-value project 2>/dev/null)"
+        test -n "${PROJECT}"
+        PROJECT_NUMBER="$(gcloud projects describe "${PROJECT}" --format='value(projectNumber)')"
+        test -n "${PROJECT_NUMBER}"
+        API_URL="https://${_API_SERVICE}-${PROJECT_NUMBER}.${_REGION}.run.app"
+        printf '%s\n' "${API_URL}" > /workspace/api-url
+        echo "API_URL=${API_URL}"
 
   - id: build-web
     name: gcr.io/cloud-builders/docker
@@ -174,11 +176,13 @@ steps:
     args:
       - "-c"
       - |
-        PROJECT_NUMBER="$$(gcloud projects describe "$${PROJECT_ID}" --format='value(projectNumber)')"
-        test -n "$${PROJECT_NUMBER}"
-        WEB_ORIGIN="https://${_WEB_SERVICE}-$${PROJECT_NUMBER}.${_REGION}.run.app"
-        printf '%s\n' "$${WEB_ORIGIN}" > /workspace/web-url
-        echo "Deterministic WEB_ORIGIN=$${WEB_ORIGIN}"
+        PROJECT="$(gcloud config get-value project 2>/dev/null)"
+        test -n "${PROJECT}"
+        PROJECT_NUMBER="$(gcloud projects describe "${PROJECT}" --format='value(projectNumber)')"
+        test -n "${PROJECT_NUMBER}"
+        WEB_ORIGIN="https://${_WEB_SERVICE}-${PROJECT_NUMBER}.${_REGION}.run.app"
+        printf '%s\n' "${WEB_ORIGIN}" > /workspace/web-url
+        echo "WEB_ORIGIN=${WEB_ORIGIN}"
 
   - id: sync-api-cors
     name: gcr.io/google.com/cloudsdktool/cloud-sdk
@@ -201,20 +205,28 @@ steps:
     args:
       - "-c"
       - |
-        WEB_ORIGIN="$$(cat /workspace/web-url)"
-        API_URL="$$(cat /workspace/api-url)"
-        test -n "$${WEB_ORIGIN}"
-        test -n "$${API_URL}"
-        echo "Expected WEB_ORIGIN=$${WEB_ORIGIN}"
-        echo "Expected API_URL=$${API_URL}"
-        ACTUAL="$$(gcloud run services describe ${_API_SERVICE} --region=${_REGION} --format='yaml(spec.template.spec.containers[0].env)')"
-        echo "API environment after CORS sync:"
-        echo "$${ACTUAL}"
+        PROJECT="$(gcloud config get-value project 2>/dev/null)"
+        test -n "${PROJECT}"
+        PROJECT_NUMBER="$(gcloud projects describe "${PROJECT}" --format='value(projectNumber)')"
+        test -n "${PROJECT_NUMBER}"
+        WEB_ORIGIN="https://${_WEB_SERVICE}-${PROJECT_NUMBER}.${_REGION}.run.app"
+        API_URL="https://${_API_SERVICE}-${PROJECT_NUMBER}.${_REGION}.run.app"
+        echo "Expected WEB_ORIGIN=${WEB_ORIGIN}"
+        echo "Expected API_URL=${API_URL}"
+
+        ACTUAL="$$(gcloud run services describe ${_API_SERVICE} \
+          --region=${_REGION} \
+          --format='value(spec.template.spec.containers[0].env)' | tr '\n' ' ')"
+        echo "API environment after CORS sync: $${ACTUAL}"
         echo "$${ACTUAL}" | grep -F "CORS_ALLOWED_ORIGINS" | grep -F "$${WEB_ORIGIN}"
+
         echo "Running CORS preflight verification"
-        curl -fsS -D /tmp/cors-headers -o /tmp/cors-body -X OPTIONS \
-          "$${API_URL}/api/books" \
+        RESPONSE_FILE=/tmp/cors-response
+        HTTP_CODE="$$(curl -sS -o "$${RESPONSE_FILE}" -w '%{http_code}' \
+          -X OPTIONS "$${API_URL}/api/books" \
           -H "Origin: $${WEB_ORIGIN}" \
-          -H "Access-Control-Request-Method: GET"
-        grep -Fi "access-control-allow-origin: $${WEB_ORIGIN}" /tmp/cors-headers
-        echo "CORS verification passed"
+          -H 'Access-Control-Request-Method: GET')"
+        echo "CORS preflight HTTP status: $${HTTP_CODE}"
+        test "$${HTTP_CODE}" = "200"
+        grep -Fi "access-control-allow-origin: $${WEB_ORIGIN}" "$${RESPONSE_FILE}"
+        echo "CORS preflight verification passed"
