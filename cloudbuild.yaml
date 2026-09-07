@@ -10,7 +10,6 @@ substitutions:
   _USE_REAL_API: "true"
 
 steps:
-  # Pull previous images so Docker can reuse unchanged layers.
   - id: pull-api-cache
     name: gcr.io/cloud-builders/docker
     entrypoint: bash
@@ -27,9 +26,6 @@ steps:
       - "docker pull ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_WEB_REPOSITORY}/web:latest || exit 0"
     waitFor: ["-"]
 
-  # Build the API first; the web image is built only after the API is deployed
-  # so Next.js can bake the real Cloud Run API URL into the client bundle.
-  # CORS is synchronized after the web service is deployed below.
   - id: build-api
     name: gcr.io/cloud-builders/docker
     waitFor: [pull-api-cache]
@@ -57,7 +53,6 @@ steps:
       - "push"
       - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_API_REPOSITORY}/api:latest"
 
-  # Migrations are a strict barrier before deployment.
   - id: migrate
     name: gcr.io/google.com/cloudsdktool/cloud-sdk
     entrypoint: gcloud
@@ -87,9 +82,6 @@ steps:
       - "--region=${_REGION}"
       - "--wait"
 
-  # Deploy the API without changing its CORS configuration yet. The existing
-  # CORS value is preserved for this revision and replaced after the web URL is
-  # resolved from the freshly deployed web service.
   - id: deploy-api
     name: gcr.io/google.com/cloudsdktool/cloud-sdk
     entrypoint: gcloud
@@ -112,7 +104,6 @@ steps:
       - "--concurrency=8"
       - "--port=8080"
 
-  # Resolve the deployed API URL for the Next.js client.
   - id: resolve-api-url
     name: gcr.io/google.com/cloudsdktool/cloud-sdk
     entrypoint: bash
@@ -122,6 +113,7 @@ steps:
       - |
         gcloud run services describe ${_API_SERVICE} --region=${_REGION} --format='value(status.url)' > /workspace/api-url
         test -s /workspace/api-url
+        echo "API_URL=$$(cat /workspace/api-url)"
 
   - id: build-web
     name: gcr.io/cloud-builders/docker
@@ -132,8 +124,8 @@ steps:
       - |
         API_URL="$$(cat /workspace/api-url)"
         test -n "$${API_URL}"
-        docker build \
-          --cache-from "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_WEB_REPOSITORY}/web:latest" \
+        echo "Building web against API_URL=$${API_URL}"
+        docker build --no-cache \
           --build-arg "NEXT_PUBLIC_API_URL=$${API_URL}" \
           --build-arg "NEXT_PUBLIC_USE_REAL_API=${_USE_REAL_API}" \
           -t "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_WEB_REPOSITORY}/web:$BUILD_ID" \
@@ -173,9 +165,6 @@ steps:
       - "--concurrency=40"
       - "--port=8080"
 
-  # The Cloud Run URL must be resolved after deploying the web service. This
-  # prevents the API from keeping a stale URL when Cloud Run changes its
-  # generated run.app hostname.
   - id: resolve-web-url
     name: gcr.io/google.com/cloudsdktool/cloud-sdk
     entrypoint: bash
@@ -187,6 +176,7 @@ steps:
           --region=${_REGION} \
           --format='value(status.url)' > /workspace/web-url
         test -s /workspace/web-url
+        echo "WEB_ORIGIN=$$(cat /workspace/web-url)"
 
   - id: sync-api-cors
     name: gcr.io/google.com/cloudsdktool/cloud-sdk
