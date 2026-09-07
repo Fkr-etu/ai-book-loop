@@ -1,4 +1,4 @@
-from book_loop.application.services.regression_report import RegressionReportBuilder
+from book_loop.application.services.regression_report import RegressionReportBuilder, RegressionRisk
 from book_loop.domain.models import Assertion, CanonicalFact, Evidence
 
 
@@ -50,7 +50,11 @@ def test_build_projects_transitive_impact_to_source_evidence() -> None:
     assert report.changed_fact_id == "f1"
     assert [item.fact_id for item in report.findings] == ["f2", "f3"]
     assert report.findings[0].excerpt == "Bob parent_of Claire"
+    assert report.findings[0].risk is RegressionRisk.HIGH
+    assert report.findings[0].dependency_depth == 1
     assert report.findings[1].source_document_id == "source-1"
+    assert report.findings[1].risk is RegressionRisk.MEDIUM
+    assert report.findings[1].dependency_depth == 2
 
 
 def test_build_skips_impacted_facts_without_persisted_evidence() -> None:
