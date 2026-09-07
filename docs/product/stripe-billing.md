@@ -21,7 +21,7 @@ Pricing page
    -> existing capacity policy enforces limits
 ```
 
-The customer portal is exposed through `POST /api/billing/portal` and must be used for cancellation, payment-method changes and plan changes rather than implementing those operations in the frontend.
+The customer portal is exposed through `POST /api/billing/portal` and must be used for cancellation, payment-method changes and plan changes rather than implementing those operations in the frontend. Checkout refuses to create a second active subscription for a customer.
 
 ## Configuration
 
@@ -44,5 +44,6 @@ Stripe webhook endpoint: `POST /api/billing/webhook`.
 - Verify the Stripe webhook signature before processing.
 - Store processed event IDs so delivery retries are idempotent.
 - Never trust plan/billing-cycle values from the client as entitlement state; they are only used to select a configured Stripe Price server-side.
-- Do not create a second active subscription for a customer who already has one; future hardening should add an explicit active-subscription guard before enabling production checkout.
+- Keep project ownership independent from billing metadata.
+- Keep capacity enforcement server-side and atomic.
 - Run the Alembic migration before relying on persisted billing metadata in production.
