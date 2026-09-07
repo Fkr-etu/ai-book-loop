@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
+from book_loop.application.use_cases.consistency_engine import UnifiedConsistencyEngine
 from book_loop.application.use_cases.detect_conflicts import DetectConflicts
 from book_loop.domain.models import Assertion, Conflict, Evidence
 from book_loop.domain.protocols import KnowledgeRepository
@@ -27,15 +28,21 @@ class ConsistencyIssue(BaseModel):
 class AnalyzeConsistency:
     """Build an evidence-backed consistency report from the book knowledge layer.
 
-    Detection is deliberately conservative: the first version surfaces only deterministic
-    assertion conflicts. It never edits manuscript content or decides which assertion wins.
+    Detection remains deliberately conservative and reuses the existing deterministic
+    assertion-conflict implementation. The unified engine is only the orchestration layer;
+    it does not replace or duplicate the existing detection rule.
     """
 
     def __init__(self, repository: KnowledgeRepository) -> None:
         self.repository = repository
         self._detect_conflicts = DetectConflicts(repository)
+        self._engine = UnifiedConsistencyEngine((self,))
 
     def execute(self, *, book_id: str) -> list[ConsistencyIssue]:
+        return [issue for issue in self._engine.detect(book_id=book_id)]  # type: ignore[misc]
+
+    def detect(self, *, book_id: str) -> list[ConsistencyIssue]:
+        """Expose the existing conflict detector through the unified detector contract."""
         self._detect_conflicts.execute(book_id=book_id)
         return self.list_existing(book_id=book_id)
 
