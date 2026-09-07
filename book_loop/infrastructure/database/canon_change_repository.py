@@ -56,6 +56,9 @@ class CanonChangeRepositoryMixin:
             reviewer_id=row["reviewer_id"], rationale=row["rationale"], created_at=row["created_at"],
         ) for row in rows]
 
+    def lock_canon_change_proposal(self, proposal_id: str) -> None:
+        self._connection.execute("SELECT id FROM canon_change_proposals WHERE id = ? FOR UPDATE", (proposal_id,)).fetchone()
+
     @staticmethod
     def _canon_change_proposal_from_row(row: Any) -> CanonChangeProposal:
         return CanonChangeProposal(
