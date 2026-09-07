@@ -31,6 +31,22 @@ def list_conflicts(book_id: str, request: Request, container: Container = Depend
     return {"conflicts": [conflict.model_dump(mode="json") for conflict in conflicts]}
 
 
+@router.get("/consistency/issues")
+def list_consistency_issues(book_id: str, request: Request, container: Container = Depends(get_container)) -> dict[str, Any]:
+    """Return persisted evidence-backed corpus consistency issues."""
+    get_owned_book(book_id, request, container)
+    issues = container.analyze_consistency().list_existing(book_id=book_id)
+    return {"issues": [issue.model_dump(mode="json") for issue in issues]}
+
+
+@router.post("/consistency/analyze")
+def analyze_consistency(book_id: str, request: Request, container: Container = Depends(get_container)) -> dict[str, Any]:
+    """Run deterministic corpus checks and return persisted issue state."""
+    get_owned_book(book_id, request, container)
+    issues = container.analyze_consistency().execute(book_id=book_id)
+    return {"issues": [issue.model_dump(mode="json") for issue in issues]}
+
+
 @router.get("/canonical-facts")
 def list_canonical_facts(book_id: str, request: Request, container: Container = Depends(get_container)) -> dict[str, Any]:
     get_owned_book(book_id, request, container)

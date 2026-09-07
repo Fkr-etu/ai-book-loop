@@ -10,6 +10,7 @@ from book_loop.application.services.linguistic_context import GeminiDiagnosticCo
 from book_loop.application.services.linguistic_validation import LinguisticValidationService
 from book_loop.application.services.linter import ChapterLinter
 from book_loop.application.use_cases.add_chapter import AddChapter
+from book_loop.application.use_cases.analyze_consistency import AnalyzeConsistency
 from book_loop.application.use_cases.approve_chapter import ApproveChapter
 from book_loop.application.use_cases.approve_chapter_and_sync_canon import ApproveChapterAndSyncCanon
 from book_loop.application.use_cases.approve_outline import ApproveOutline
@@ -153,3 +154,6 @@ class Container:
 
     def get_canonical_fact_history(self) -> GetCanonicalFactHistory:
         return GetCanonicalFactHistory(self.repository)
+
+    def analyze_consistency(self) -> AnalyzeConsistency:
+        return AnalyzeConsistency(self.repository)
