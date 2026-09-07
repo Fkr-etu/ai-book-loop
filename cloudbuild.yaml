@@ -2,6 +2,7 @@ substitutions:
   _REGION: europe-west9
   _API_SERVICE: book-loop-api
   _WEB_SERVICE: book-loop-web
+  _WEB_ORIGIN: https://book-loop-web-166519352057.europe-west9.run.app
   _API_REPOSITORY: book-loop-api
   _WEB_REPOSITORY: book-loop-web
   _DB_INSTANCE: book-loop-postgres
@@ -101,6 +102,7 @@ steps:
       - "--service-account=${_API_SERVICE_ACCOUNT}"
       - "--add-cloudsql-instances=$PROJECT_ID:${_REGION}:${_DB_INSTANCE}"
       - "--set-secrets=DATABASE_URL=DATABASE_URL:latest,GEMINI_API_KEY=GEMINI_API_KEY:1,AUTH_SECRET_KEY=AUTH_SECRET_KEY:latest"
+      - "--set-env-vars=CORS_ALLOWED_ORIGINS=[\"${_WEB_ORIGIN}\"]"
       - "--min=0"
       - "--max=3"
       - "--cpu=1"
