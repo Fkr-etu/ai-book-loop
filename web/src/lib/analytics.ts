@@ -1,7 +1,7 @@
 "use client";
 
 export const ANALYTICS_CONSENT_KEY = "book-loop-cookie-consent";
-export const ANALYTICS_CONSENT_EVENT = "book-loop-consent-changed";
+export const ANALYTICS_CONSENT_EVENT = "book-loop-analytics-consent-changed";
 
 export type AnalyticsPlan = "free" | "creator" | "pro";
 
@@ -28,7 +28,7 @@ type EventProperties = {
 
 const GA4_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA4_MEASUREMENT_ID;
 
-function hasAnalyticsConsent(): boolean {
+export function hasAnalyticsConsent(): boolean {
   if (typeof window === "undefined") return false;
   return window.localStorage.getItem(ANALYTICS_CONSENT_KEY) === "accepted";
 }
