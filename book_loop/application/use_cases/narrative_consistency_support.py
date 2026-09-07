@@ -4,11 +4,27 @@ import re
 import unicodedata
 import uuid
 from collections.abc import Iterable
+from datetime import datetime
 
 from book_loop.domain.consistency import ConsistencyIssue
 from book_loop.domain.models import Assertion, Evidence
 
 _NAMESPACE = uuid.UUID("4f3a8f1e-7e2b-4f9b-9f5d-5c7d6b6a1d2e")
+_RELATIVE_DATE_MARKERS = {
+    "aujourd",
+    "aujourd'hui",
+    "demain",
+    "hier",
+    "today",
+    "tomorrow",
+    "yesterday",
+    "next",
+    "last",
+    "prochain",
+    "prochaine",
+    "dernier",
+    "derniere",
+}
 
 
 def normalize(value: str) -> str:
@@ -63,8 +79,25 @@ def active_assertions(assertions: Iterable[Assertion]) -> list[Assertion]:
 
 
 def parse_year(value: str) -> int | None:
+    """Extract an explicit year without interpreting relative narrative dates."""
     match = re.search(r"\b(\d{4})\b", normalize(value))
-    return int(match.group(1)) if match else None
+    if match:
+        return int(match.group(1))
+
+    normalized = normalize(value)
+    if not normalized or any(marker in normalized.split() for marker in _RELATIVE_DATE_MARKERS):
+        return None
+
+    try:
+        import dateparser
+    except ImportError:
+        return None
+
+    parsed = dateparser.parse(
+        value,
+        settings={"RETURN_AS_TIMEZONE_AWARE": False, "PREFER_DAY_OF_MONTH": "first"},
+    )
+    return parsed.year if isinstance(parsed, datetime) else None
 
 
 def affirmative(value: str) -> bool:
