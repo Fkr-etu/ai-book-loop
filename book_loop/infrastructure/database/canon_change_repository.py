@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 
 from book_loop.domain.canon_change import CanonChangeProposal, CanonChangeProposalStatus
@@ -45,9 +46,12 @@ class CanonChangeRepositoryMixin:
 
     @staticmethod
     def _canon_change_proposal_from_row(row: Any) -> CanonChangeProposal:
+        created_at = row["created_at"]
+        if isinstance(created_at, datetime):
+            created_at = created_at.isoformat()
         return CanonChangeProposal(
             id=row["id"], book_id=row["book_id"], canonical_fact_id=row["canonical_fact_id"],
             statement=row["statement"], subject=row["subject"], predicate=row["predicate"],
             object=row["object"], proposer_id=row["proposer_id"], rationale=row["rationale"],
-            status=row["status"], created_at=row["created_at"],
+            status=row["status"], created_at=created_at,
         )
