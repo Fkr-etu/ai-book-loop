@@ -47,6 +47,17 @@ def test_follows_transitive_explicit_dependencies() -> None:
     assert result.affected_fact_ids == ("f2", "f3")
 
 
+def test_does_not_infer_implicit_semantic_dependencies() -> None:
+    facts = [
+        fact("f1", subject="Alice", predicate="lives_in", object="Paris"),
+        fact("f2", subject="Scene_12", predicate="set_in", object="Paris"),
+    ]
+
+    result = ChangeImpactAnalyzer().analyze(facts, changed_fact_id="f1")
+
+    assert result.affected_fact_ids == ()
+
+
 def test_ignores_inactive_facts() -> None:
     facts = [
         fact("f1", subject="Alice", predicate="parent_of", object="Bob"),
