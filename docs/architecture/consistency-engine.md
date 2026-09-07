@@ -15,8 +15,8 @@ The consistency engine is therefore a **detection and explanation layer**, not a
                                   |
               +-------------------+-------------------------+
               |          |                |        |        |
-       Assertion       Timeline       Temporal  Character  World
-       detector        detector       relation   detector detector
+       Assertion       Timeline       Temporal  Relation  Character/World
+       detector        detector       relation  +Boolean   detectors
               |          |                |        |        |
         DetectConflicts |                |        |        |
               |          +----------------+--------+--------+
@@ -35,7 +35,7 @@ Assertion extraction + active Canon
 Assertion ↔ Canon
 ```
 
-The unified engine currently combines persisted assertion conflicts with deterministic narrative detectors. The existing chapter-validation path remains distinct: **do not implement a second Canon-vs-text detector.** If that capability is exposed through the unified engine later, adapt the existing `CanonDiagnosticChecker` behind the shared detector contract.
+The unified engine combines persisted assertion conflicts with deterministic narrative detectors. The existing chapter-validation path remains distinct: **do not implement a second Canon-vs-text detector.** If that capability is exposed through the unified engine later, adapt the existing `CanonDiagnosticChecker` behind the shared detector contract.
 
 ## Existing implementations
 
@@ -99,6 +99,24 @@ Current rule set is deliberately conservative:
 
 It does not infer relationship semantics, family structure, age, or historical state from prose.
 
+### `BooleanContradictionConsistencyDetector`
+
+Location: `book_loop/application/use_cases/boolean_contradiction_consistency_detector.py`
+
+Responsibility: detect explicit positive/negative contradictions for a small, closed predicate vocabulary.
+
+Current rule set:
+
+- `is` is inverse to `is_not`;
+- `has` is inverse to `does_not_have`;
+- `can` is inverse to `cannot`;
+- subject and object are normalized before comparison;
+- empty normalized subject/object values are ignored;
+- rejected assertions are ignored;
+- duplicate pairs are deduplicated through the detector's stable issue IDs.
+
+This detector is intentionally explicit. It does not infer negation from prose and does not treat arbitrary predicates as boolean.
+
 ### `CharacterContinuityDetector`
 
 Location: `book_loop/application/use_cases/character_continuity_detector.py`
@@ -156,9 +174,10 @@ The current progression is:
 1. deterministic assertion conflicts;
 2. deterministic narrative invariants with explicit predicates;
 3. deterministic temporal and relationship constraints;
-4. existing Canon-vs-new-text diagnostics integrated without duplication;
-5. semantic/NLI/LLM-assisted detection where deterministic rules cannot express the relation;
-6. incremental and asynchronous analysis when corpus size requires it.
+4. deterministic explicit boolean contradictions;
+5. existing Canon-vs-new-text diagnostics integrated without duplication;
+6. semantic/NLI/LLM-assisted detection where deterministic rules cannot express the relation;
+7. incremental and asynchronous analysis when corpus size requires it.
 
 LLM-assisted detection must expose evidence, confidence, and provenance and must remain a proposal. It must not become an implicit approval mechanism.
 
