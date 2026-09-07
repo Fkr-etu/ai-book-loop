@@ -1,17 +1,21 @@
 # Documentation
 
-This directory is the project's canonical knowledge base. Keep documentation small, focused, and versioned with the code.
+This directory is the project's canonical knowledge base. Keep documentation small, focused, and versioned with the code. **Code and tests define implemented behavior; product documents define intent and hypotheses; ADRs preserve historical decisions.**
 
 ## Start here
 
 ### Product
 
-- `product/vision.md` — **why** the product exists and the long-term thesis.
-- `product/strategy.md` — strategic choices, moat, sequencing logic, and infrastructure gates.
-- `product/scope.md` — **what is in the current MVP** and what is explicitly out.
-- `product/roadmap.md` — **what comes next**, from Book validation through future Knowledge QA.
+- `product/positioning.md` — current positioning, personas, differentiation and business-model hypotheses.
+- `product/scope.md` — current product boundary.
+- `product/roadmap.md` — sequencing and next product work.
 - `product/pricing-strategy.md` — pricing and unit-economics hypotheses.
-- `product/infrastructure-costs.md` — infrastructure cost scenarios and migration triggers.
+- `product/infrastructure-costs.md` — infrastructure cost scenarios.
+- `product/analytics-plan.md` — product analytics plan.
+- `product/b2c-france-commercial-readiness.md` — commercial-readiness planning.
+- `product/billing-capacity-policy.md` — billing/capacity planning.
+- `product/legal-launch-checklist.md` — launch/legal checklist.
+- `product/seo-content.md` / `product/seo-content-implementation.md` — SEO/marketing planning.
 
 ### Architecture
 
@@ -20,38 +24,45 @@ This directory is the project's canonical knowledge base. Keep documentation sma
 - `architecture/boundaries.md` — dependency boundaries.
 - `architecture/workflows.md` — current book/chapter workflows and recovery semantics.
 - `architecture/data-model.md` — persisted domain and workflow-run model.
-- `architecture/canonical-review.md` — implemented Canon review semantics.
-- `architecture/chapter-workflow-recovery.md` — durable checkpoints, idempotency and recovery limitations.
-- `architecture/document-ingestion.md` — document-ingestion design and boundaries.
-- `architecture/linguistic-validation.md` — hybrid linguistic validation architecture and implementation plan.
+- `architecture/approved-chapter-canon-flow.md` — approved-chapter/Canon lifecycle.
+- `architecture/canon-assertion-extraction.md` — assertion extraction and provenance.
+- `architecture/canonical-review.md` — Canon review semantics.
+- `architecture/canonical-context.md` — Canon context construction.
+- `architecture/consistency-engine.md` — current consistency detector composition.
+- `architecture/chapter-workflow-recovery.md` — durable checkpoints and recovery limitations.
+- `architecture/document-ingestion.md` — document-ingestion design.
+- `architecture/generation-review-correction.md` — generation/review/correction boundaries.
+- `architecture/deployment-guide.md` — deployment operations.
+- `architecture/gcp-architecture.md` / `architecture/hosting-options.md` — infrastructure reference and hosting decisions.
+- `architecture/linguistic-validation-implementation.md` — historical implementation note; not the current source of truth.
+- `architecture/documentation-audit.md` — documentation audit and classification.
 - `architecture/decisions/` — historical architecture decisions (ADRs).
 
 ### Development
 
-- `development/setup.md` — local setup and how to run the project.
-- `development/testing.md` — testing strategy, including workflow recovery tests.
+- `development/setup.md` — local setup and project commands.
+- `development/testing.md` — testing strategy.
 - `development/configuration.md` — configuration rules.
+- `development/migrations.md` — database migration guidance.
 - `development/contributing.md` — contribution workflow.
+- `development/ai-agent-workflow.md` — mandatory workflow for AI-assisted changes.
 - `glossary.md` — project terminology.
 
 ## Source-of-truth rules
 
-Use one canonical document for each type of information:
+- **Current implementation** → code + tests.
+- **Persisted schema history** → Alembic migrations.
+- **Current architecture** → `architecture/overview.md`.
+- **Architecture invariants** → `architecture/principles.md`.
+- **Current workflows/recovery** → `architecture/workflows.md` + `architecture/chapter-workflow-recovery.md`.
+- **Consistency architecture** → `architecture/consistency-engine.md`.
+- **Persisted knowledge model** → `architecture/data-model.md`.
+- **Product intent/scope** → `product/positioning.md`, `product/scope.md`, `product/roadmap.md`.
+- **Historical decisions** → `architecture/decisions/`.
+- **AI-agent operating rules** → root `AGENTS.md` and `development/ai-agent-workflow.md`.
 
-- **Vision** → `product/vision.md`
-- **Strategy** → `product/strategy.md`
-- **Current scope** → `product/scope.md`
-- **Roadmap / sequencing** → `product/roadmap.md`
-- **Pricing** → `product/pricing-strategy.md`
-- **Current architecture** → `architecture/overview.md`
-- **Architecture invariants** → `architecture/principles.md`
-- **Persisted model** → `architecture/data-model.md`
-- **Current workflow/recovery behavior** → `architecture/workflows.md` + `architecture/chapter-workflow-recovery.md`
-- **Historical decisions** → `architecture/decisions/`
-- **Operational agent rules** → root `AGENTS.md`
-
-Do not duplicate roadmap phases in scope documents or architectural rules in ADRs. ADRs are historical records; current behavior belongs in the current architecture/workflow documents.
+Do not use a product roadmap as evidence that a capability is unimplemented. Search the code and tests first. Do not use an ADR as the current implementation contract when later code or an explicit superseding ADR changed the decision.
 
 ## Documentation maintenance
 
-Documentation describing current behavior is updated in the same change as the code. Significant architectural decisions get an ADR. When a decision changes, preserve the old ADR and supersede it with a new one rather than rewriting history.
+Documentation describing current behavior is updated in the same change as the code. Significant architectural decisions get an ADR. When a decision changes, preserve the old ADR and supersede it rather than rewriting history. Planning documents should clearly label assumptions and targets.
