@@ -13,13 +13,13 @@ The consistency engine is therefore a **detection and explanation layer**, not a
 ```text
                          UnifiedConsistencyEngine
                                   |
-              +-------------------+-------------------------+
-              |          |                |        |        |
-       Assertion       Timeline       Temporal  Relation  Character/World
-       detector        detector       relation  +Boolean   detectors
-              |          |                |        |        |
-        DetectConflicts |                |        |        |
-              |          +----------------+--------+--------+
+              +-------------------+------------------------------+
+              |          |                |        |       |     |
+       Assertion       Timeline       Temporal  Relation  Causal  Character/World
+       detector        detector       relation  +Boolean  detector   detectors
+              |          |                |        |       |     |
+        DetectConflicts |                |        |       |     |
+              |          +----------------+--------+-------+-----+
               |                           |
               +---------------------------+
                           |
@@ -119,6 +119,22 @@ Current rule set:
 
 This detector is intentionally explicit. It does not infer negation from prose and does not treat arbitrary predicates as boolean.
 
+### `CausalRelationConsistencyDetector`
+
+Location: `book_loop/application/use_cases/causal_relation_consistency_detector.py`
+
+Responsibility: detect explicit causal assertions that conflict with temporal ordering or an explicit negative causal assertion.
+
+Current rule set is deliberately precision-first:
+
+- causal predicates include `causes`, `caused`, `caused_by`, `leads_to`, and `results_in`;
+- explicit `before` / `precedes` relations are used only to detect a causal pair whose effect is asserted before its cause;
+- explicit negative causal predicates include `does_not_cause`, `doesnt_cause`, and `not_cause`;
+- positive and negative causal assertions for the same normalized pair are contradictory;
+- rejected assertions are ignored and evidence is preserved in the resulting `ConsistencyIssue`.
+
+The detector never infers causality merely because one event precedes another. It only checks explicit causal assertions already represented in the knowledge layer.
+
 ### `CharacterContinuityDetector`
 
 Location: `book_loop/application/use_cases/character_continuity_detector.py`
@@ -161,7 +177,7 @@ Responsibility: application entry point for consistency analysis. It runs the as
 
 ## NLP enrichment
 
-The optional `nlp` extra now includes `spacy` and `dateparser`. spaCy remains an infrastructure adapter for linguistic signals; it is not the source of truth for consistency. `dateparser` is used conservatively by the timeline detector to normalize explicit calendar expressions while deliberately ignoring relative dates without a narrative reference date.
+The optional `nlp` extra includes `spacy` and `dateparser`. spaCy remains an infrastructure adapter for linguistic signals; it is not the source of truth for consistency. `dateparser` is used conservatively by the timeline detector to normalize explicit calendar expressions while deliberately ignoring relative dates without a narrative reference date.
 
 The NLP layer must remain optional: importing the core application must not require a spaCy model or date parser installation. Consistency behavior should degrade to explicit-year matching when the optional date parser is unavailable.
 
@@ -183,9 +199,10 @@ The current progression is:
 2. deterministic narrative invariants with explicit predicates;
 3. deterministic temporal and relationship constraints;
 4. deterministic explicit boolean contradictions;
-5. existing Canon-vs-new-text diagnostics integrated without duplication;
-6. semantic/NLI/LLM-assisted detection where deterministic rules cannot express the relation;
-7. incremental and asynchronous analysis when corpus size requires it.
+5. deterministic explicit causal/temporal constraints;
+6. existing Canon-vs-new-text diagnostics integrated without duplication;
+7. semantic/NLI/LLM-assisted detection where deterministic rules cannot express the relation;
+8. incremental and asynchronous analysis when corpus size requires it.
 
 LLM-assisted detection must expose evidence, confidence, and provenance and must remain a proposal. It must not become an implicit approval mechanism.
 
