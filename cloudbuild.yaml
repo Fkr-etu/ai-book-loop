@@ -108,19 +108,28 @@ steps:
       - "--concurrency=8"
       - "--port=8080"
 
-  # Resolve the deployed API URL and build the web image with it baked into
-  # the Next.js client bundle.
-  - id: build-web
+  # Resolve the deployed API URL in a gcloud step, then pass it to a Docker
+  # builder step. The Docker builder is required because cloud-sdk does not
+  # contain the Docker CLI.
+  - id: resolve-api-url
     name: gcr.io/google.com/cloudsdktool/cloud-sdk
     entrypoint: bash
     waitFor: [deploy-api]
     args:
       - "-c"
       - |
-        API_URL="$$(gcloud run services describe ${_API_SERVICE} --region=${_REGION} --format='value(status.url)')"
+        gcloud run services describe ${_API_SERVICE} --region=${_REGION} --format='value(status.url)' > /workspace/api-url
+        test -s /workspace/api-url
+
+  - id: build-web
+    name: gcr.io/cloud-builders/docker
+    waitFor: [resolve-api-url, pull-web-cache]
+    entrypoint: bash
+    args:
+      - "-c"
+      - |
+        API_URL="$$(cat /workspace/api-url)"
         test -n "$${API_URL}"
-        gcloud auth configure-docker ${_REGION}-docker.pkg.dev --quiet
-        docker pull "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_WEB_REPOSITORY}/web:latest" || true
         docker build \
           --cache-from "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_WEB_REPOSITORY}/web:latest" \
           --build-arg "NEXT_PUBLIC_API_URL=$${API_URL}" \
