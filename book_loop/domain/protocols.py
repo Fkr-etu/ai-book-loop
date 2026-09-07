@@ -5,7 +5,11 @@ from typing import Protocol, TypeVar
 
 from pydantic import BaseModel
 
-from book_loop.domain.canon_change import CanonChangeProposal, CanonChangeProposalStatus
+from book_loop.domain.canon_change import (
+    CanonChangeProposal,
+    CanonChangeProposalStatus,
+    CanonChangeReviewDecision,
+)
 from book_loop.domain.models import (
     Assertion,
     AssertionStatus,
@@ -91,3 +95,5 @@ class KnowledgeRepository(Protocol):
     def get_canon_change_proposal(self, proposal_id: str) -> CanonChangeProposal: ...
     def list_canon_change_proposals(self, *, book_id: str) -> list[CanonChangeProposal]: ...
     def set_canon_change_proposal_status(self, proposal_id: str, status: CanonChangeProposalStatus) -> None: ...
+    def save_canon_change_review_decision(self, decision: CanonChangeReviewDecision) -> None: ...
+    def list_canon_change_review_decisions(self, *, proposal_id: str) -> list[CanonChangeReviewDecision]: ...

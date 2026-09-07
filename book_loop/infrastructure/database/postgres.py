@@ -10,7 +10,6 @@ from psycopg.rows import dict_row
 
 from book_loop.domain.models import AssertionStatus, BookState, CanonicalFact, Conflict, DocumentChunk, Evidence, ReviewDecision, SceneReview, SourceDocument, SubscriptionPlan, User
 from book_loop.domain.workflow import ChapterWorkflowRun
-from book_loop.infrastructure.database.canon_change_repository import CanonChangeRepositoryMixin
 from book_loop.infrastructure.database.repository import BookRepositoryMixin
 
 
@@ -49,7 +48,7 @@ class _PostgresConnectionAdapter:
     def close(self) -> None: self._connection.close()
 
 
-class PostgresBookRepository(CanonChangeRepositoryMixin, BookRepositoryMixin):
+class PostgresBookRepository(BookRepositoryMixin):
     def __init__(self, database_url: str) -> None:
         if not database_url.startswith(("postgresql://", "postgres://", "postgresql+psycopg://")):
             raise ValueError("PostgresBookRepository requires a PostgreSQL DATABASE_URL")
@@ -66,14 +65,12 @@ class PostgresBookRepository(CanonChangeRepositoryMixin, BookRepositoryMixin):
             CREATE TABLE IF NOT EXISTS conflicts (id TEXT PRIMARY KEY, book_id TEXT NOT NULL, left_assertion_id TEXT NOT NULL, right_assertion_id TEXT NOT NULL, status TEXT NOT NULL, resolution_assertion_id TEXT);
             CREATE TABLE IF NOT EXISTS review_decisions (id TEXT PRIMARY KEY, assertion_id TEXT NOT NULL, decision TEXT NOT NULL, reviewer_id TEXT, rationale TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
             CREATE TABLE IF NOT EXISTS canonical_facts (id TEXT PRIMARY KEY, book_id TEXT NOT NULL, assertion_id TEXT NOT NULL, statement TEXT NOT NULL, subject TEXT NOT NULL, predicate TEXT NOT NULL, object TEXT NOT NULL, decision_id TEXT NOT NULL, version INTEGER NOT NULL, active BOOLEAN NOT NULL, previous_fact_id TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE(book_id, subject, predicate, version));
-            CREATE TABLE IF NOT EXISTS canon_change_proposals (id TEXT PRIMARY KEY, book_id TEXT NOT NULL, canonical_fact_id TEXT NOT NULL, statement TEXT NOT NULL, subject TEXT NOT NULL, predicate TEXT NOT NULL, object TEXT NOT NULL, proposer_id TEXT, rationale TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'proposed', created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP);
             CREATE TABLE IF NOT EXISTS workflow_usage (user_id TEXT NOT NULL, period_start DATE NOT NULL, idempotency_key TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY(user_id, period_start, idempotency_key));
         """)
         self._connection._connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS plan TEXT NOT NULL DEFAULT 'free'")
         self._connection._connection.execute("ALTER TABLE canonical_facts ADD COLUMN IF NOT EXISTS previous_fact_id TEXT")
         self._connection._connection.execute("CREATE UNIQUE INDEX IF NOT EXISTS uq_active_canonical_fact ON canonical_facts(book_id, subject, predicate) WHERE active = TRUE")
         self._connection._connection.execute("CREATE UNIQUE INDEX IF NOT EXISTS uq_conflict_assertion_pair ON conflicts(left_assertion_id, right_assertion_id)")
-        self._connection._connection.execute("CREATE INDEX IF NOT EXISTS ix_canon_change_proposals_book ON canon_change_proposals(book_id, created_at, id)")
         self._connection.commit()
     @contextmanager
     def transaction(self) -> Iterator[None]:

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
 from uuid import uuid4
 
 from book_loop.domain.canon_change import CanonChangeProposal
@@ -40,7 +39,6 @@ class ProposeCanonChange:
             object=object.strip(),
             proposer_id=proposer_id,
             rationale=rationale.strip(),
-            created_at=datetime.now(UTC).isoformat(),
         )
         self.repository.save_canon_change_proposal(proposal)
         return proposal

@@ -26,3 +26,19 @@ class CanonChangeProposal(BaseModel):
     rationale: str = ""
     status: CanonChangeProposalStatus = CanonChangeProposalStatus.PROPOSED
     created_at: str | None = None
+
+
+class CanonChangeReviewDecisionType(StrEnum):
+    ACCEPT = "accept"
+    REJECT = "reject"
+
+
+class CanonChangeReviewDecision(BaseModel):
+    """The explicit editorial decision that may activate a proposed Canon change."""
+
+    id: str
+    proposal_id: str
+    decision: CanonChangeReviewDecisionType
+    reviewer_id: str | None = None
+    rationale: str = ""
+    created_at: str | None = None
