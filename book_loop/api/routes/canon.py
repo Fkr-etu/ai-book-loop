@@ -54,6 +54,33 @@ def list_canonical_facts(book_id: str, request: Request, container: Container = 
     return {"facts": [fact.model_dump(mode="json") for fact in facts]}
 
 
+@router.get("/canonical-facts/{fact_id}/impact")
+def analyze_canon_change(book_id: str, fact_id: str, request: Request, container: Container = Depends(get_container)) -> dict[str, Any]:
+    """Return source-backed findings potentially affected by a Canon fact change."""
+    get_owned_book(book_id, request, container)
+    try:
+        report = container.analyze_canon_change().execute(book_id=book_id, changed_fact_id=fact_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+    return {
+        "changed_fact_id": report.changed_fact_id,
+        "findings": [
+            {
+                "fact_id": finding.fact_id,
+                "assertion_id": finding.assertion_id,
+                "statement": finding.statement,
+                "source_document_id": finding.source_document_id,
+                "chunk_id": finding.chunk_id,
+                "excerpt": finding.excerpt,
+                "start_offset": finding.start_offset,
+                "end_offset": finding.end_offset,
+            }
+            for finding in report.findings
+        ],
+    }
+
+
 @router.post("/assertions/{assertion_id}/review")
 def review_assertion(book_id: str, assertion_id: str, payload: ReviewAssertionPayload, request: Request, container: Container = Depends(get_container)) -> dict[str, Any]:
     get_owned_book(book_id, request, container)
