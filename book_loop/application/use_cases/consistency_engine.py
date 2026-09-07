@@ -3,29 +3,30 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Protocol
 
-from book_loop.application.use_cases.analyze_consistency import ConsistencyIssue
-
 
 class ConsistencyDetector(Protocol):
     """A consistency detector that reuses the existing knowledge layer."""
 
-    def detect(self, *, book_id: str) -> Sequence[ConsistencyIssue]: ...
+    def detect(self, *, book_id: str) -> Sequence[object]: ...
 
 
 class UnifiedConsistencyEngine:
-    """Run all registered consistency detectors and fuse their issues.
+    """Run registered consistency detectors and fuse their issues.
 
     Detectors own detection rules; the engine owns orchestration and stable deduplication.
-    This keeps the existing assertion/conflict detector as the source of truth while making
-    room for future character, chronology and semantic detectors without parallel pipelines.
+    It deliberately knows nothing about assertion, Canon or LLM implementations, preventing
+    future detectors from creating parallel consistency pipelines.
     """
 
     def __init__(self, detectors: Sequence[ConsistencyDetector]) -> None:
         self._detectors = tuple(detectors)
 
-    def detect(self, *, book_id: str) -> list[ConsistencyIssue]:
-        issues: dict[str, ConsistencyIssue] = {}
+    def detect(self, *, book_id: str) -> list[object]:
+        issues: dict[str, object] = {}
         for detector in self._detectors:
             for issue in detector.detect(book_id=book_id):
-                issues.setdefault(issue.id, issue)
+                issue_id = getattr(issue, "id", None)
+                if not isinstance(issue_id, str) or not issue_id:
+                    raise ValueError("Consistency detector issues must expose a stable id")
+                issues.setdefault(issue_id, issue)
         return list(issues.values())
