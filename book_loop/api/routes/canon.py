@@ -17,6 +17,13 @@ class ReviewAssertionPayload(BaseModel):
     rationale: str = ""
 
 
+class CanonChangeProposalPayload(BaseModel):
+    fact_id: str
+    statement: str
+    object: str
+    rationale: str = ""
+
+
 @router.get("/assertions")
 def list_assertions(book_id: str, request: Request, container: Container = Depends(get_container)) -> dict[str, Any]:
     get_owned_book(book_id, request, container)
@@ -81,6 +88,35 @@ def analyze_canon_change(book_id: str, fact_id: str, request: Request, container
             for finding in report.findings
         ],
     }
+
+
+@router.get("/canon-change-proposals")
+def list_canon_change_proposals(book_id: str, request: Request, container: Container = Depends(get_container)) -> dict[str, Any]:
+    """List author proposals without changing active Canon."""
+    get_owned_book(book_id, request, container)
+    proposals = container.repository.list_canon_change_proposals(book_id=book_id)
+    return {"proposals": [proposal.model_dump(mode="json") for proposal in proposals]}
+
+
+@router.post("/canon-change-proposals", status_code=201)
+def propose_canon_change(book_id: str, payload: CanonChangeProposalPayload, request: Request, container: Container = Depends(get_container)) -> dict[str, Any]:
+    """Create an author proposal; Canon remains unchanged until a later review decision."""
+    get_owned_book(book_id, request, container)
+    current_user: UserPublic = get_current_user(request)
+    try:
+        proposal = container.propose_canon_change().execute(
+            book_id=book_id,
+            fact_id=payload.fact_id,
+            statement=payload.statement,
+            object=payload.object,
+            proposer_id=current_user.id,
+            rationale=payload.rationale,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    return proposal.model_dump(mode="json")
 
 
 @router.post("/assertions/{assertion_id}/review")
