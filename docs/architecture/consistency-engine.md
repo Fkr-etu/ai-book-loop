@@ -84,6 +84,21 @@ Current rule set is intentionally small:
 
 The detector operates only on explicit assertion predicates. It does not infer event chronology from prose, dates, or narrative context.
 
+### `InverseRelationConsistencyDetector`
+
+Location: `book_loop/application/use_cases/inverse_relation_consistency_detector.py`
+
+Responsibility: detect explicit inverse-role contradictions for the same ordered subject/target pair.
+
+Current rule set is deliberately conservative:
+
+- `parent_of` / `parent` are inverse to `child_of` / `child`;
+- `older_than` / `older` are inverse to `younger_than` / `younger`;
+- only assertions with the same subject and target are compared;
+- the detector flags only the impossible same-orientation combination, while the correctly oriented inverse representation remains valid.
+
+It does not infer relationship semantics, family structure, age, or historical state from prose.
+
 ### `CharacterContinuityDetector`
 
 Location: `book_loop/application/use_cases/character_continuity_detector.py`
