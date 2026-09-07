@@ -68,6 +68,10 @@ class AssertionExtractor(Protocol):
     def extract(self, *, chunk: DocumentChunk) -> list[ExtractedAssertion]: ...
 
 
+class PredicateNormalizer(Protocol):
+    def normalize(self, *, predicate: str, language: str = "fr") -> str: ...
+
+
 class CanonicalKnowledgeRetriever(Protocol):
     def retrieve(self, facts: Iterable[CanonicalFact], *, query: str) -> list[CanonicalFact]: ...
 
