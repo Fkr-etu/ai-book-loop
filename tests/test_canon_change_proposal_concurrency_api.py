@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import hashlib
 import os
 
 from fastapi.testclient import TestClient
 
 from book_loop.api.app import create_app
-from book_loop.domain.models import Assertion, AssertionStatus, CanonicalFact
+from book_loop.domain.models import Assertion, AssertionStatus, CanonicalFact, DocumentChunk, Evidence, SourceDocument
 from book_loop.infrastructure.config import Settings
 from book_loop.infrastructure.container import Container
 
@@ -33,17 +34,69 @@ def setup_client():
 
 def test_second_proposal_on_same_fact_is_rejected_after_first_acceptance():
     client, container, book_id = setup_client()
+    source_id = "source-concurrency"
+    chunk_id = "chunk-concurrency"
+    evidence_id = "evidence-concurrency"
+    content = "Alice lives in Paris."
+    container.repository.save_source(
+        SourceDocument(
+            id=source_id,
+            book_id=book_id,
+            name="Concurrency test source",
+            source_type="test",
+            content=content,
+            content_hash=hashlib.sha256(content.encode()).hexdigest(),
+        )
+    )
+    container.repository.save_chunk(
+        DocumentChunk(
+            id=chunk_id,
+            source_document_id=source_id,
+            content=content,
+            sequence=0,
+            start_offset=0,
+            end_offset=len(content),
+        )
+    )
     assertion = Assertion(
-        id="assertion-concurrency", source_document_id=None, chunk_id=None,
-        statement="Alice lives in Paris.", subject="Alice", predicate="lives_in", object="Paris",
-        confidence=1.0, status=AssertionStatus.ACCEPTED,
+        id="assertion-concurrency",
+        source_document_id=source_id,
+        chunk_id=chunk_id,
+        statement=content,
+        subject="Alice",
+        predicate="lives_in",
+        object="Paris",
+        confidence=1.0,
+        status=AssertionStatus.ACCEPTED,
+        evidence_id=evidence_id,
     )
     container.repository.save_assertion(assertion)
-    container.repository.save_canonical_fact(CanonicalFact(
-        id="fact-concurrency", book_id=book_id, assertion_id=assertion.id,
-        statement=assertion.statement, subject=assertion.subject, predicate=assertion.predicate,
-        object=assertion.object, decision_id="decision-concurrency", version=1, active=True, previous_fact_id=None,
-    ))
+    container.repository.save_evidence(
+        Evidence(
+            id=evidence_id,
+            assertion_id=assertion.id,
+            source_document_id=source_id,
+            chunk_id=chunk_id,
+            start_offset=0,
+            end_offset=len(content),
+            excerpt=content,
+        )
+    )
+    container.repository.save_canonical_fact(
+        CanonicalFact(
+            id="fact-concurrency",
+            book_id=book_id,
+            assertion_id=assertion.id,
+            statement=assertion.statement,
+            subject=assertion.subject,
+            predicate=assertion.predicate,
+            object=assertion.object,
+            decision_id="decision-concurrency",
+            version=1,
+            active=True,
+            previous_fact_id=None,
+        )
+    )
 
     first = client.post(
         f"/api/books/{book_id}/canon-change-proposals",
