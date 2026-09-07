@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from book_loop.application.use_cases.analyze_consistency import ConsistencyIssue
 from book_loop.application.use_cases.detect_conflicts import DetectConflicts
+from book_loop.domain.consistency import ConsistencyIssue
 from book_loop.domain.models import Assertion, Conflict, Evidence
 from book_loop.domain.protocols import KnowledgeRepository
 
