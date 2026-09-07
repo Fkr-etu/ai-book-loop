@@ -14,12 +14,12 @@ The consistency engine is therefore a **detection and explanation layer**, not a
                          UnifiedConsistencyEngine
                                   |
               +-------------------+------------------------------+
-              |          |                |        |        |    |
-       Assertion       Timeline       Temporal  Causal   Character World
-       detector        detector       relation relation  detector detector
-              |          |                |        |        |    |
-        DetectConflicts |                |        |        |    |
-              |          +----------------+--------+--------+----+
+              |          |                |        |       |     |
+       Assertion       Timeline       Temporal  Relation  Causal  Character/World
+       detector        detector       relation  +Boolean  detector   detectors
+              |          |                |        |       |     |
+        DetectConflicts |                |        |       |     |
+              |          +----------------+--------+-------+-----+
               |                           |
               +---------------------------+
                           |
@@ -35,7 +35,7 @@ Assertion extraction + active Canon
 Assertion ↔ Canon
 ```
 
-The unified engine currently combines persisted assertion conflicts with deterministic narrative detectors. The existing chapter-validation path remains distinct: **do not implement a second Canon-vs-text detector.** If that capability is exposed through the unified engine later, adapt the existing `CanonDiagnosticChecker` behind the shared detector contract.
+The unified engine combines persisted assertion conflicts with deterministic narrative detectors. The existing chapter-validation path remains distinct: **do not implement a second Canon-vs-text detector.** If that capability is exposed through the unified engine later, adapt the existing `CanonDiagnosticChecker` behind the shared detector contract.
 
 ## Existing implementations
 
@@ -64,7 +64,9 @@ Current rule:
 - accepted/proposed/deferred assertions are considered;
 - birth predicates include `birth`, `born`, `birth_date`, `date_of_birth`;
 - death predicates include `death`, `died`, `death_date`, `date_of_death`;
-- years are extracted conservatively from the assertion object;
+- explicit four-digit years are preferred;
+- when the optional NLP extra is installed, `dateparser` can normalize explicit calendar expressions such as `12 mars 1985`;
+- relative expressions such as `demain` are ignored because the detector has no narrative reference date;
 - a finding is raised only when birth year is strictly later than death year.
 
 This detector is intentionally narrow. It does not infer chronology from arbitrary prose or assume that two events are contradictory merely because they concern the same character.
@@ -84,21 +86,54 @@ Current rule set is intentionally small:
 
 The detector operates only on explicit assertion predicates. It does not infer event chronology from prose, dates, or narrative context.
 
+### `InverseRelationConsistencyDetector`
+
+Location: `book_loop/application/use_cases/inverse_relation_consistency_detector.py`
+
+Responsibility: detect explicit inverse-role contradictions for the same ordered subject/target pair.
+
+Current rule set is deliberately conservative:
+
+- `parent_of` / `parent` are inverse to `child_of` / `child`;
+- `older_than` / `older` are inverse to `younger_than` / `younger`;
+- only assertions with the same subject and target are compared;
+- the detector flags only the impossible same-orientation combination, while the correctly oriented inverse representation remains valid.
+
+It does not infer relationship semantics, family structure, age, or historical state from prose.
+
+### `BooleanContradictionConsistencyDetector`
+
+Location: `book_loop/application/use_cases/boolean_contradiction_consistency_detector.py`
+
+Responsibility: detect explicit positive/negative contradictions for a small, closed predicate vocabulary.
+
+Current rule set:
+
+- `is` is inverse to `is_not`;
+- `has` is inverse to `does_not_have`;
+- `can` is inverse to `cannot`;
+- subject and object are normalized before comparison;
+- empty normalized subject/object values are ignored;
+- rejected assertions are ignored;
+- duplicate pairs are deduplicated through the detector's stable issue IDs.
+
+This detector is intentionally explicit. It does not infer negation from prose and does not treat arbitrary predicates as boolean.
+
 ### `CausalRelationConsistencyDetector`
 
 Location: `book_loop/application/use_cases/causal_relation_consistency_detector.py`
 
-Responsibility: detect explicit causal claims that violate another explicit relation.
+Responsibility: detect explicit causal assertions that conflict with temporal ordering or an explicit negative causal assertion.
 
-Current rule set is deliberately conservative:
+Current rule set is deliberately precision-first:
 
-- `causes` / `caused` / `leads_to` / `results_in` establish a directed causal relation;
-- a causal assertion conflicts with an explicit reverse `before` relation because a cause cannot occur after its effect;
-- `does_not_cause` / `not_cause` explicitly negate a causal assertion;
-- unrelated assertions are ignored;
-- rejected assertions are ignored through the shared active-assertion policy.
+- causal predicates include `causes`, `caused`, `caused_by`, `leads_to`, and `results_in`;
+- explicit `before` / `precedes` relations are used only to detect a causal pair whose effect is asserted before its cause;
+- explicit negative causal predicates include `does_not_cause`, `doesnt_cause`, and `not_cause`;
+- positive and negative causal assertions for the same normalized pair are contradictory;
+- rejected assertions are ignored and evidence is preserved in the resulting `ConsistencyIssue`.
 
-The detector does not infer causality from narrative prose. In particular, temporal succession alone is **not** treated as evidence of causality.
+The detector never infers causality merely because one event precedes another. It only checks explicit causal assertions already represented in the knowledge layer.
 
 ### `CharacterContinuityDetector`
 
@@ -140,6 +175,12 @@ Responsibility: application entry point for consistency analysis. It runs the as
 
 `list_existing()` remains a read-only projection of persisted assertion conflicts.
 
+## NLP enrichment
+
+The optional `nlp` extra includes `spacy` and `dateparser`. spaCy remains an infrastructure adapter for linguistic signals; it is not the source of truth for consistency. `dateparser` is used conservatively by the timeline detector to normalize explicit calendar expressions while deliberately ignoring relative dates without a narrative reference date.
+
+The NLP layer must remain optional: importing the core application must not require a spaCy model or date parser installation. Consistency behavior should degrade to explicit-year matching when the optional date parser is unavailable.
+
 ## Identity, evidence and idempotency
 
 Narrative detector findings use deterministic UUID5 identities derived from the book, detector rule, and assertion pair. Re-running a detector therefore returns the same issue ID for the same pair.
@@ -156,10 +197,12 @@ The current progression is:
 
 1. deterministic assertion conflicts;
 2. deterministic narrative invariants with explicit predicates;
-3. deterministic temporal, causal and relationship constraints;
-4. existing Canon-vs-new-text diagnostics integrated without duplication;
-5. semantic/NLI/LLM-assisted detection where deterministic rules cannot express the relation;
-6. incremental and asynchronous analysis when corpus size requires it.
+3. deterministic temporal and relationship constraints;
+4. deterministic explicit boolean contradictions;
+5. deterministic explicit causal/temporal constraints;
+6. existing Canon-vs-new-text diagnostics integrated without duplication;
+7. semantic/NLI/LLM-assisted detection where deterministic rules cannot express the relation;
+8. incremental and asynchronous analysis when corpus size requires it.
 
 LLM-assisted detection must expose evidence, confidence, and provenance and must remain a proposal. It must not become an implicit approval mechanism.
 
