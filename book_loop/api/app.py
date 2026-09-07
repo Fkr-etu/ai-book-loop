@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from book_loop.api.dependencies import get_current_user
-from book_loop.api.routes import auth, books, canon, chapters, documents, outline
+from book_loop.api.routes import auth, billing, books, canon, chapters, documents, outline
 from book_loop.infrastructure.auth import COOKIE_NAME
 from book_loop.infrastructure.container import Container
 
@@ -29,7 +29,7 @@ def create_app(container: Container | None = None) -> FastAPI:
         allow_origins=container.settings.cors_allowed_origins,
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        allow_headers=["Content-Type", "Authorization"],
+        allow_headers=["Content-Type", "Authorization", "Stripe-Signature"],
     )
 
     @app.get("/health")
@@ -53,6 +53,7 @@ def create_app(container: Container | None = None) -> FastAPI:
             and has_session_cookie
             and csrf_protection_enabled
             and not _origin_is_allowed(request, container)
+            and not request.url.path == "/api/billing/webhook"
         ):
             return JSONResponse(
                 status_code=403,
@@ -85,6 +86,7 @@ def create_app(container: Container | None = None) -> FastAPI:
         return await call_next(request)
 
     app.include_router(auth.router)
+    app.include_router(billing.router)
     app.include_router(books.router)
     app.include_router(outline.router)
     app.include_router(chapters.router)

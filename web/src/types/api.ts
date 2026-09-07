@@ -76,7 +76,14 @@ export interface BackendBook {
   chapters: BackendChapter[];
 }
 
-export interface BackendUser { id: string; email: string; name: string; }
+export type BackendSubscriptionPlan = "free" | "creator" | "pro";
+export interface BackendUser { id: string; email: string; name: string; plan: BackendSubscriptionPlan; }
+export interface BackendBillingState {
+  plan: BackendSubscriptionPlan;
+  subscription_status: string;
+  subscription_current_period_end: string | null;
+  subscription_cancel_at_period_end: boolean;
+}
 
 export interface BackendSceneReview { score: number; approved: boolean; issues: string[]; suggestions: string[]; }
 

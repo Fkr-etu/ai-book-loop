@@ -1,9 +1,10 @@
-import type { BackendAssertion, BackendBook, BackendCanonChangeImpact, BackendCanonicalFact, BackendConflict, BackendIngestionResult, BackendSceneReview, BackendUser, BackendWorkflowRun } from "@/types/api";
+import type { BackendAssertion, BackendBillingState, BackendBook, BackendCanonChangeImpact, BackendCanonicalFact, BackendConflict, BackendIngestionResult, BackendSceneReview, BackendUser, BackendWorkflowRun } from "@/types/api";
 import { API_BASE_URL } from "@/services/config";
 export interface CreateBookInput { title: string; theme: string; author_idea: string; lore?: string; constraints?: string[]; }
 export interface GenerateChapterResult { run: BackendWorkflowRun; }
 export interface ReviewChapterResult { book: BackendBook; review: BackendSceneReview; }
 export interface BackendChapterContext { authorIdea: string; theme: string; lore: string; globalOutline: import("@/types/api").BackendOutline | null; constraints: string[]; previousSummaries: string; currentObjective: string; formattedContext: string; }
+export interface CheckoutResult { url: string; }
 export class RealApiError extends Error { status: number | null; constructor(message: string, status: number | null = null) { super(message); this.name = "RealApiError"; this.status = status; } }
 const RETRYABLE_STATUS = new Set([408, 429, 500, 502, 503, 504]); const MAX_RETRIES = 2; const REQUEST_TIMEOUT_MS = 30_000;
 async function parseResponse(response: Response): Promise<unknown> { const text = await response.text(); if (!text) return null; try { return JSON.parse(text) as unknown; } catch { return text; } }
@@ -12,9 +13,12 @@ function unwrapUser(payload: unknown): BackendUser { if (typeof payload === "obj
 export class RealApiClient {
   private async request<T>(path: string, options: RequestInit = {}): Promise<T> { const method = (options.method || "GET").toUpperCase(); const canRetry = method === "GET"; let attempt = 0; while (true) { const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS); try { const response = await fetch(`${API_BASE_URL}${path}`, { ...options, credentials: "include", signal: controller.signal, headers: { "Content-Type": "application/json", ...(options.headers || {}) } }); const payload = await parseResponse(response); if (response.ok) return payload as T; if (canRetry && attempt < MAX_RETRIES && RETRYABLE_STATUS.has(response.status)) { attempt += 1; continue; } throw new RealApiError(errorMessage(payload, `Request failed with status ${response.status}`), response.status); } catch (error) { if (error instanceof RealApiError) throw error; if (canRetry && attempt < MAX_RETRIES) { attempt += 1; continue; } throw new RealApiError(error instanceof DOMException && error.name === "AbortError" ? "La requête a expiré." : "Impossible de joindre l'API."); } finally { clearTimeout(timeout); } } }
   async getCurrentUser(): Promise<BackendUser | null> { try { return unwrapUser(await this.request<unknown>("/api/auth/me")); } catch (error) { if (error instanceof RealApiError && error.status === 401) return null; throw error; } }
+  async getBillingState(): Promise<BackendBillingState> { return this.request("/api/billing/me"); }
   async login(email: string, password: string): Promise<BackendUser> { return unwrapUser(await this.request<unknown>("/api/auth/login", { method: "POST", body: JSON.stringify({ email, password }) })); }
   async register(email: string, password: string, name: string): Promise<BackendUser> { return unwrapUser(await this.request<unknown>("/api/auth/register", { method: "POST", body: JSON.stringify({ email, password, name }) })); }
   async logout(): Promise<void> { await this.request("/api/auth/logout", { method: "POST" }); }
+  async createCheckout(plan: "creator" | "pro", billingCycle: "monthly" | "yearly"): Promise<CheckoutResult> { return this.request("/api/billing/checkout", { method: "POST", body: JSON.stringify({ plan, billing_cycle: billingCycle }) }); }
+  async createBillingPortal(): Promise<CheckoutResult> { return this.request("/api/billing/portal", { method: "POST" }); }
   listBooks(): Promise<BackendBook[]> { return this.request("/api/books"); } getBook(id: string): Promise<BackendBook> { return this.request(`/api/books/${encodeURIComponent(id)}`); }
   createBook(input: CreateBookInput): Promise<BackendBook> { return this.request("/api/books", { method: "POST", body: JSON.stringify(input) }); }
   updateBook(id: string, updates: Record<string, unknown>): Promise<BackendBook> { return this.request(`/api/books/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify(updates) }); }

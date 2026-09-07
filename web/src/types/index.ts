@@ -37,86 +37,19 @@ export interface LoreItem {
   source?: string;
 }
 
-export interface GraphNode {
-  id: string;
-  label: string;
-  type: "character" | "location" | "faction" | "artifact" | "rule";
-  x?: number;
-  y?: number;
-}
-
-export interface GraphEdge {
-  id: string;
-  source: string;
-  target: string;
-  relation: string;
-}
-
+export type ConstraintType = "forbidden_word" | "pacing" | "tone" | "pov";
 export type SceneStatus = "validated" | "in_review" | "draft" | "rejected";
-
-export interface Scene {
-  id: string;
-  title: string;
-  summary: string;
-  status: SceneStatus;
-  content?: string;
-  scoreStyle?: number;
-  scoreCoherence?: number;
-}
-
 export type ChapterStatus = CanonicalStatus;
 
-export interface ChapterVersion {
-  id: string;
-  versionNumber: number;
-  content: string;
-  createdAt: string;
-  source: "author" | "ai" | "edited" | "retry";
-  status: CanonicalStatus;
-  review?: SceneReview;
-}
+export interface GraphNode { id: string; label: string; type: "character" | "location" | "faction" | "artifact" | "rule"; x?: number; y?: number; }
+export interface GraphEdge { id: string; source: string; target: string; relation: string; }
 
-export interface Chapter {
-  id: string;
-  number: number;
-  title: string;
-  objective: string;
-  status: ChapterStatus;
-  currentVersion: number;
-  summary?: string;
-  versions?: ChapterVersion[];
-  scenes?: Scene[];
-}
-
-export type ConstraintType = "forbidden_word" | "pacing" | "tone" | "pov";
-
-export interface CreativeConstraint {
-  id: string;
-  type: ConstraintType;
-  description: string;
-  active: boolean;
-}
-
-export interface SceneReview {
-  id?: string;
-  sceneId?: string;
-  score: number;
-  approved: boolean;
-  issues: string[];
-  suggestions: string[];
-  scoreStyle?: number;
-  scoreCoherence?: number;
-  forbiddenPatternsFound?: string[];
-  critique?: string;
-  timestamp?: string;
-}
-
-export interface AuthorIntent {
-  originalIdea: string;
-  theme: string;
-  constraints: string[];
-  styleTone: string;
-}
+export interface ChapterVersion { id: string; versionNumber: number; content: string; createdAt: string; source: "author" | "ai" | "edited" | "retry"; status: CanonicalStatus; review?: SceneReview; }
+export interface Chapter { id: string; number: number; title: string; objective: string; status: ChapterStatus; currentVersion: number; summary?: string; versions?: ChapterVersion[]; scenes?: Scene[]; }
+export interface Scene { id: string; title: string; summary: string; status: SceneStatus; content?: string; scoreStyle?: number; scoreCoherence?: number; }
+export interface CreativeConstraint { id: string; type: ConstraintType; description: string; active: boolean; }
+export interface SceneReview { id?: string; sceneId?: string; score: number; approved: boolean; issues: string[]; suggestions: string[]; scoreStyle?: number; scoreCoherence?: number; forbiddenPatternsFound?: string[]; critique?: string; timestamp?: string; }
+export interface AuthorIntent { originalIdea: string; theme: string; constraints: string[]; styleTone: string; }
 
 export interface BookState {
   id: string;
@@ -128,8 +61,6 @@ export interface BookState {
   outline?: string;
   outlineApproved: boolean;
   chapters: Chapter[];
-
-  // UI / Extended properties
   subtitle?: string;
   genre?: string;
   targetAudience?: string;
@@ -147,57 +78,18 @@ export interface BookState {
 }
 
 export type ProjectState = BookState;
+export type SubscriptionPlan = "free" | "creator" | "pro";
 
 export interface UserProfile {
   id: string;
   email: string;
   name: string;
-  plan: "standard" | "pro" | "elite";
+  plan: SubscriptionPlan;
   avatarUrl?: string;
 }
 
-export interface ApiResponse<T> {
-  success: boolean;
-  data?: T;
-  error?: string;
-}
-
-export interface CanonicalContextResponse {
-  authorIdea: string;
-  theme: string;
-  lore: string;
-  globalOutline: string;
-  constraints: string[];
-  previousSummaries: string;
-  currentObjective: string;
-  formattedContext: string;
-}
-
-export interface SourceDocument {
-  id: string;
-  book_id: string;
-  name: string;
-  source_type: string;
-  content: string;
-  content_hash: string;
-  version: number;
-}
-
-export interface Assertion {
-  id: string;
-  source_document_id: string;
-  chunk_id: string;
-  statement: string;
-  subject: string;
-  predicate: string;
-  object: string;
-  confidence: number;
-  status: "proposed" | "accepted" | "rejected" | "deferred";
-  evidence_id?: string;
-}
-
-export interface IngestionResult {
-  source_document: SourceDocument;
-  already_ingested?: boolean;
-  assertions?: Assertion[];
-}
+export interface ApiResponse<T> { success: boolean; data?: T; error?: string; }
+export interface CanonicalContextResponse { authorIdea: string; theme: string; lore: string; globalOutline: string; constraints: string[]; previousSummaries: string; currentObjective: string; formattedContext: string; }
+export interface SourceDocument { id: string; book_id: string; name: string; source_type: string; content: string; content_hash: string; version: number; }
+export interface Assertion { id: string; source_document_id: string; chunk_id: string; statement: string; subject: string; predicate: string; object: string; confidence: number; status: "proposed" | "accepted" | "rejected" | "deferred"; evidence_id?: string; }
+export interface IngestionResult { source_document: SourceDocument; already_ingested?: boolean; assertions?: Assertion[]; }

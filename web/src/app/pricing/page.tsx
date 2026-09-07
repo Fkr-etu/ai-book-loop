@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useState } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
-import { ArrowRight, Check } from "lucide-react";
+import { ArrowRight, Check, Loader2 } from "lucide-react";
+import { getApiClient } from "@/services/api";
 
 const plans = [
   { id: "free", name: "Free", subtitle: "Pour découvrir Book Loop sur un premier projet.", monthlyPrice: 0, yearlyPrice: 0, features: ["1 projet", "Création avec IA limitée", "Vérification de cohérence limitée", "Canon et univers persistant", "Historique limité"], popular: false },
@@ -13,6 +14,32 @@ const plans = [
 
 export default function PricingPage() {
   const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly");
+  const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+
+  async function startCheckout(planId: string) {
+    if (planId === "free") {
+      router.push("/register");
+      return;
+    }
+    setLoadingPlan(planId);
+    setError(null);
+    try {
+      const api = getApiClient();
+      const user = await api.getCurrentUser();
+      if (!user) {
+        router.push(`/register?plan=${planId}&billing=${billingCycle}`);
+        return;
+      }
+      const url = await api.createCheckout(planId as "creator" | "pro", billingCycle);
+      window.location.assign(url);
+    } catch (checkoutError) {
+      setError(checkoutError instanceof Error ? checkoutError.message : "Impossible de démarrer le paiement.");
+    } finally {
+      setLoadingPlan(null);
+    }
+  }
 
   return (
     <div className="min-h-screen bg-[#f8f5f0] text-[#0f172a] font-inter">
@@ -26,12 +53,14 @@ export default function PricingPage() {
             <button type="button" onClick={() => setBillingCycle("monthly")} className={`px-4 py-2 rounded-full ${billingCycle === "monthly" ? "bg-[#0b1c30] text-white" : "text-[#45464d]"}`}>Mensuel</button>
             <button type="button" onClick={() => setBillingCycle("yearly")} className={`px-4 py-2 rounded-full ${billingCycle === "yearly" ? "bg-[#0b1c30] text-white" : "text-[#45464d]"}`}>Annuel <span className="text-[#b87500]">~2 mois offerts</span></button>
           </div>
+          {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
         </header>
 
         <section className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 items-stretch">
           {plans.map((plan) => {
             const price = billingCycle === "monthly" ? plan.monthlyPrice : plan.yearlyPrice;
             const monthlyEquivalent = plan.yearlyPrice > 0 ? Math.round(plan.yearlyPrice / 12) : 0;
+            const loading = loadingPlan === plan.id;
             return (
               <article key={plan.id} className={`rounded-2xl p-6 sm:p-8 flex flex-col justify-between relative ${plan.popular ? "bg-[#0b1c30] text-white shadow-xl ring-2 ring-[#b87500]" : "bg-white text-[#0b1c30] border border-[#c6c6cd]/40 shadow-xs"}`}>
                 {plan.popular && <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#ffddb8] text-[#2a1700] text-[11px] font-mono font-bold px-3 py-1 rounded-full uppercase tracking-wider whitespace-nowrap">Le plus populaire</div>}
@@ -45,9 +74,10 @@ export default function PricingPage() {
                     {plan.features.map((feature) => <li key={feature} className="flex items-start gap-2.5 text-xs leading-normal"><Check className={`w-4 h-4 shrink-0 mt-0.5 ${plan.popular ? "text-[#ffddb8]" : "text-[#b87500]"}`} /><span className={plan.popular ? "text-[#eaf1ff]" : "text-[#45464d]"}>{feature}</span></li>)}
                   </ul>
                 </div>
-                <Link href="/register" className={`w-full py-3 rounded text-xs font-bold flex items-center justify-center gap-2 ${plan.popular ? "bg-[#ffddb8] text-[#2a1700] hover:bg-[#ffb95e]" : "bg-[#0b1c30] text-white hover:bg-[#131b2e]"}`}>
-                  {plan.id === "free" ? "Commencer gratuitement" : "Commencer"}<ArrowRight className="w-3.5 h-3.5" />
-                </Link>
+                <button type="button" onClick={() => void startCheckout(plan.id)} disabled={loading} className={`w-full py-3 rounded text-xs font-bold flex items-center justify-center gap-2 disabled:opacity-60 ${plan.popular ? "bg-[#ffddb8] text-[#2a1700] hover:bg-[#ffb95e]" : "bg-[#0b1c30] text-white hover:bg-[#131b2e]"}`}>
+                  {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : plan.id === "free" ? "Commencer gratuitement" : "Commencer"}
+                  {!loading && <ArrowRight className="w-3.5 h-3.5" />}
+                </button>
               </article>
             );
           })}
