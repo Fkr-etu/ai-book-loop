@@ -4,7 +4,12 @@ from contextlib import nullcontext
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from book_loop.domain.canon_change import CanonChangeProposalStatus, CanonChangeReviewDecision, CanonChangeReviewDecisionType
+from book_loop.domain.canon_change import (
+    CanonChangeProposalStaleError,
+    CanonChangeProposalStatus,
+    CanonChangeReviewDecision,
+    CanonChangeReviewDecisionType,
+)
 from book_loop.domain.models import CanonicalFact
 from book_loop.domain.protocols import KnowledgeRepository
 
@@ -36,13 +41,13 @@ class ReviewCanonChange:
             active_facts = self.repository.list_active_canonical_facts(book_id=book_id)
             current_fact = next((fact for fact in active_facts if fact.id == proposal.canonical_fact_id), None)
             if current_fact is None:
-                raise ValueError("Canon change proposal is stale: its source fact is no longer active")
+                raise CanonChangeProposalStaleError("Canon change proposal is stale: its source fact is no longer active")
             if (
                 current_fact.subject.strip().casefold() != proposal.subject.strip().casefold()
                 or current_fact.predicate.strip().casefold() != proposal.predicate.strip().casefold()
                 or current_fact.object.strip().casefold() == proposal.object.strip().casefold()
             ):
-                raise ValueError("Canon change proposal is stale: its source fact has changed")
+                raise CanonChangeProposalStaleError("Canon change proposal is stale: its source fact has changed")
 
         review = CanonChangeReviewDecision(
             id=str(uuid4()), proposal_id=proposal.id, decision=decision, reviewer_id=reviewer_id,
