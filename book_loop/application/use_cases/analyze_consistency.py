@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import cast
+
 from book_loop.application.use_cases.assertion_consistency_detector import AssertionConsistencyDetector
 from book_loop.application.use_cases.consistency_engine import UnifiedConsistencyEngine
 from book_loop.domain.consistency import ConsistencyIssue
@@ -15,7 +17,7 @@ class AnalyzeConsistency:
         self._engine = UnifiedConsistencyEngine((self._assertion_detector,))
 
     def execute(self, *, book_id: str) -> list[ConsistencyIssue]:
-        return [issue for issue in self._engine.detect(book_id=book_id)]  # type: ignore[misc]
+        return cast(list[ConsistencyIssue], self._engine.detect(book_id=book_id))
 
     def list_existing(self, *, book_id: str) -> list[ConsistencyIssue]:
         """Preserve the existing read-only API while using the same detector projection."""
