@@ -22,6 +22,7 @@ from book_loop.application.use_cases.generate_outline import GenerateOutline
 from book_loop.application.use_cases.get_canonical_fact_history import GetCanonicalFactHistory
 from book_loop.application.use_cases.ingest_document import IngestDocument
 from book_loop.application.use_cases.list_canonical_facts import ListCanonicalFacts
+from book_loop.application.use_cases.propose_canon_change import ProposeCanonChange
 from book_loop.application.use_cases.reject_chapter import RejectChapter
 from book_loop.application.use_cases.review_assertion import ReviewAssertion
 from book_loop.application.use_cases.review_chapter import ReviewChapter
@@ -86,7 +87,6 @@ class Container:
         mode = self.settings.linguistic_checker.strip().lower()
         if mode in {"", "disabled", "off", "none"}:
             return LinguisticValidationService(())
-
         checkers = []
         if mode in {"languagetool", "both", "all"}:
             checkers.append(LanguageToolChecker(base_url=self.settings.language_tool_url))
@@ -94,13 +94,7 @@ class Container:
             checkers.append(SpacyFrenchChecker(model_name=self.settings.spacy_model))
         if mode in {"canon", "all", "both", "languagetool", "spacy"}:
             extractor = LLMAssertionExtractor(self.llm)
-            checkers.append(
-                CanonDiagnosticChecker(
-                    book_id=book.id,
-                    knowledge_repository=self.repository,
-                    assertion_extractor=extractor,
-                )
-            )
+            checkers.append(CanonDiagnosticChecker(book_id=book.id, knowledge_repository=self.repository, assertion_extractor=extractor))
         if not checkers:
             raise ValueError("Unsupported LINGUISTIC_CHECKER value; use disabled, languagetool, spacy, canon, both or all")
         return LinguisticValidationService(checkers)
@@ -164,3 +158,6 @@ class Container:
 
     def analyze_canon_change(self) -> AnalyzeCanonChange:
         return AnalyzeCanonChange(self.repository)
+
+    def propose_canon_change(self) -> ProposeCanonChange:
+        return ProposeCanonChange(self.repository)
