@@ -37,9 +37,11 @@ class BooleanContradictionConsistencyDetector:
             predicate = normalize_key(assertion.predicate)
             if predicate not in _NEGATION_PAIRS:
                 continue
-            indexed.setdefault(
-                (normalize(assertion.subject), predicate, normalize(assertion.object)), []
-            ).append(assertion)
+            subject = normalize(assertion.subject)
+            target = normalize(assertion.object)
+            if not subject or not target:
+                continue
+            indexed.setdefault((subject, predicate, target), []).append(assertion)
 
         issues: list[ConsistencyIssue] = []
         seen: set[tuple[str, str]] = set()
