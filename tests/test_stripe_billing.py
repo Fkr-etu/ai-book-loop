@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+import pytest
+
 from book_loop.domain.models import SubscriptionPlan
 from book_loop.infrastructure.config import Settings
 from book_loop.infrastructure.stripe_billing import StripeBillingService
@@ -10,10 +12,23 @@ from book_loop.infrastructure.stripe_billing import StripeBillingService
 @dataclass
 class FakeRepository:
     customer_id: str | None = None
+    subscription_status: str = "inactive"
     applied: dict | None = None
+    billing_state: dict | None = None
 
     def get_customer_id(self, user_id: str) -> str | None:
         return self.customer_id
+
+    def get_subscription_status(self, user_id: str) -> str:
+        return self.subscription_status
+
+    def get_billing_state(self, user_id: str) -> dict:
+        return self.billing_state or {
+            "plan": "free",
+            "subscription_status": "inactive",
+            "subscription_current_period_end": None,
+            "subscription_cancel_at_period_end": False,
+        }
 
     def set_customer_id(self, user_id: str, customer_id: str) -> None:
         self.customer_id = customer_id
@@ -44,3 +59,33 @@ def test_price_mapping_is_server_side():
 def test_unknown_price_fails_closed_to_free_plan():
     service = StripeBillingService(settings(), FakeRepository())
     assert service._plan_for_price("price_unknown") is SubscriptionPlan.FREE
+
+
+def test_active_subscription_cannot_start_second_checkout():
+    repository = FakeRepository(subscription_status="active")
+    service = StripeBillingService(settings(), repository)
+    with pytest.raises(ValueError, match="active Stripe subscription"):
+        service.create_checkout_session(
+            user_id="user-1",
+            email="author@example.com",
+            plan=SubscriptionPlan.PRO,
+            billing_cycle="monthly",
+        )
+
+
+def test_billing_state_hides_stripe_identifiers():
+    repository = FakeRepository(
+        billing_state={
+            "plan": "creator",
+            "subscription_status": "active",
+            "subscription_current_period_end": None,
+            "subscription_cancel_at_period_end": False,
+            "stripe_customer_id": "cus_secret",
+            "stripe_subscription_id": "sub_secret",
+        }
+    )
+    service = StripeBillingService(settings(), repository)
+    state = service.get_billing_state(user_id="user-1")
+    assert state["plan"] == "creator"
+    assert "stripe_customer_id" not in state
+    assert "stripe_subscription_id" not in state
