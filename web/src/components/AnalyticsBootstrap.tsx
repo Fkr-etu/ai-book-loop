@@ -34,7 +34,10 @@ export function AnalyticsBootstrap() {
   const pathname = usePathname();
 
   useEffect(() => {
-    const onConsentChange = () => loadGa4();
+    const onConsentChange = () => {
+      loadGa4();
+      if (pathname === "/") track("landing_viewed");
+    };
 
     if (window.localStorage.getItem(ANALYTICS_CONSENT_KEY) === "accepted") {
       loadGa4();
@@ -42,7 +45,7 @@ export function AnalyticsBootstrap() {
 
     window.addEventListener(ANALYTICS_CONSENT_EVENT, onConsentChange);
     return () => window.removeEventListener(ANALYTICS_CONSENT_EVENT, onConsentChange);
-  }, []);
+  }, [pathname]);
 
   useEffect(() => {
     if (pathname === "/") {
