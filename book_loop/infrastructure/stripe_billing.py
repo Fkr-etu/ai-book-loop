@@ -48,6 +48,20 @@ class StripeBillingRepository:
         row = self._connection.execute("SELECT subscription_status FROM users WHERE id = %s", (user_id,)).fetchone()
         return str(row["subscription_status"]) if row else "inactive"
 
+    def get_billing_state(self, user_id: str) -> dict[str, Any]:
+        row = self._connection.execute(
+            """
+            SELECT plan, subscription_status, subscription_current_period_end,
+                   subscription_cancel_at_period_end, stripe_customer_id,
+                   stripe_subscription_id
+            FROM users WHERE id = %s
+            """,
+            (user_id,),
+        ).fetchone()
+        if not row:
+            raise ValueError("User not found")
+        return dict(row)
+
     def set_customer_id(self, user_id: str, customer_id: str) -> None:
         self._connection.execute("UPDATE users SET stripe_customer_id = %s WHERE id = %s", (customer_id, user_id))
 
@@ -81,6 +95,14 @@ class StripeBillingService:
         self.settings = settings
         self.repository = repository
         stripe.api_key = settings.stripe_secret_key
+
+    def get_billing_state(self, *, user_id: str) -> dict[str, Any]:
+        state = self.repository.get_billing_state(user_id)
+        period_end = state.get("subscription_current_period_end")
+        state["subscription_current_period_end"] = period_end.isoformat() if period_end else None
+        state.pop("stripe_customer_id", None)
+        state.pop("stripe_subscription_id", None)
+        return state
 
     def _price_id(self, plan: SubscriptionPlan, billing_cycle: str) -> str:
         prices = {
