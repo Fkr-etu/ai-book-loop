@@ -1,4 +1,4 @@
-import type { BackendAssertion, BackendBillingState, BackendBook, BackendCanonChangeImpact, BackendCanonicalFact, BackendConflict, BackendIngestionResult, BackendSceneReview, BackendUser, BackendWorkflowRun } from "@/types/api";
+import type { BackendAssertion, BackendBillingState, BackendBook, BackendCanonChangeImpact, BackendCanonChangeProposal, BackendCanonChangeReview, BackendCanonicalFact, BackendConflict, BackendIngestionResult, BackendSceneReview, BackendUser, BackendWorkflowRun } from "@/types/api";
 import { API_BASE_URL } from "@/services/config";
 export interface CreateBookInput { title: string; theme: string; author_idea: string; lore?: string; constraints?: string[]; }
 export interface GenerateChapterResult { run: BackendWorkflowRun; }
@@ -35,6 +35,9 @@ export class RealApiClient {
   async listConflicts(id: string): Promise<BackendConflict[]> { return (await this.request<{ conflicts: BackendConflict[] }>(`/api/books/${encodeURIComponent(id)}/conflicts`)).conflicts; }
   async listCanonicalFacts(id: string): Promise<BackendCanonicalFact[]> { return (await this.request<{ facts: BackendCanonicalFact[] }>(`/api/books/${encodeURIComponent(id)}/canonical-facts`)).facts; }
   async analyzeCanonChange(id: string, factId: string): Promise<BackendCanonChangeImpact> { return this.request(`/api/books/${encodeURIComponent(id)}/canonical-facts/${encodeURIComponent(factId)}/impact`); }
+  async listCanonChangeProposals(id: string): Promise<BackendCanonChangeProposal[]> { return (await this.request<{ proposals: BackendCanonChangeProposal[] }>(`/api/books/${encodeURIComponent(id)}/canon-change-proposals`)).proposals; }
+  async proposeCanonChange(id: string, factId: string, statement: string, object: string, rationale = ""): Promise<BackendCanonChangeProposal> { return this.request(`/api/books/${encodeURIComponent(id)}/canon-change-proposals`, { method: "POST", body: JSON.stringify({ fact_id: factId, statement, object, rationale }) }); }
+  async reviewCanonChange(id: string, proposalId: string, decision: "accept" | "reject", rationale = ""): Promise<BackendCanonChangeReview> { return this.request(`/api/books/${encodeURIComponent(id)}/canon-change-proposals/${encodeURIComponent(proposalId)}/review`, { method: "POST", body: JSON.stringify({ decision, rationale }) }); }
   reviewAssertion(id: string, assertionId: string, decision: "accept" | "reject" | "defer", rationale = ""): Promise<void> { return this.request(`/api/books/${encodeURIComponent(id)}/assertions/${encodeURIComponent(assertionId)}/review`, { method: "POST", body: JSON.stringify({ decision, rationale }) }); }
 }
 export const realApiClient = new RealApiClient();
