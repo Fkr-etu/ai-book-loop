@@ -36,6 +36,7 @@ from book_loop.infrastructure.llm.factory import create_llm
 from book_loop.infrastructure.linguistic.languagetool import LanguageToolChecker
 from book_loop.infrastructure.linguistic.spacy import SpacyFrenchChecker
 from book_loop.infrastructure.observability import ObservabilityStore
+from book_loop.infrastructure.stripe_billing import StripeBillingRepository, StripeBillingService
 from book_loop.workflow.chapter_graph import ChapterWorkflow
 
 
@@ -47,6 +48,8 @@ class Container:
         if not self.settings.database_url.startswith(("postgresql://", "postgres://", "postgresql+psycopg://")):
             raise ValueError("Unsupported DATABASE_URL; PostgreSQL is required (postgresql://...)")
         self.repository = PostgresBookRepository(self.settings.database_url)
+        self.billing_repository = StripeBillingRepository(self.settings.database_url)
+        self.billing = StripeBillingService(self.settings, self.billing_repository)
         self.auth_rate_limiter = AuthRateLimiter(self.settings.database_url)
         self.workflow_store = PostgresWorkflowRunStore(self.settings.database_url)
         self.observability = ObservabilityStore(self.settings.database_url)
