@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { AlertTriangle, Check, FileText, RefreshCw, Sparkles, X } from "lucide-react";
 import { StudioLayout } from "@/components/StudioLayout";
+import { CanonImpactPanel } from "@/components/CanonImpactPanel";
 import { useProjectStore } from "@/lib/useProjectStore";
 import type { Assertion } from "@/types";
 
@@ -99,6 +100,8 @@ export default function CanonPage() {
             L'IA extrait des propositions à partir des sources. Vous décidez ce qui devient une vérité du livre.
           </p>
         </header>
+
+        <CanonImpactPanel />
 
         {pageError && (
           <div role="alert" className="p-3 bg-[#fff4f4] border border-[#d9aaaa] rounded-lg text-xs text-[#5c2020] flex items-start gap-2">

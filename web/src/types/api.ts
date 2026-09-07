@@ -99,4 +99,24 @@ export interface BackendConflict { id: string; book_id: string; left_assertion_i
 
 export interface BackendCanonicalFact { id: string; book_id: string; assertion_id: string; statement: string; subject: string; predicate: string; object: string; decision_id: string; version: number; active: boolean; previous_fact_id: string | null; }
 
+export type BackendRegressionRisk = "high" | "medium";
+
+export interface BackendRegressionFinding {
+  fact_id: string;
+  assertion_id: string;
+  statement: string;
+  source_document_id: string;
+  chunk_id: string;
+  excerpt: string;
+  start_offset: number;
+  end_offset: number;
+  risk?: BackendRegressionRisk;
+  dependency_depth?: number;
+}
+
+export interface BackendCanonChangeImpact {
+  changed_fact_id: string;
+  findings: BackendRegressionFinding[];
+}
+
 export interface BackendIngestionResult { source_document: BackendSourceDocument; assertions: BackendAssertion[]; already_ingested: boolean; }
