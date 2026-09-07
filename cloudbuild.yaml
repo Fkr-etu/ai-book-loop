@@ -187,6 +187,19 @@ steps:
       - |
         WEB_ORIGIN="$$(cat /workspace/web-url)"
         test -n "$${WEB_ORIGIN}"
+        echo "Synchronizing API CORS with WEB_ORIGIN=$${WEB_ORIGIN}"
         gcloud run services update ${_API_SERVICE} \
           --region=${_REGION} \
           --update-env-vars="CORS_ALLOWED_ORIGINS=[\"$${WEB_ORIGIN}\"]"
+
+  - id: verify-api-cors
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: bash
+    waitFor: [sync-api-cors]
+    args:
+      - "-c"
+      - |
+        WEB_ORIGIN="$$(cat /workspace/web-url)"
+        ACTUAL="$$(gcloud run services describe ${_API_SERVICE} --region=${_REGION} --format='value(spec.template.spec.containers[0].env)' | tr '\n' ' ')"
+        echo "API environment after CORS sync: $${ACTUAL}"
+        echo "$${ACTUAL}" | grep -F "$${WEB_ORIGIN}"
