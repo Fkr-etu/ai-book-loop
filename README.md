@@ -37,15 +37,17 @@ Approval gate
      ↓
 Draft / new content
      ↓
-Validation + structured review
-  ↙                    ↘
-Correct / retry       Accept
-     ↓                    ↓
-Review again          Summary
-                          ↓
-                    Approved Canon
-                          ↓
-                 Next chapter / revision
+Validation + consistency + structured review
+  ↙                                      ↘
+Correct / retry                         Accept
+     ↓                                      ↓
+Review again                            Summary
+                                            ↓
+                                  Explicit Canon review
+                                            ↓
+                                       Approved Canon
+                                            ↓
+                                  Next chapter / revision
 ```
 
 Each chapter run has durable execution state and an idempotency identity. Generated versions remain immutable. Canonical knowledge is updated only through explicit application review decisions.
@@ -54,7 +56,7 @@ The creator remains the source of creative intent. LLMs propose and critique; ap
 
 ## Project Architecture & Structure
 
-- **Backend Core Engine (`book_loop/`):** layered/hexagonal Python architecture, chapter workflow orchestration, SQLite persistence, Canon support, and CLI interface.
+- **Backend Core Engine (`book_loop/`):** layered/hexagonal Python architecture, chapter workflow orchestration, PostgreSQL persistence, Canon/consistency support, and CLI interface.
 - **Frontend Studio (`web/`):** Next.js App Router application ("Manuscript Studio") built with TypeScript, Tailwind CSS v4, React Flow (`@xyflow/react`), API service layer, and Playwright E2E testing suite.
 
 ## Quick start
@@ -106,38 +108,45 @@ Application use cases + policies
 Domain + ports
       ↑
 Infrastructure adapters
-      ├── SQLite
+      ├── PostgreSQL
       └── Configurable LLM provider
 ```
 
-The chapter workflow is isolated from the rest of the application. `LangGraph` remains an implementation-compatible orchestration representation; the durable `ChapterWorkflow.run()` path uses a persisted Python state machine so execution can resume after a process restart.
+The chapter workflow is isolated from the rest of the application. `LangGraph` remains an implementation-compatible orchestration representation; the durable `ChapterWorkflow.run()` path uses persisted workflow state so execution can resume after a process restart.
 
 ## Documentation
 
+The canonical documentation index is [`docs/README.md`](docs/README.md).
+
 ### For contributors and AI agents
 
-Start with [`AGENTS.md`](AGENTS.md). It contains the repository rules and points to the canonical documentation.
+Start with [`AGENTS.md`](AGENTS.md), then follow [`docs/development/ai-agent-workflow.md`](docs/development/ai-agent-workflow.md). The current documentation audit is tracked in [`docs/architecture/documentation-audit.md`](docs/architecture/documentation-audit.md).
 
 ### Product
 
-- [`docs/product/vision.md`](docs/product/vision.md) — product vision, narrative consistency category, Canon and creator expansion
-- [`docs/product/positioning.md`](docs/product/positioning.md) — product positioning, personas, competition, differentiation and business-model hypothesis
-- [`docs/product/strategy.md`](docs/product/strategy.md) — strategic choices, moat, and sequencing logic
+- [`docs/product/positioning.md`](docs/product/positioning.md) — positioning and differentiation hypotheses
 - [`docs/product/scope.md`](docs/product/scope.md) — current MVP boundary
-- [`docs/product/roadmap.md`](docs/product/roadmap.md) — product sequence, creator validation and expansion gates
-- [`docs/product/pricing-strategy.md`](docs/product/pricing-strategy.md) — pricing and unit-economics hypotheses
-- [`docs/product/infrastructure-costs.md`](docs/product/infrastructure-costs.md) — infrastructure planning scenarios
+- [`docs/product/roadmap.md`](docs/product/roadmap.md) — product sequence and future work
+- [`docs/product/pricing-strategy.md`](docs/product/pricing-strategy.md) — pricing hypotheses
+- [`docs/product/infrastructure-costs.md`](docs/product/infrastructure-costs.md) — infrastructure scenarios
 
 ### Architecture
 
 - [`docs/architecture/overview.md`](docs/architecture/overview.md) — current architecture
 - [`docs/architecture/principles.md`](docs/architecture/principles.md) — architectural invariants
 - [`docs/architecture/boundaries.md`](docs/architecture/boundaries.md) — dependency boundaries
-- [`docs/architecture/workflows.md`](docs/architecture/workflows.md) — current book/chapter workflows and recovery semantics
-- [`docs/architecture/data-model.md`](docs/architecture/data-model.md) — persisted domain and workflow-run model
-- [`docs/architecture/chapter-workflow-recovery.md`](docs/architecture/chapter-workflow-recovery.md) — durable checkpoints, idempotency and known limitations
-- [`docs/architecture/canonical-review.md`](docs/architecture/canonical-review.md) — current Canon review semantics
-- [`docs/architecture/document-ingestion.md`](docs/architecture/document-ingestion.md) — document-ingestion design
+- [`docs/architecture/workflows.md`](docs/architecture/workflows.md) — current workflows and recovery semantics
+- [`docs/architecture/data-model.md`](docs/architecture/data-model.md) — persisted model
+- [`docs/architecture/consistency-engine.md`](docs/architecture/consistency-engine.md) — consistency detector responsibilities
+- [`docs/architecture/canon-assertion-extraction.md`](docs/architecture/canon-assertion-extraction.md) — assertion extraction
+- [`docs/architecture/canonical-review.md`](docs/architecture/canonical-review.md) — Canon review
+- [`docs/architecture/canonical-context.md`](docs/architecture/canonical-context.md) — Canon context
+- [`docs/architecture/chapter-workflow-recovery.md`](docs/architecture/chapter-workflow-recovery.md) — workflow recovery
+- [`docs/architecture/document-ingestion.md`](docs/architecture/document-ingestion.md) — document ingestion
+- [`docs/architecture/generation-review-correction.md`](docs/architecture/generation-review-correction.md) — generation/review/correction
+- [`docs/architecture/deployment-guide.md`](docs/architecture/deployment-guide.md) — deployment
+- [`docs/architecture/gcp-architecture.md`](docs/architecture/gcp-architecture.md) — GCP reference architecture
+- [`docs/architecture/hosting-options.md`](docs/architecture/hosting-options.md) — hosting decision
 - [`docs/architecture/decisions/`](docs/architecture/decisions/) — historical architecture decisions
 
 ### Development
@@ -145,6 +154,7 @@ Start with [`AGENTS.md`](AGENTS.md). It contains the repository rules and points
 - [`docs/development/setup.md`](docs/development/setup.md) — local setup
 - [`docs/development/testing.md`](docs/development/testing.md) — testing strategy
 - [`docs/development/configuration.md`](docs/development/configuration.md) — configuration rules
+- [`docs/development/migrations.md`](docs/development/migrations.md) — migration guidance
 - [`docs/development/contributing.md`](docs/development/contributing.md) — contribution workflow
 - [`docs/glossary.md`](docs/glossary.md) — project terminology
 
@@ -155,8 +165,11 @@ Start with [`AGENTS.md`](AGENTS.md). It contains the repository rules and points
 3. LLM providers are replaceable infrastructure.
 4. Creator intent and canonical continuity are first-class concerns.
 5. Preserve generated history rather than silently overwriting it.
-6. Avoid unnecessary LLM calls and bound retries.
-7. Tests must run without external LLM services.
-8. Architecture and documentation evolve together.
+6. Consistency detection reports evidence; explicit review decides Canon.
+7. Avoid unnecessary LLM calls and bound retries.
+8. Tests must run without external LLM services.
+9. Search the current repository before adding a capability.
+10. Reuse or extend existing implementations before creating parallel abstractions.
+11. Architecture and documentation evolve together.
 
-See `AGENTS.md` and the documentation index for the complete rules.
+See `AGENTS.md` and `docs/README.md` for the complete documentation and agent rules.
