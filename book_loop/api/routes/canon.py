@@ -75,6 +75,8 @@ def analyze_canon_change(book_id: str, fact_id: str, request: Request, container
                 "excerpt": finding.excerpt,
                 "start_offset": finding.start_offset,
                 "end_offset": finding.end_offset,
+                "risk": finding.risk.value,
+                "dependency_depth": finding.dependency_depth,
             }
             for finding in report.findings
         ],
