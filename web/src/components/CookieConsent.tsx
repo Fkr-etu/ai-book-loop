@@ -26,7 +26,7 @@ export function CookieConsent() {
     <aside className="fixed inset-x-4 bottom-4 z-[60] mx-auto max-w-2xl rounded-xl border border-[#c6c6cd]/50 bg-white p-5 shadow-xl" aria-label="Préférences de cookies">
       <h2 className="font-playfair text-lg font-bold text-[#0b1c30]">Vos préférences de confidentialité</h2>
       <p className="mt-2 text-xs leading-relaxed text-[#5f5e5b]">
-        Book Loop peut utiliser des cookies ou traceurs non nécessaires uniquement selon vos choix. Cette base n'active aucun outil de suivi non nécessaire ; les préférences sont néanmoins conservées pour préparer les futurs traceurs.
+        Book Loop utilise Google Analytics uniquement si vous acceptez les traceurs non nécessaires. Nous mesurons l&apos;usage du produit avec des événements techniques (par exemple création d&apos;un livre) et n&apos;envoyons pas le contenu de vos livres, votre Canon, vos prompts ou les réponses de l&apos;IA à Google Analytics.
       </p>
       <div className="mt-4 flex flex-wrap gap-2 justify-end">
         <button type="button" onClick={() => save("rejected")} className="rounded border border-[#c6c6cd] px-4 py-2 text-xs font-semibold text-[#45464d] hover:bg-[#f8f5f0]">Refuser</button>
