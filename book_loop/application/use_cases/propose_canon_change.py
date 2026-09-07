@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from uuid import uuid4
 
-from book_loop.domain.models import Assertion, AssertionStatus, CanonicalFact
+from book_loop.domain.models import Assertion, AssertionStatus
 from book_loop.domain.protocols import KnowledgeRepository
 
 
@@ -19,7 +19,6 @@ class ProposeCanonChange:
         fact_id: str,
         statement: str,
         object: str,
-        reviewer_id: str | None = None,
     ) -> Assertion:
         facts = self.repository.list_active_canonical_facts(book_id=book_id)
         fact = next((item for item in facts if item.id == fact_id), None)
