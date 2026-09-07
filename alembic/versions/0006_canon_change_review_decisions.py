@@ -2,7 +2,7 @@
 
 from alembic import op
 
-revision = "0006_canon_change_review_decisions"
+revision = "0006_canon_review_decisions"
 down_revision = "0005_canon_change_proposals"
 branch_labels = None
 depends_on = None
