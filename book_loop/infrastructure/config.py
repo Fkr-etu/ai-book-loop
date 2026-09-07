@@ -26,6 +26,16 @@ class Settings(BaseSettings):
     auth_register_rate_window_seconds: int = 900
     cors_allowed_origins: list[str] = ["http://localhost:3000", "http://localhost:5173"]
 
+    stripe_secret_key: str = ""
+    stripe_webhook_secret: str = ""
+    stripe_creator_monthly_price_id: str = ""
+    stripe_creator_yearly_price_id: str = ""
+    stripe_pro_monthly_price_id: str = ""
+    stripe_pro_yearly_price_id: str = ""
+    stripe_success_url: str = "http://localhost:3000/billing/success"
+    stripe_cancel_url: str = "http://localhost:3000/pricing"
+    stripe_portal_return_url: str = "http://localhost:3000/studio"
+
     @model_validator(mode="after")
     def validate_auth_security(self) -> "Settings":
         if self.auth_cookie_samesite not in {"lax", "strict", "none"}:
