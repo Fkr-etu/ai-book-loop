@@ -55,6 +55,9 @@ def build_issue(
         right_statement=right.statement,
         left_evidence=left_evidence.excerpt if left_evidence else "",
         right_evidence=right_evidence.excerpt if right_evidence else "",
+        confidence=min(left.confidence, right.confidence),
+        rule_id=rule_id,
+        metadata={"detector": "narrative"},
     )
 
 
