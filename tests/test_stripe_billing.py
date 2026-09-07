@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
 
 import pytest
+import stripe
 
 from book_loop.domain.models import SubscriptionPlan
 from book_loop.infrastructure.config import Settings
@@ -15,6 +17,11 @@ class FakeRepository:
     subscription_status: str = "inactive"
     applied: dict | None = None
     billing_state: dict | None = None
+    recorded_events: set[str] | None = None
+
+    def __post_init__(self) -> None:
+        if self.recorded_events is None:
+            self.recorded_events = set()
 
     def get_customer_id(self, user_id: str) -> str | None:
         return self.customer_id
@@ -33,6 +40,13 @@ class FakeRepository:
     def set_customer_id(self, user_id: str, customer_id: str) -> None:
         self.customer_id = customer_id
 
+    def record_event(self, event_id: str, event_type: str) -> bool:
+        assert self.recorded_events is not None
+        if event_id in self.recorded_events:
+            return False
+        self.recorded_events.add(event_id)
+        return True
+
     def apply_subscription(self, **kwargs) -> None:
         self.applied = kwargs
 
@@ -41,6 +55,7 @@ def settings() -> Settings:
     return Settings(
         database_url="postgresql://book_loop:book_loop@localhost:5432/book_loop",
         stripe_secret_key="sk_test_x",
+        stripe_webhook_secret="whsec_test",
         stripe_creator_monthly_price_id="price_creator_monthly",
         stripe_creator_yearly_price_id="price_creator_yearly",
         stripe_pro_monthly_price_id="price_pro_monthly",
@@ -89,3 +104,112 @@ def test_billing_state_hides_stripe_identifiers():
     assert state["plan"] == "creator"
     assert "stripe_customer_id" not in state
     assert "stripe_subscription_id" not in state
+
+
+def subscription_payload(*, status: str = "active", price_id: str = "price_pro_monthly") -> dict:
+    return {
+        "id": "sub_123",
+        "customer": "cus_123",
+        "status": status,
+        "current_period_end": 1_800_000_000,
+        "cancel_at_period_end": True,
+        "items": {"data": [{"price": {"id": price_id}}]},
+    }
+
+
+def test_active_subscription_grants_plan_and_persists_period():
+    repository = FakeRepository()
+    service = StripeBillingService(settings(), repository)
+
+    service._apply_subscription(subscription_payload(), customer_id="cus_123")
+
+    assert repository.applied is not None
+    assert repository.applied["plan"] is SubscriptionPlan.PRO
+    assert repository.applied["subscription_id"] == "sub_123"
+    assert repository.applied["status"] == "active"
+    assert repository.applied["cancel_at_period_end"] is True
+    assert repository.applied["current_period_end"] == datetime.fromtimestamp(1_800_000_000, tz=timezone.utc)
+
+
+def test_trialing_subscription_grants_creator_plan():
+    repository = FakeRepository()
+    service = StripeBillingService(settings(), repository)
+
+    service._apply_subscription(
+        subscription_payload(status="trialing", price_id="price_creator_yearly"),
+        customer_id="cus_123",
+    )
+
+    assert repository.applied is not None
+    assert repository.applied["plan"] is SubscriptionPlan.CREATOR
+    assert repository.applied["status"] == "trialing"
+
+
+@pytest.mark.parametrize("status", ["canceled", "past_due", "unpaid", "incomplete"])
+def test_non_paid_subscription_fails_closed_to_free(status: str):
+    repository = FakeRepository()
+    service = StripeBillingService(settings(), repository)
+
+    service._apply_subscription(
+        subscription_payload(status=status, price_id="price_pro_monthly"),
+        customer_id="cus_123",
+    )
+
+    assert repository.applied is not None
+    assert repository.applied["plan"] is SubscriptionPlan.FREE
+    assert repository.applied["status"] == status
+
+
+def test_webhook_rejects_invalid_signature(monkeypatch):
+    repository = FakeRepository()
+    service = StripeBillingService(settings(), repository)
+
+    def reject(*args, **kwargs):
+        raise stripe.error.SignatureVerificationError("invalid signature", "sig_header")
+
+    monkeypatch.setattr(stripe.Webhook, "construct_event", reject)
+
+    with pytest.raises(stripe.error.SignatureVerificationError):
+        service.handle_webhook(b"{}", "bad-signature")
+
+    assert repository.recorded_events == set()
+
+
+def test_webhook_is_idempotent(monkeypatch):
+    repository = FakeRepository()
+    service = StripeBillingService(settings(), repository)
+    event = {
+        "id": "evt_123",
+        "type": "customer.subscription.updated",
+        "data": {"object": subscription_payload()},
+    }
+    monkeypatch.setattr(stripe.Webhook, "construct_event", lambda *args, **kwargs: event)
+
+    service.handle_webhook(b"payload", "valid-signature")
+    first_application = repository.applied
+    service.handle_webhook(b"payload", "valid-signature")
+
+    assert repository.recorded_events == {"evt_123"}
+    assert repository.applied is first_application
+
+
+def test_checkout_completed_retrieves_subscription_and_applies_it(monkeypatch):
+    repository = FakeRepository()
+    service = StripeBillingService(settings(), repository)
+    event = {
+        "id": "evt_checkout",
+        "type": "checkout.session.completed",
+        "data": {"object": {"customer": "cus_123", "subscription": "sub_123"}},
+    }
+    monkeypatch.setattr(stripe.Webhook, "construct_event", lambda *args, **kwargs: event)
+    monkeypatch.setattr(
+        stripe.Subscription,
+        "retrieve",
+        lambda subscription_id: subscription_payload(price_id="price_creator_monthly"),
+    )
+
+    service.handle_webhook(b"payload", "valid-signature")
+
+    assert repository.applied is not None
+    assert repository.applied["plan"] is SubscriptionPlan.CREATOR
+    assert repository.applied["customer_id"] == "cus_123"
