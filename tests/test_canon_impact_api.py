@@ -89,5 +89,7 @@ def test_analyze_canon_change_api_returns_evidence_backed_findings():
             "excerpt": source.content,
             "start_offset": 0,
             "end_offset": len(source.content),
+            "risk": "high",
+            "dependency_depth": 1,
         }],
     }
