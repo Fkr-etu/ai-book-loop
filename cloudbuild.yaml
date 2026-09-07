@@ -8,6 +8,7 @@ substitutions:
   _API_SERVICE_ACCOUNT: book-loop-api@gen-lang-client-0322058604.iam.gserviceaccount.com
   _MIGRATION_SERVICE_ACCOUNT: book-loop-migrations@gen-lang-client-0322058604.iam.gserviceaccount.com
   _USE_REAL_API: "true"
+  _GA4_MEASUREMENT_ID: ""
 
 steps:
   - id: pull-api-cache
@@ -132,6 +133,7 @@ steps:
         docker build --no-cache \
           --build-arg "NEXT_PUBLIC_API_URL=$${API_URL}" \
           --build-arg "NEXT_PUBLIC_USE_REAL_API=${_USE_REAL_API}" \
+          --build-arg "NEXT_PUBLIC_GA4_MEASUREMENT_ID=${_GA4_MEASUREMENT_ID}" \
           -t "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_WEB_REPOSITORY}/web:$BUILD_ID" \
           -t "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_WEB_REPOSITORY}/web:latest" \
           ./web

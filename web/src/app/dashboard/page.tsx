@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
 import { realApiClient, RealApiError } from "@/services/realApiClient";
 import type { BackendBook, BackendUser } from "@/types/api";
+import { track } from "@/lib/analytics";
 import { ArrowRight, BookOpen, CheckCircle2, Feather, Plus, ShieldCheck, Sparkles } from "lucide-react";
 
 function errorMessage(error: unknown): string {
@@ -55,6 +56,7 @@ export default function DashboardPage() {
     setCreateError(null);
     try {
       const book = await realApiClient.createBook({ title: title.trim(), theme: theme.trim(), author_idea: authorIdea.trim() });
+      track("book_created");
       setBooks((current) => [...current, book]);
       setShowCreate(false);
       setTitle("");

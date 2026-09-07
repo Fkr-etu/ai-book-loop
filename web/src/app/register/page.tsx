@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Mail, Lock, User, Eye, EyeOff, ArrowRight, Feather, Check } from "lucide-react";
 import { getApiClient } from "@/services/api";
 import { getRegisterError } from "@/services/authErrors";
+import { track } from "@/lib/analytics";
 
 const PASSWORD_MIN_LENGTH = 12;
 type SelectedPlan = "free" | "creator" | "pro";
@@ -37,6 +38,7 @@ export default function RegisterPage() {
     const requestedCycle = params.get("billing");
     if (requestedPlan === "creator" || requestedPlan === "pro") setPlan(requestedPlan);
     if (requestedCycle === "monthly" || requestedCycle === "yearly") setBillingCycle(requestedCycle);
+    track("signup_started");
   }, []);
 
   const passwordChecks = getPasswordChecks(password);
@@ -53,7 +55,9 @@ export default function RegisterPage() {
     try {
       const api = getApiClient();
       await api.registerUser(email.trim(), password, name.trim());
+      track("signup_completed", { plan });
       if (plan === "creator" || plan === "pro") {
+        track("subscription_checkout_started", { plan });
         const checkoutUrl = await api.createCheckout(plan, billingCycle);
         window.location.assign(checkoutUrl);
         return;

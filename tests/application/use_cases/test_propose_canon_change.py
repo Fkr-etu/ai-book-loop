@@ -26,6 +26,7 @@ def test_propose_change_creates_proposed_proposal_without_mutating_canon():
     repository = FakeKnowledgeRepository([fact])
     proposal = ProposeCanonChange(repository).execute(book_id="book-1", fact_id="fact-1", statement="Alice lives in Lyon.", object="Lyon")
     assert proposal.status is CanonChangeProposalStatus.PROPOSED
+    assert proposal.canonical_fact_id == fact.id
     assert proposal.subject == fact.subject
     assert proposal.predicate == fact.predicate
     assert proposal.object == "Lyon"
