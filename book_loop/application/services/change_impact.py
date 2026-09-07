@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from collections import defaultdict, deque
-from dataclasses import dataclass
 from collections.abc import Iterable
+from dataclasses import dataclass
 
 from book_loop.domain.models import CanonicalFact
 
@@ -12,8 +12,8 @@ class ChangeImpact:
     """Evidence-backed impact of changing one canonical fact.
 
     Dependencies are deliberately conservative: a fact is considered dependent
-    only when it explicitly references the changed fact's subject as its object.
-    No semantic inference is performed.
+    when its subject explicitly matches the object referenced by an upstream
+    fact. No semantic inference is performed.
     """
 
     changed_fact_id: str
@@ -35,20 +35,19 @@ class ChangeImpactAnalyzer:
         if changed is None:
             raise KeyError(f"Unknown active canonical fact: {changed_fact_id}")
 
-        dependents: dict[str, list[str]] = defaultdict(list)
+        by_subject: dict[str, list[str]] = defaultdict(list)
         for fact in active_facts:
-            if fact.id == changed.id:
-                continue
-            if fact.object.strip().casefold() == changed.subject.strip().casefold():
-                dependents[changed.id].append(fact.id)
+            if fact.id != changed.id:
+                by_subject[fact.subject.strip().casefold()].append(fact.id)
 
         queue = deque([changed.id])
         visited: set[str] = {changed.id}
         affected: list[str] = []
 
         while queue:
-            current = queue.popleft()
-            for dependent_id in sorted(dependents.get(current, [])):
+            current = by_id[queue.popleft()]
+            reference = current.object.strip().casefold()
+            for dependent_id in sorted(by_subject.get(reference, [])):
                 if dependent_id in visited:
                     continue
                 visited.add(dependent_id)
