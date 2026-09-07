@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 import psycopg
@@ -14,16 +14,17 @@ from book_loop.infrastructure.config import Settings
 PAID_SUBSCRIPTION_STATUSES = {"active", "trialing"}
 
 
-class StripeBillingRepository:
-    """Persistence adapter for Stripe-owned billing metadata.
+def _normalize_postgres_url(database_url: str) -> str:
+    if database_url.startswith("postgresql+psycopg://"):
+        return database_url.replace("postgresql+psycopg://", "postgresql://", 1)
+    return database_url
 
-    Subscription state is deliberately kept separate from the Book aggregate. The
-    backend remains the authority for entitlement checks; Stripe only supplies the
-    lifecycle events that update that state.
-    """
+
+class StripeBillingRepository:
+    """Persistence adapter for Stripe-owned billing metadata."""
 
     def __init__(self, database_url: str) -> None:
-        self._connection = psycopg.connect(database_url, row_factory=dict_row, autocommit=True)
+        self._connection = psycopg.connect(_normalize_postgres_url(database_url), row_factory=dict_row, autocommit=True)
         self._connection.execute("""
             ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_customer_id TEXT;
             ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_subscription_id TEXT;
@@ -43,6 +44,10 @@ class StripeBillingRepository:
         row = self._connection.execute("SELECT stripe_customer_id FROM users WHERE id = %s", (user_id,)).fetchone()
         return row["stripe_customer_id"] if row else None
 
+    def get_subscription_status(self, user_id: str) -> str:
+        row = self._connection.execute("SELECT subscription_status FROM users WHERE id = %s", (user_id,)).fetchone()
+        return str(row["subscription_status"]) if row else "inactive"
+
     def set_customer_id(self, user_id: str, customer_id: str) -> None:
         self._connection.execute("UPDATE users SET stripe_customer_id = %s WHERE id = %s", (customer_id, user_id))
 
@@ -53,16 +58,7 @@ class StripeBillingRepository:
         ).fetchone()
         return row is not None
 
-    def apply_subscription(
-        self,
-        *,
-        customer_id: str,
-        subscription_id: str | None,
-        status: str,
-        plan: SubscriptionPlan,
-        current_period_end: datetime | None,
-        cancel_at_period_end: bool,
-    ) -> None:
+    def apply_subscription(self, *, customer_id: str, subscription_id: str | None, status: str, plan: SubscriptionPlan, current_period_end: datetime | None, cancel_at_period_end: bool) -> None:
         self._connection.execute(
             """
             UPDATE users
@@ -73,14 +69,7 @@ class StripeBillingRepository:
                 plan = %s
             WHERE stripe_customer_id = %s
             """,
-            (
-                subscription_id,
-                status,
-                current_period_end,
-                cancel_at_period_end,
-                plan.value,
-                customer_id,
-            ),
+            (subscription_id, status, current_period_end, cancel_at_period_end, plan.value, customer_id),
         )
 
     def close(self) -> None:
@@ -112,6 +101,8 @@ class StripeBillingService:
             raise ValueError("billing_cycle must be monthly or yearly")
         if not self.settings.stripe_secret_key:
             raise RuntimeError("Stripe is not configured")
+        if self.repository.get_subscription_status(user_id) in PAID_SUBSCRIPTION_STATUSES:
+            raise ValueError("An active Stripe subscription already exists; use the billing portal to change it")
 
         customer_id = self.repository.get_customer_id(user_id)
         if not customer_id:
@@ -129,6 +120,8 @@ class StripeBillingService:
             success_url=self.settings.stripe_success_url,
             cancel_url=self.settings.stripe_cancel_url,
         )
+        if not session.url:
+            raise RuntimeError("Stripe did not return a checkout URL")
         return session.url
 
     def create_portal_session(self, *, user_id: str) -> str:
@@ -136,6 +129,8 @@ class StripeBillingService:
         if not customer_id:
             raise ValueError("No Stripe customer exists for this user")
         session = stripe.billing_portal.Session.create(customer=customer_id, return_url=self.settings.stripe_portal_return_url)
+        if not session.url:
+            raise RuntimeError("Stripe did not return a portal URL")
         return session.url
 
     def handle_webhook(self, payload: bytes, signature: str) -> None:
@@ -151,8 +146,7 @@ class StripeBillingService:
             subscription_id = data.get("subscription")
             customer_id = data.get("customer")
             if subscription_id and customer_id:
-                subscription = stripe.Subscription.retrieve(subscription_id)
-                self._apply_subscription(subscription, customer_id=customer_id)
+                self._apply_subscription(stripe.Subscription.retrieve(subscription_id), customer_id=customer_id)
             return
         if event_type in {"customer.subscription.created", "customer.subscription.updated", "customer.subscription.deleted"}:
             self._apply_subscription(data, customer_id=data.get("customer"))
@@ -170,7 +164,7 @@ class StripeBillingService:
             subscription_id=subscription.get("id"),
             status=status,
             plan=plan,
-            current_period_end=datetime.fromtimestamp(period_end) if period_end else None,
+            current_period_end=datetime.fromtimestamp(period_end, tz=timezone.utc) if period_end else None,
             cancel_at_period_end=bool(subscription.get("cancel_at_period_end", False)),
         )
 
