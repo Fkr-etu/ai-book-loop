@@ -14,7 +14,7 @@ Domain models + ports
  │
 Infrastructure adapters
  │
- ├── SQLite repository
+ ├── PostgreSQL repository
  │
  └── Configurable LLM provider
 
@@ -22,24 +22,27 @@ ChapterWorkflow
  ├── durable run store
  ├── ContextBuilder
  ├── WriterAgent
- ├── ChapterLinter
- ├── linguistic validation
+ ├── deterministic + linguistic validation
  ├── ReviewerAgent
  ├── CorrectorAgent
  └── SummarizerAgent
+
+Consistency
+ ├── assertion extraction
+ ├── assertion-vs-assertion conflict detection
+ ├── new-text-vs-Canon diagnostics
+ └── UnifiedConsistencyEngine
 ```
 
-The architecture separates **what the application must do** from **how the multi-step AI loop is executed**. Agents expose focused LLM capabilities; application policies own deterministic rules; the workflow coordinates the sequence and persists recovery state.
+The architecture separates **what the application must do** from **how AI capabilities are provided and workflows are executed**. Agents expose focused LLM capabilities; application policies own deterministic rules; workflows coordinate persisted execution state; the consistency layer detects and explains contradictions without silently deciding Canon truth.
 
 ## Main responsibilities
 
 ### Domain
 
-Owns book state and domain concepts such as books, outlines, chapters, lore, scene reviews, diagnostics, and canonical knowledge. It must remain independent of SQLite, Gemini, LangGraph, and the CLI.
+Owns book state and domain concepts such as books, outlines, chapters, diagnostics and canonical knowledge. It must remain independent of PostgreSQL, Gemini, LangGraph, and the CLI.
 
-The domain contains the structured `Outline`, chapter status/version/summary state, validation invariants such as sequential outline chapter numbers, and the durable `ChapterWorkflowRun` contract used for restartable chapter execution.
-
-Canonical knowledge is represented by assertions, evidence, conflicts, review decisions, and approved canonical facts. The exact persisted schema remains documented in `data-model.md`.
+Canonical knowledge is represented by assertions, evidence, conflicts, review decisions and approved canonical facts. Author-facing consistency results are represented by `ConsistencyIssue`; this is a projection/contract, not itself Canon truth.
 
 ### Application
 
@@ -50,24 +53,24 @@ Owns business actions and deterministic policies such as:
 - adding chapters sequentially;
 - building bounded generation context;
 - deciding review outcomes from score/approval, threshold, attempt and retry budget;
-- approving or rejecting proposed canonical knowledge.
+- approving or rejecting proposed canonical knowledge;
+- running consistency analysis through the configured detector set.
 
-The application is also responsible for enforcing author approval gates. An LLM response cannot approve an outline, mutate canonical state, or bypass the retry policy.
+Application services enforce author approval gates. An LLM response cannot approve an outline, mutate canonical state, or bypass retry policy.
 
 ### Agents
 
 Provide focused LLM capabilities:
 
-- **WriterAgent** — generates a chapter draft from the chapter context;
-- **ReviewerAgent** — evaluates a draft and returns a structured `SceneReview`;
+- **WriterAgent** — generates a chapter draft from chapter context;
+- **ReviewerAgent** — evaluates a draft and returns a structured review;
 - **CorrectorAgent** — proposes a revised draft from review findings;
 - **SummarizerAgent** — summarizes an accepted chapter for continuity;
-- extraction/reconciliation agents may propose assertions or identify conflicts, but they must not silently write Canon;
-- outline generation remains a separate capability for producing the structured book outline.
+- assertion extraction may propose assertions/evidence, but cannot silently write Canon.
 
 Agents do not own persistence, business state transitions, retry loops, or author approvals.
 
-### Canonical knowledge
+### Canonical knowledge and consistency
 
 Canon is the approved source of truth for validated project knowledge. The lifecycle is:
 
@@ -76,9 +79,9 @@ Source documents
       ↓
    Extraction
       ↓
-   Assertions
+   Assertions + Evidence
       ↓
-Evidence / conflicts / confidence
+Conflicts / Consistency analysis
       ↓
  Human review & decision
       ↓
@@ -87,51 +90,45 @@ Evidence / conflicts / confidence
 Generation / QA
 ```
 
-Canonical facts retain provenance and an auditable approval history. Contradictory assertions are represented explicitly rather than silently resolved by an LLM.
+The current implementation has two complementary consistency surfaces:
 
-The current implementation supports document ingestion, assertion extraction, conflict detection and explicit review-to-Canon transitions. Broader knowledge-graph modeling remains intentionally deferred.
+- `DetectConflicts` detects persisted assertion-vs-assertion contradictions;
+- `CanonDiagnosticChecker` compares newly supplied text with active Canon facts;
+- `UnifiedConsistencyEngine` composes consistency detectors and deduplicates their `ConsistencyIssue` results by stable ID.
+
+The engine currently executes detectors sequentially. Parallel execution is not assumed by the architecture and should only be introduced when expensive independent detectors justify it and their persistence/session boundaries are safe.
+
+Detection does not decide which assertion is true. Explicit author/application review is required before Canon promotion.
 
 ### Workflow
 
-`ChapterWorkflow` coordinates one chapter generation run. It exposes a LangGraph-compatible `build()` graph for compatibility, but the production `run()` path uses a durable, persisted stepwise state machine so that a process restart can resume an existing run.
+`ChapterWorkflow` coordinates one chapter generation run. It exposes a LangGraph-compatible `build()` graph for compatibility, but the production `run()` path uses durable persisted workflow state for restartability.
 
 ```text
 START
   -> write
+  -> validate
   -> review
        -> retry -> correct -> review
        -> accept -> summarize -> END
        -> needs_review -> END
-
-Each transition is checkpointed in SQLite.
 ```
 
-Before LLM review, the workflow runs deterministic linting and the configured linguistic validation. Blocking diagnostics prevent the LLM reviewer from being called. Non-blocking diagnostics are passed to the reviewer as structured input. Every generated attempt is persisted before review.
-
-Runs are identified by `(book_id, chapter_number, idempotency_key)`. A completed or terminal run is not replayed, and a persisted chapter version is reused if a restart occurs after version persistence but before the workflow checkpoint advances.
-
-LangGraph remains an implementation detail and is not the durable execution mechanism. Domain and application code must not import LangGraph-specific APIs.
+Meaningful transitions and chapter versions are persisted. Generation is bounded by application retry policy. Canon/consistency checks are inputs to review rather than autonomous truth decisions.
 
 ### ContextBuilder
 
-`ContextBuilder.for_chapter()` is the boundary between persisted state and LLM prompt context. It renders bounded context containing author idea, theme, lore, structured outline, constraints, previous chapter summaries, the current chapter objective, and approved Canon context when configured.
+`ContextBuilder.for_chapter()` is the boundary between persisted state and LLM prompt context. It renders bounded context from author intent, theme, lore, structured outline, constraints, previous accepted chapter summaries, the current chapter objective and approved Canon context when configured.
 
 Accepted chapter summaries and active Canon facts are continuity mechanisms. Rejected attempts and transient AI output are not canonical continuity memory.
 
 ### Infrastructure
 
-Provides concrete persistence and provider implementations and assembles them in the composition root. The backend persists book/chapter state, generation history, reviews, Canon state, and workflow runs in SQLite and uses a configurable LLM provider.
-
-Workflow-run persistence is provided by `SQLiteWorkflowRunStore` in production and an in-memory store for isolated tests/lightweight callers. The SQLite uniqueness constraint protects run creation for the same idempotency key.
+Provides concrete PostgreSQL persistence, provider implementations and composition-root wiring. PostgreSQL is the production persistence boundary; migrations are managed through Alembic. The LLM provider remains configurable.
 
 ### Frontend Studio (`web/`)
 
-Provides the user-facing web experience ("Manuscript Studio"):
-- **`src/app/`**: Next.js App Router page routes for dashboard, authentication, setup, studio desk, outline, characters, lore, lore-graph, intention-lab, validation-loop, export, and pricing.
-- **`src/components/`**: Tactile Minimalism UI layout components.
-- **`src/types/`**: centralized TypeScript data models and API response contracts.
-- **`src/services/api.ts`**: decoupled API client boundary; mock behavior may be used while backend integration is developed.
-- **`src/lib/useProjectStore.tsx`**: frontend state management and local persistence where applicable.
+Provides the user-facing web experience. It consumes the backend API through the frontend API boundary and renders persisted backend state. Frontend state is presentation/client state; it must not duplicate backend business rules or invent Canon/consistency truth.
 
 ### CLI
 
@@ -139,4 +136,4 @@ Translates command-line input into application use-case calls and presents resul
 
 ## Composition root
 
-`infrastructure/container.py` is the application composition root. It wires settings, repository, LLM provider, agents, `SQLiteWorkflowRunStore`, workflow, and use cases. New entry points should reuse this assembly rather than constructing provider-specific dependencies themselves.
+`infrastructure/container.py` is the application composition root. It wires settings, PostgreSQL repository, LLM provider, agents, workflow persistence, workflow and use cases. New entry points should reuse this assembly rather than constructing provider-specific dependencies themselves.
