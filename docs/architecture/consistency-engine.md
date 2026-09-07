@@ -64,7 +64,9 @@ Current rule:
 - accepted/proposed/deferred assertions are considered;
 - birth predicates include `birth`, `born`, `birth_date`, `date_of_birth`;
 - death predicates include `death`, `died`, `death_date`, `date_of_death`;
-- years are extracted conservatively from the assertion object;
+- explicit four-digit years are preferred;
+- when the optional NLP extra is installed, `dateparser` can normalize explicit calendar expressions such as `12 mars 1985`;
+- relative expressions such as `demain` are ignored because the detector has no narrative reference date;
 - a finding is raised only when birth year is strictly later than death year.
 
 This detector is intentionally narrow. It does not infer chronology from arbitrary prose or assume that two events are contradictory merely because they concern the same character.
@@ -156,6 +158,12 @@ Location: `book_loop/application/use_cases/analyze_consistency.py`
 Responsibility: application entry point for consistency analysis. It runs the assertion detector plus the deterministic narrative detectors through `UnifiedConsistencyEngine` and preserves the existing API contract.
 
 `list_existing()` remains a read-only projection of persisted assertion conflicts.
+
+## NLP enrichment
+
+The optional `nlp` extra now includes `spacy` and `dateparser`. spaCy remains an infrastructure adapter for linguistic signals; it is not the source of truth for consistency. `dateparser` is used conservatively by the timeline detector to normalize explicit calendar expressions while deliberately ignoring relative dates without a narrative reference date.
+
+The NLP layer must remain optional: importing the core application must not require a spaCy model or date parser installation. Consistency behavior should degrade to explicit-year matching when the optional date parser is unavailable.
 
 ## Identity, evidence and idempotency
 

@@ -1,4 +1,7 @@
+import pytest
+
 from book_loop.application.use_cases.character_continuity_detector import CharacterContinuityDetector
+from book_loop.application.use_cases.narrative_consistency_support import parse_year
 from book_loop.application.use_cases.timeline_consistency_detector import TimelineConsistencyDetector
 from book_loop.application.use_cases.world_continuity_detector import WorldContinuityDetector
 from book_loop.domain.models import Assertion, AssertionStatus, Evidence
@@ -67,6 +70,16 @@ def test_timeline_detector_reports_birth_after_death_with_evidence() -> None:
     assert issues[0].confidence == 0.95
     assert issues[0].rule_id == "TIMELINE_BIRTH_AFTER_DEATH"
     assert issues[0].metadata == {"detector": "narrative"}
+
+
+def test_timeline_detector_supports_normalized_date_expressions() -> None:
+    pytest.importorskip("dateparser")
+    assert parse_year("12 mars 1985") == 1985
+
+
+def test_timeline_detector_ignores_relative_dates_without_reference_context() -> None:
+    pytest.importorskip("dateparser")
+    assert parse_year("demain") is None
 
 
 def test_timeline_detector_is_idempotent_and_ignores_rejected_assertions() -> None:
