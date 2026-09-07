@@ -116,7 +116,10 @@ The chapter workflow is isolated from the rest of the application. `LangGraph` r
 
 ### For contributors and AI agents
 
-Start with [`AGENTS.md`](AGENTS.md). It contains the repository rules and points to the canonical documentation.
+Start with [`AGENTS.md`](AGENTS.md).
+
+- [`docs/architecture/system-map.md`](docs/architecture/system-map.md) — **canonical navigation map**: where capabilities live, which implementation owns each responsibility, current consistency architecture, source-of-truth hierarchy, and anti-duplication rules
+- [`docs/development/ai-agent-workflow.md`](docs/development/ai-agent-workflow.md) — step-by-step reconnaissance and implementation protocol for AI coding agents
 
 ### Product
 
@@ -137,6 +140,9 @@ Start with [`AGENTS.md`](AGENTS.md). It contains the repository rules and points
 - [`docs/architecture/data-model.md`](docs/architecture/data-model.md) — persisted domain and workflow-run model
 - [`docs/architecture/chapter-workflow-recovery.md`](docs/architecture/chapter-workflow-recovery.md) — durable checkpoints, idempotency and known limitations
 - [`docs/architecture/canonical-review.md`](docs/architecture/canonical-review.md) — current Canon review semantics
+- [`docs/architecture/canon-assertion-extraction.md`](docs/architecture/canon-assertion-extraction.md) — assertion extraction boundaries
+- [`docs/architecture/canonical-context.md`](docs/architecture/canonical-context.md) — canonical context assembly
+- [`docs/architecture/consistency-engine.md`](docs/architecture/consistency-engine.md) — consistency detector responsibilities and extension rules
 - [`docs/architecture/document-ingestion.md`](docs/architecture/document-ingestion.md) — document-ingestion design
 - [`docs/architecture/decisions/`](docs/architecture/decisions/) — historical architecture decisions
 
@@ -157,6 +163,8 @@ Start with [`AGENTS.md`](AGENTS.md). It contains the repository rules and points
 5. Preserve generated history rather than silently overwriting it.
 6. Avoid unnecessary LLM calls and bound retries.
 7. Tests must run without external LLM services.
-8. Architecture and documentation evolve together.
+8. Search the current repository before adding a capability.
+9. Reuse or extend existing implementations before creating parallel abstractions.
+10. Architecture and documentation evolve together.
 
-See `AGENTS.md` and the documentation index for the complete rules.
+See `AGENTS.md` and `docs/architecture/system-map.md` for the complete agent and architecture rules.
