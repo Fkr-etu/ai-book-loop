@@ -1,6 +1,7 @@
 "use client";
 
 export const ANALYTICS_CONSENT_KEY = "book-loop-cookie-consent";
+export const ANALYTICS_CONSENT_EVENT = "book-loop-consent-changed";
 
 export type AnalyticsPlan = "free" | "creator" | "pro";
 
@@ -25,34 +26,27 @@ type EventProperties = {
   generation_status?: "success" | "failure";
 };
 
-const PLAUSIBLE_ENDPOINT = process.env.NEXT_PUBLIC_ANALYTICS_ENDPOINT;
-const PLAUSIBLE_DOMAIN = process.env.NEXT_PUBLIC_ANALYTICS_DOMAIN;
+const GA4_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA4_MEASUREMENT_ID;
 
 function hasAnalyticsConsent(): boolean {
   if (typeof window === "undefined") return false;
   return window.localStorage.getItem(ANALYTICS_CONSENT_KEY) === "accepted";
 }
 
-export function track(event: AnalyticsEvent, properties: EventProperties = {}): void {
-  if (!hasAnalyticsConsent() || !PLAUSIBLE_ENDPOINT || !PLAUSIBLE_DOMAIN) return;
-
-  const payload = {
-    name: event,
-    domain: PLAUSIBLE_DOMAIN,
-    url: window.location.href,
-    props: properties,
-  };
-
-  void fetch(PLAUSIBLE_ENDPOINT, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-    keepalive: true,
-  }).catch(() => {
-    // Analytics must never affect the product flow.
-  });
+export function isAnalyticsConfigured(): boolean {
+  return Boolean(GA4_MEASUREMENT_ID);
 }
 
-export function isAnalyticsConfigured(): boolean {
-  return Boolean(PLAUSIBLE_ENDPOINT && PLAUSIBLE_DOMAIN);
+export function canTrack(): boolean {
+  return hasAnalyticsConsent() && isAnalyticsConfigured();
+}
+
+export function track(event: AnalyticsEvent, properties: EventProperties = {}): void {
+  if (!canTrack() || typeof window.gtag !== "function") return;
+
+  window.gtag("event", event, properties);
+}
+
+export function getGa4MeasurementId(): string | undefined {
+  return GA4_MEASUREMENT_ID;
 }
