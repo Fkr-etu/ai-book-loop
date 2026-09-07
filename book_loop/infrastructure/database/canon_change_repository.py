@@ -13,12 +13,22 @@ class CanonChangeRepositoryMixin:
         self._connection.execute(
             """
             INSERT INTO canon_change_proposals
-              (id, book_id, canonical_fact_id, statement, subject, predicate, object, proposer_id, rationale, status)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              (id, book_id, canonical_fact_id, statement, subject, predicate, object, proposer_id, rationale, status, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (proposal.id, proposal.book_id, proposal.canonical_fact_id, proposal.statement,
-             proposal.subject, proposal.predicate, proposal.object, proposal.proposer_id,
-             proposal.rationale, proposal.status.value),
+            (
+                proposal.id,
+                proposal.book_id,
+                proposal.canonical_fact_id,
+                proposal.statement,
+                proposal.subject,
+                proposal.predicate,
+                proposal.object,
+                proposal.proposer_id,
+                proposal.rationale,
+                proposal.status.value,
+                proposal.created_at,
+            ),
         )
         self._connection.commit()
 
@@ -36,7 +46,9 @@ class CanonChangeRepositoryMixin:
         ).fetchall()
         return [self._canon_change_proposal_from_row(row) for row in rows]
 
-    def set_canon_change_proposal_status(self, proposal_id: str, status: CanonChangeProposalStatus) -> None:
+    def set_canon_change_proposal_status(
+        self, proposal_id: str, status: CanonChangeProposalStatus
+    ) -> None:
         cursor = self._connection.execute(
             "UPDATE canon_change_proposals SET status = ? WHERE id = ?", (status.value, proposal_id)
         )
@@ -50,8 +62,15 @@ class CanonChangeRepositoryMixin:
         if isinstance(created_at, datetime):
             created_at = created_at.isoformat()
         return CanonChangeProposal(
-            id=row["id"], book_id=row["book_id"], canonical_fact_id=row["canonical_fact_id"],
-            statement=row["statement"], subject=row["subject"], predicate=row["predicate"],
-            object=row["object"], proposer_id=row["proposer_id"], rationale=row["rationale"],
-            status=row["status"], created_at=created_at,
+            id=row["id"],
+            book_id=row["book_id"],
+            canonical_fact_id=row["canonical_fact_id"],
+            statement=row["statement"],
+            subject=row["subject"],
+            predicate=row["predicate"],
+            object=row["object"],
+            proposer_id=row["proposer_id"],
+            rationale=row["rationale"],
+            status=row["status"],
+            created_at=created_at,
         )
