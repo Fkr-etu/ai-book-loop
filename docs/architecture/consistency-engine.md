@@ -13,13 +13,13 @@ The consistency engine is therefore a **detection and explanation layer**, not a
 ```text
                          UnifiedConsistencyEngine
                                   |
-              +-------------------+-------------------------+
-              |          |                |        |        |
-       Assertion       Timeline       Temporal  Character  World
-       detector        detector       relation   detector detector
-              |          |                |        |        |
-        DetectConflicts |                |        |        |
-              |          +----------------+--------+--------+
+              +-------------------+------------------------------+
+              |          |                |        |        |    |
+       Assertion       Timeline       Temporal  Causal   Character World
+       detector        detector       relation relation  detector detector
+              |          |                |        |        |    |
+        DetectConflicts |                |        |        |    |
+              |          +----------------+--------+--------+----+
               |                           |
               +---------------------------+
                           |
@@ -84,6 +84,22 @@ Current rule set is intentionally small:
 
 The detector operates only on explicit assertion predicates. It does not infer event chronology from prose, dates, or narrative context.
 
+### `CausalRelationConsistencyDetector`
+
+Location: `book_loop/application/use_cases/causal_relation_consistency_detector.py`
+
+Responsibility: detect explicit causal claims that violate another explicit relation.
+
+Current rule set is deliberately conservative:
+
+- `causes` / `caused` / `leads_to` / `results_in` establish a directed causal relation;
+- a causal assertion conflicts with an explicit reverse `before` relation because a cause cannot occur after its effect;
+- `does_not_cause` / `not_cause` explicitly negate a causal assertion;
+- unrelated assertions are ignored;
+- rejected assertions are ignored through the shared active-assertion policy.
+
+The detector does not infer causality from narrative prose. In particular, temporal succession alone is **not** treated as evidence of causality.
+
 ### `CharacterContinuityDetector`
 
 Location: `book_loop/application/use_cases/character_continuity_detector.py`
@@ -140,7 +156,7 @@ The current progression is:
 
 1. deterministic assertion conflicts;
 2. deterministic narrative invariants with explicit predicates;
-3. deterministic temporal and relationship constraints;
+3. deterministic temporal, causal and relationship constraints;
 4. existing Canon-vs-new-text diagnostics integrated without duplication;
 5. semantic/NLI/LLM-assisted detection where deterministic rules cannot express the relation;
 6. incremental and asynchronous analysis when corpus size requires it.
