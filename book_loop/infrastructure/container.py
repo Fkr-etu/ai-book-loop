@@ -32,7 +32,8 @@ from book_loop.application.use_cases.update_book import UpdateBook
 from book_loop.application.use_cases.update_outline import UpdateOutline
 from book_loop.infrastructure.auth_rate_limit import AuthRateLimiter
 from book_loop.infrastructure.config import Settings
-from book_loop.infrastructure.database.postgres import PostgresBookRepository, PostgresWorkflowRunStore
+from book_loop.infrastructure.database.canon_change_postgres import PostgresCanonChangeRepository
+from book_loop.infrastructure.database.postgres import PostgresWorkflowRunStore
 from book_loop.infrastructure.llm.assertion_extractor import LLMAssertionExtractor
 from book_loop.infrastructure.llm.factory import create_llm
 from book_loop.infrastructure.linguistic.languagetool import LanguageToolChecker
@@ -49,7 +50,7 @@ class Container:
         self.settings = settings or Settings()
         if not self.settings.database_url.startswith(("postgresql://", "postgres://", "postgresql+psycopg://")):
             raise ValueError("Unsupported DATABASE_URL; PostgreSQL is required (postgresql://...)")
-        self.repository = PostgresBookRepository(self.settings.database_url)
+        self.repository = PostgresCanonChangeRepository(self.settings.database_url)
         self.billing_repository = StripeBillingRepository(self.settings.database_url)
         self.billing = StripeBillingService(self.settings, self.billing_repository)
         self.auth_rate_limiter = AuthRateLimiter(self.settings.database_url)
@@ -93,8 +94,7 @@ class Container:
     def generate_chapter(self) -> GenerateChapter: return GenerateChapter(self.chapter_workflow, repository=self.repository)
     def review_chapter(self) -> ReviewChapter: return ReviewChapter(repository=self.repository, reviewer=self.reviewer_agent, context_builder=self.context_builder, linter=self.linter, max_retries=self.settings.max_retries, threshold=self.settings.review_threshold)
     def approve_chapter(self) -> ApproveChapter: return ApproveChapter(self.repository)
-    def approve_chapter_and_sync_canon(self) -> ApproveChapterAndSyncCanon:
-        return ApproveChapterAndSyncCanon(book_repository=self.repository, knowledge_repository=self.repository, extractor=LLMAssertionExtractor(self.llm))
+    def approve_chapter_and_sync_canon(self) -> ApproveChapterAndSyncCanon: return ApproveChapterAndSyncCanon(book_repository=self.repository, knowledge_repository=self.repository, extractor=LLMAssertionExtractor(self.llm))
     def reject_chapter(self) -> RejectChapter: return RejectChapter(self.repository)
     def ingest_document(self) -> IngestDocument: return IngestDocument(repository=self.repository, extractor=LLMAssertionExtractor(self.llm))
     def extract_chapter_assertions(self) -> ExtractChapterAssertions: return ExtractChapterAssertions(book_repository=self.repository, knowledge_repository=self.repository, extractor=LLMAssertionExtractor(self.llm))
