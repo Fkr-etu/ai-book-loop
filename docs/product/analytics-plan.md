@@ -42,10 +42,12 @@ Measure product activation, workflow usage and subscription conversion without c
 
 ## Consent
 
-The current cookie-consent boundary stores an explicit `accepted`/`rejected` choice. The analytics provider must only be initialized after `accepted`. Rejecting or clearing consent must prevent analytics events from being sent.
+The cookie-consent boundary stores an explicit `accepted`/`rejected` choice. Google Analytics is initialized only after `accepted`. Rejecting consent prevents analytics initialization and event dispatch. The current consent banner also avoids sending analytics data before a choice is made.
 
 Final production deployment must validate the selected analytics provider, cookie/traceur classification and legal wording against the actual Book Loop stack and applicable French/EU requirements.
 
 ## Provider strategy
 
-The first implementation uses a small provider-neutral client with an optional Plausible-compatible endpoint. No provider is enabled by default. Production configuration is supplied through environment variables rather than hard-coded identifiers.
+Book Loop currently uses Google Analytics 4 through a small provider-neutral client. The GA4 measurement ID is supplied as the public `NEXT_PUBLIC_GA4_MEASUREMENT_ID` build variable; it is not a secret. The identifier is injected at Next.js build time so the deployed client bundle has an explicit production configuration.
+
+The application does not send manuscript text, Canon data, prompts, model responses, emails or authentication data as event properties. GA4 is configured with `send_page_view: false`; Book Loop controls the product events explicitly through `track()`.
