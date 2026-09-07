@@ -111,13 +111,13 @@ steps:
     args:
       - "-c"
       - |
-        PROJECT="$(gcloud config get-value project 2>/dev/null)"
-        test -n "${PROJECT}"
-        PROJECT_NUMBER="$(gcloud projects describe "${PROJECT}" --format='value(projectNumber)')"
-        test -n "${PROJECT_NUMBER}"
-        API_URL="https://${_API_SERVICE}-${PROJECT_NUMBER}.${_REGION}.run.app"
-        printf '%s\n' "${API_URL}" > /workspace/api-url
-        echo "API_URL=${API_URL}"
+        PROJECT="$$(gcloud config get-value project 2>/dev/null)"
+        test -n "$${PROJECT}"
+        PROJECT_NUMBER="$$(gcloud projects describe "$${PROJECT}" --format='value(projectNumber)')"
+        test -n "$${PROJECT_NUMBER}"
+        API_URL="https://${_API_SERVICE}-$${PROJECT_NUMBER}.${_REGION}.run.app"
+        printf '%s\n' "$${API_URL}" > /workspace/api-url
+        echo "API_URL=$${API_URL}"
 
   - id: build-web
     name: gcr.io/cloud-builders/docker
@@ -176,13 +176,13 @@ steps:
     args:
       - "-c"
       - |
-        PROJECT="$(gcloud config get-value project 2>/dev/null)"
-        test -n "${PROJECT}"
-        PROJECT_NUMBER="$(gcloud projects describe "${PROJECT}" --format='value(projectNumber)')"
-        test -n "${PROJECT_NUMBER}"
-        WEB_ORIGIN="https://${_WEB_SERVICE}-${PROJECT_NUMBER}.${_REGION}.run.app"
-        printf '%s\n' "${WEB_ORIGIN}" > /workspace/web-url
-        echo "WEB_ORIGIN=${WEB_ORIGIN}"
+        PROJECT="$$(gcloud config get-value project 2>/dev/null)"
+        test -n "$${PROJECT}"
+        PROJECT_NUMBER="$$(gcloud projects describe "$${PROJECT}" --format='value(projectNumber)')"
+        test -n "$${PROJECT_NUMBER}"
+        WEB_ORIGIN="https://${_WEB_SERVICE}-$${PROJECT_NUMBER}.${_REGION}.run.app"
+        printf '%s\n' "$${WEB_ORIGIN}" > /workspace/web-url
+        echo "WEB_ORIGIN=$${WEB_ORIGIN}"
 
   - id: sync-api-cors
     name: gcr.io/google.com/cloudsdktool/cloud-sdk
@@ -205,14 +205,14 @@ steps:
     args:
       - "-c"
       - |
-        PROJECT="$(gcloud config get-value project 2>/dev/null)"
-        test -n "${PROJECT}"
-        PROJECT_NUMBER="$(gcloud projects describe "${PROJECT}" --format='value(projectNumber)')"
-        test -n "${PROJECT_NUMBER}"
-        WEB_ORIGIN="https://${_WEB_SERVICE}-${PROJECT_NUMBER}.${_REGION}.run.app"
-        API_URL="https://${_API_SERVICE}-${PROJECT_NUMBER}.${_REGION}.run.app"
-        echo "Expected WEB_ORIGIN=${WEB_ORIGIN}"
-        echo "Expected API_URL=${API_URL}"
+        PROJECT="$$(gcloud config get-value project 2>/dev/null)"
+        test -n "$${PROJECT}"
+        PROJECT_NUMBER="$$(gcloud projects describe "$${PROJECT}" --format='value(projectNumber)')"
+        test -n "$${PROJECT_NUMBER}"
+        WEB_ORIGIN="https://${_WEB_SERVICE}-$${PROJECT_NUMBER}.${_REGION}.run.app"
+        API_URL="https://${_API_SERVICE}-$${PROJECT_NUMBER}.${_REGION}.run.app"
+        echo "Expected WEB_ORIGIN=$${WEB_ORIGIN}"
+        echo "Expected API_URL=$${API_URL}"
 
         ACTUAL="$$(gcloud run services describe ${_API_SERVICE} \
           --region=${_REGION} \
