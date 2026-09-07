@@ -4,6 +4,7 @@ export interface CreateBookInput { title: string; theme: string; author_idea: st
 export interface GenerateChapterResult { run: BackendWorkflowRun; }
 export interface ReviewChapterResult { book: BackendBook; review: BackendSceneReview; }
 export interface BackendChapterContext { authorIdea: string; theme: string; lore: string; globalOutline: import("@/types/api").BackendOutline | null; constraints: string[]; previousSummaries: string; currentObjective: string; formattedContext: string; }
+export interface CheckoutResult { url: string; }
 export class RealApiError extends Error { status: number | null; constructor(message: string, status: number | null = null) { super(message); this.name = "RealApiError"; this.status = status; } }
 const RETRYABLE_STATUS = new Set([408, 429, 500, 502, 503, 504]); const MAX_RETRIES = 2; const REQUEST_TIMEOUT_MS = 30_000;
 async function parseResponse(response: Response): Promise<unknown> { const text = await response.text(); if (!text) return null; try { return JSON.parse(text) as unknown; } catch { return text; } }
@@ -15,6 +16,8 @@ export class RealApiClient {
   async login(email: string, password: string): Promise<BackendUser> { return unwrapUser(await this.request<unknown>("/api/auth/login", { method: "POST", body: JSON.stringify({ email, password }) })); }
   async register(email: string, password: string, name: string): Promise<BackendUser> { return unwrapUser(await this.request<unknown>("/api/auth/register", { method: "POST", body: JSON.stringify({ email, password, name }) })); }
   async logout(): Promise<void> { await this.request("/api/auth/logout", { method: "POST" }); }
+  async createCheckout(plan: "creator" | "pro", billingCycle: "monthly" | "yearly"): Promise<CheckoutResult> { return this.request("/api/billing/checkout", { method: "POST", body: JSON.stringify({ plan, billing_cycle: billingCycle }) }); }
+  async createBillingPortal(): Promise<CheckoutResult> { return this.request("/api/billing/portal", { method: "POST" }); }
   listBooks(): Promise<BackendBook[]> { return this.request("/api/books"); } getBook(id: string): Promise<BackendBook> { return this.request(`/api/books/${encodeURIComponent(id)}`); }
   createBook(input: CreateBookInput): Promise<BackendBook> { return this.request("/api/books", { method: "POST", body: JSON.stringify(input) }); }
   updateBook(id: string, updates: Record<string, unknown>): Promise<BackendBook> { return this.request(`/api/books/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify(updates) }); }
