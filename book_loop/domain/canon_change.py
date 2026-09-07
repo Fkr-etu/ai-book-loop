@@ -28,6 +28,10 @@ class CanonChangeProposal(BaseModel):
     created_at: str | None = None
 
 
+class CanonChangeProposalStaleError(ValueError):
+    """Raised when a proposal no longer targets the active Canon state it was created from."""
+
+
 class CanonChangeReviewDecisionType(StrEnum):
     ACCEPT = "accept"
     REJECT = "reject"
