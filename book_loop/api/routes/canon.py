@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from book_loop.api.dependencies import get_container, get_current_user, get_owned_book
-from book_loop.domain.canon_change import CanonChangeReviewDecisionType
+from book_loop.domain.canon_change import CanonChangeProposalStaleError, CanonChangeReviewDecisionType
 from book_loop.domain.models import ReviewDecisionType, UserPublic
 from book_loop.infrastructure.container import Container
 
@@ -133,8 +133,10 @@ def review_canon_change(book_id: str, proposal_id: str, payload: ReviewCanonChan
             rationale=payload.rationale,
         )
         return review.model_dump(mode="json")
+    except CanonChangeProposalStaleError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
     except ValueError as exc:
-        raise HTTPException(status_code=409 if "stale" in str(exc).lower() else 400, detail=str(exc))
+        raise HTTPException(status_code=400, detail=str(exc))
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
 
