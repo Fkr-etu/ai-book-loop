@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 
 import pytest
 import stripe
+from stripe.error import SignatureVerificationError
 
 from book_loop.domain.models import SubscriptionPlan
 from book_loop.infrastructure.config import Settings
@@ -165,11 +166,11 @@ def test_webhook_rejects_invalid_signature(monkeypatch):
     service = StripeBillingService(settings(), repository)
 
     def reject(*args, **kwargs):
-        raise stripe.error.SignatureVerificationError("invalid signature", "sig_header")
+        raise SignatureVerificationError("invalid signature", "sig_header")
 
     monkeypatch.setattr(stripe.Webhook, "construct_event", reject)
 
-    with pytest.raises(stripe.error.SignatureVerificationError):
+    with pytest.raises(SignatureVerificationError):
         service.handle_webhook(b"{}", "bad-signature")
 
     assert repository.recorded_events == set()
