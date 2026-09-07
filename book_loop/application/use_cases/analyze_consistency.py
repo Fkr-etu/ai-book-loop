@@ -3,9 +3,11 @@ from __future__ import annotations
 from typing import cast
 
 from book_loop.application.use_cases.assertion_consistency_detector import AssertionConsistencyDetector
+from book_loop.application.use_cases.boolean_contradiction_consistency_detector import BooleanContradictionConsistencyDetector
 from book_loop.application.use_cases.character_continuity_detector import CharacterContinuityDetector
 from book_loop.application.use_cases.causal_relation_consistency_detector import CausalRelationConsistencyDetector
 from book_loop.application.use_cases.consistency_engine import UnifiedConsistencyEngine
+from book_loop.application.use_cases.inverse_relation_consistency_detector import InverseRelationConsistencyDetector
 from book_loop.application.use_cases.temporal_relation_consistency_detector import TemporalRelationConsistencyDetector
 from book_loop.application.use_cases.timeline_consistency_detector import TimelineConsistencyDetector
 from book_loop.application.use_cases.world_continuity_detector import WorldContinuityDetector
@@ -21,6 +23,8 @@ class AnalyzeConsistency:
         self._assertion_detector = AssertionConsistencyDetector(repository)
         self._timeline_detector = TimelineConsistencyDetector(repository)
         self._temporal_relation_detector = TemporalRelationConsistencyDetector(repository)
+        self._inverse_relation_detector = InverseRelationConsistencyDetector(repository)
+        self._boolean_detector = BooleanContradictionConsistencyDetector(repository)
         self._causal_relation_detector = CausalRelationConsistencyDetector(repository)
         self._character_detector = CharacterContinuityDetector(repository)
         self._world_detector = WorldContinuityDetector(repository)
@@ -29,6 +33,8 @@ class AnalyzeConsistency:
                 self._assertion_detector,
                 self._timeline_detector,
                 self._temporal_relation_detector,
+                self._inverse_relation_detector,
+                self._boolean_detector,
                 self._causal_relation_detector,
                 self._character_detector,
                 self._world_detector,
