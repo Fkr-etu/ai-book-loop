@@ -5,7 +5,8 @@ import logging
 from pydantic import BaseModel, Field
 
 from book_loop.domain.models import DocumentChunk, ExtractedAssertion
-from book_loop.domain.protocols import LLMProvider
+from book_loop.domain.protocols import LLMProvider, PredicateNormalizer
+from book_loop.infrastructure.nlp.predicate_normalizer import RuleBasedPredicateNormalizer
 
 logger = logging.getLogger(__name__)
 
@@ -36,14 +37,30 @@ class LLMAssertionExtractor:
         "The statement must be an exact contiguous excerpt from the supplied source chunk; "
         "do not paraphrase it. Do not infer facts that are not supported by the source. "
         "Prefer a small set of high-value assertions and keep statements concise. "
-        "Return no more than 12 assertions."
+        "Return no more than 12 assertions. "
+        "Use a concise semantic predicate such as age, lives_in, occupation, parent_of, "
+        "spouse_of, located_in, created_by or belongs_to when applicable."
     )
 
-    def __init__(self, provider: LLMProvider) -> None:
+    def __init__(
+        self,
+        provider: LLMProvider,
+        predicate_normalizer: PredicateNormalizer | None = None,
+        *,
+        language: str = "fr",
+    ) -> None:
         self._provider = provider
+        self._predicate_normalizer = predicate_normalizer or RuleBasedPredicateNormalizer()
+        self._language = language
 
     @staticmethod
-    def _to_extracted_assertion(*, chunk_content: str, draft: ExtractedAssertionDraft) -> ExtractedAssertion:
+    def _to_extracted_assertion(
+        *,
+        chunk_content: str,
+        draft: ExtractedAssertionDraft,
+        predicate_normalizer: PredicateNormalizer | None = None,
+        language: str = "fr",
+    ) -> ExtractedAssertion:
         """Build source provenance only when the statement has one unique source location."""
         positions: list[int] = []
         start = 0
@@ -59,11 +76,12 @@ class LLMAssertionExtractor:
         if len(positions) > 1:
             raise ValueError("Assertion extractor returned an ambiguous statement found multiple times in source chunk")
 
+        normalizer = predicate_normalizer or RuleBasedPredicateNormalizer()
         start = positions[0]
         return ExtractedAssertion(
             statement=draft.statement,
             subject=draft.subject,
-            predicate=draft.predicate,
+            predicate=normalizer.normalize(predicate=draft.predicate, language=language),
             object=draft.object,
             confidence=draft.confidence,
             start_offset=start,
@@ -82,7 +100,12 @@ class LLMAssertionExtractor:
         for draft in result.assertions:
             try:
                 assertions.append(
-                    self._to_extracted_assertion(chunk_content=chunk.content, draft=draft)
+                    self._to_extracted_assertion(
+                        chunk_content=chunk.content,
+                        draft=draft,
+                        predicate_normalizer=self._predicate_normalizer,
+                        language=self._language,
+                    )
                 )
             except ValueError:
                 logger.warning(
