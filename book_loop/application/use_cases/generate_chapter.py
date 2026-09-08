@@ -18,16 +18,12 @@ class _LegacyBookUsageAdapter:
 
     def __init__(self, repository: BookRepository) -> None:
         self._repository = repository
-        self._identities: dict[str, str] = {}
-
-    def register_book_identity(self, *, book_id: str, identity: str) -> None:
-        self._identities.setdefault(book_id, identity)
 
     def get_book_identity(self, *, book_id: str) -> str | None:
-        return self._identities.get(book_id)
+        return None
 
-    def consume_free_workflow_capacity(self, *, user_id: str, book_identity: str, period_start: str, idempotency_key: str, monthly_limit: int) -> bool:
-        del book_identity
+    def consume_free_workflow_capacity(self, *, user_id: str, book_id: str, book_identity: str, period_start: str, idempotency_key: str, monthly_limit: int) -> bool:
+        del book_id, book_identity
         return self._repository.consume_workflow_capacity(
             quota_subject=f"user:{user_id}",
             period_start=period_start,
@@ -64,19 +60,14 @@ class GenerateChapter:
             )
         return chapter
 
-    def _ensure_book_identity(self, book: BookState) -> str:
-        identity = self.book_usage.get_book_identity(book_id=book.id)
-        if identity is not None:
-            return identity
-        identity = book_identity(
+    def _book_identity(self, book: BookState) -> str:
+        return book_identity(
             title=book.title,
             theme=book.theme,
             author_idea=book.author_idea,
             lore=book.lore,
             constraints=book.constraints,
         )
-        self.book_usage.register_book_identity(book_id=book.id, identity=identity)
-        return identity
 
     def start(self, book: BookState, chapter_number: int, *, idempotency_key: str | None = None) -> ChapterWorkflowRun:
         chapter = self._validate(book, chapter_number)
@@ -89,9 +80,10 @@ class GenerateChapter:
         period_start = datetime.now(timezone.utc).date().replace(day=1).isoformat()
 
         if plan is SubscriptionPlan.FREE:
-            identity = self._ensure_book_identity(book)
+            identity = self.book_usage.get_book_identity(book_id=book.id) or self._book_identity(book)
             allowed = self.book_usage.consume_free_workflow_capacity(
                 user_id=user.id,
+                book_id=book.id,
                 book_identity=identity,
                 period_start=period_start,
                 idempotency_key=key,
