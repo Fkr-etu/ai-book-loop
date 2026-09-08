@@ -9,6 +9,8 @@ from typing import Iterator
 import psycopg
 from psycopg.rows import dict_row
 
+from book_loop.application.ports.auth import RateLimitReservation
+
 
 @dataclass(frozen=True)
 class RateLimitResult:
@@ -63,8 +65,7 @@ class AuthRateLimiter:
         else:
             self._connection.commit()
 
-    def consume(self, key: str, *, limit: int, window_seconds: int) -> RateLimitResult:
-        """Reserve one authentication attempt; release it when authentication succeeds."""
+    def consume(self, key: str, *, limit: int, window_seconds: int) -> RateLimitReservation:
         now = datetime.now(timezone.utc)
         window_start = now - timedelta(seconds=window_seconds)
 
@@ -84,23 +85,21 @@ class AuthRateLimiter:
             ).fetchone()
             if int(count["count"]) >= limit and row is not None:
                 retry_after = max(1, int((row["attempted_at"] + timedelta(seconds=window_seconds) - now).total_seconds()))
-                return RateLimitResult(retry_after_seconds=retry_after)
+                return RateLimitReservation(allowed=False, retry_after_seconds=retry_after)
 
             inserted = self._connection.execute(
                 "INSERT INTO auth_rate_limit_events(rate_key, attempted_at) VALUES(%s, %s) RETURNING id",
                 (key, now),
             ).fetchone()
-            return RateLimitResult(event_id=int(inserted["id"]))
+            return RateLimitReservation(allowed=True, event_id=int(inserted["id"]))
 
     def release(self, event_id: int | None) -> None:
-        """Remove a successful-login reservation without touching other failures."""
         if event_id is None:
             return
         with self._transaction():
             self._connection.execute("DELETE FROM auth_rate_limit_events WHERE id = %s", (event_id,))
 
     def reset(self, key: str) -> None:
-        """Clear all failed attempts for one account after a successful login."""
         with self._transaction():
             self._connection.execute("DELETE FROM auth_rate_limit_events WHERE rate_key = %s", (key,))
 
