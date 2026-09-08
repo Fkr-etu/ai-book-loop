@@ -66,6 +66,8 @@ class PostgresBookRepository(BookRepositoryMixin):
             CREATE TABLE IF NOT EXISTS review_decisions (id TEXT PRIMARY KEY, assertion_id TEXT NOT NULL, decision TEXT NOT NULL, reviewer_id TEXT, rationale TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
             CREATE TABLE IF NOT EXISTS canonical_facts (id TEXT PRIMARY KEY, book_id TEXT NOT NULL, assertion_id TEXT NOT NULL, statement TEXT NOT NULL, subject TEXT NOT NULL, predicate TEXT NOT NULL, object TEXT NOT NULL, decision_id TEXT NOT NULL, version INTEGER NOT NULL, active BOOLEAN NOT NULL, previous_fact_id TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE(book_id, subject, predicate, version));
             CREATE TABLE IF NOT EXISTS workflow_usage (user_id TEXT NOT NULL, period_start DATE NOT NULL, idempotency_key TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY(user_id, period_start, idempotency_key));
+            CREATE TABLE IF NOT EXISTS book_usage_identities (book_id TEXT PRIMARY KEY, identity TEXT NOT NULL UNIQUE, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP);
+            CREATE TABLE IF NOT EXISTS workflow_usage_scoped (quota_subject TEXT NOT NULL, period_start DATE NOT NULL, idempotency_key TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY(quota_subject, period_start, idempotency_key));
         """)
         self._connection._connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS plan TEXT NOT NULL DEFAULT 'free'")
         self._connection._connection.execute("ALTER TABLE canonical_facts ADD COLUMN IF NOT EXISTS previous_fact_id TEXT")
@@ -85,14 +87,23 @@ class PostgresBookRepository(BookRepositoryMixin):
             row = self._connection.execute("SELECT COUNT(*) AS count FROM books WHERE data::jsonb ->> 'owner_id' = ?", (book.owner_id,)).fetchone()
             if int(row["count"]) >= max_active_projects: raise PermissionError("Project capacity reached for the current plan")
             self._connection.execute("INSERT INTO books(id, data) VALUES(?, ?)", (book.id, json.dumps(book.model_dump(mode="json"))))
-    def consume_workflow_capacity(self, *, user_id: str, period_start: str, idempotency_key: str, monthly_limit: int) -> bool:
+    def register_book_identity(self, *, book_id: str, identity: str) -> None:
+        self._connection.execute(
+            "INSERT INTO book_usage_identities(book_id, identity) VALUES(?, ?) ON CONFLICT(book_id) DO NOTHING",
+            (book_id, identity),
+        )
+        self._connection.commit()
+    def get_book_identity(self, *, book_id: str) -> str | None:
+        row = self._connection.execute("SELECT identity FROM book_usage_identities WHERE book_id = ?", (book_id,)).fetchone()
+        return str(row["identity"]) if row is not None else None
+    def consume_workflow_capacity(self, *, quota_subject: str, period_start: str, idempotency_key: str, monthly_limit: int) -> bool:
         with self.transaction():
-            self._connection.execute("SELECT pg_advisory_xact_lock(hashtext(?))", (user_id,))
-            inserted = self._connection.execute("""INSERT INTO workflow_usage(user_id, period_start, idempotency_key)
-                SELECT ?, ?, ? WHERE (SELECT COUNT(*) FROM workflow_usage WHERE user_id = ? AND period_start = ?) < ?
-                ON CONFLICT(user_id, period_start, idempotency_key) DO NOTHING RETURNING idempotency_key""", (user_id, period_start, idempotency_key, user_id, period_start, monthly_limit)).fetchone()
+            self._connection.execute("SELECT pg_advisory_xact_lock(hashtext(?))", (quota_subject,))
+            inserted = self._connection.execute("""INSERT INTO workflow_usage_scoped(quota_subject, period_start, idempotency_key)
+                SELECT ?, ?, ? WHERE (SELECT COUNT(*) FROM workflow_usage_scoped WHERE quota_subject = ? AND period_start = ?) < ?
+                ON CONFLICT(quota_subject, period_start, idempotency_key) DO NOTHING RETURNING idempotency_key""", (quota_subject, period_start, idempotency_key, quota_subject, period_start, monthly_limit)).fetchone()
             if inserted is not None: return True
-            existing = self._connection.execute("SELECT 1 FROM workflow_usage WHERE user_id = ? AND period_start = ? AND idempotency_key = ?", (user_id, period_start, idempotency_key)).fetchone()
+            existing = self._connection.execute("SELECT 1 FROM workflow_usage_scoped WHERE quota_subject = ? AND period_start = ? AND idempotency_key = ?", (quota_subject, period_start, idempotency_key)).fetchone()
             return existing is not None
 
 
