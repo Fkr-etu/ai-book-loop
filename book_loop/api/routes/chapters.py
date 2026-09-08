@@ -7,9 +7,11 @@ from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from book_loop.api.dependencies import get_book, get_container
+from book_loop.application.services.context import ContextBuilder
 from book_loop.infrastructure.container import Container
 
 router = APIRouter(prefix="/api/books/{book_id}/chapters", tags=["chapters"])
+context_builder = ContextBuilder()
 
 
 class AddChapterPayload(BaseModel):
@@ -25,11 +27,7 @@ def _run_chapter_workflow(container: Container, book_id: str, chapter_number: in
     print(f"[chapter-workflow] start book={book_id} chapter={chapter_number} key={idempotency_key}", flush=True)
     try:
         book = get_book(book_id, container)
-        result = container.generate_chapter().execute(
-            book,
-            chapter_number=chapter_number,
-            idempotency_key=idempotency_key,
-        )
+        result = container.generate_chapter().execute(book, chapter_number=chapter_number, idempotency_key=idempotency_key)
         print(f"[chapter-workflow] finished book={book_id} chapter={chapter_number} result={result!r}", flush=True)
     except Exception as exc:
         print(f"[chapter-workflow] FAILED book={book_id} chapter={chapter_number} key={idempotency_key} error={type(exc).__name__}: {exc}", flush=True)
@@ -81,12 +79,7 @@ def get_workflow_run(book_id: str, chapter_number: int, run_id: str, container: 
 def review_chapter(book_id: str, chapter_number: int, payload: ReviewPayload = Body(default_factory=ReviewPayload), container: Container = Depends(get_container)) -> dict[str, Any]:
     book = get_book(book_id, container)
     try:
-        updated_book, review = container.review_chapter().execute(
-            book,
-            chapter_number=chapter_number,
-            version_number=payload.versionNumber,
-            draft_text=payload.draftText,
-        )
+        updated_book, review = container.review_chapter().execute(book, chapter_number=chapter_number, version_number=payload.versionNumber, draft_text=payload.draftText)
     except ValueError as exc:
         raise HTTPException(status_code=404 if "not found" in str(exc).lower() else 400, detail=str(exc)) from exc
     return {"book": updated_book.model_dump(mode="json"), "review": review.model_dump(mode="json")}
@@ -122,6 +115,7 @@ def get_canonical_context(book_id: str, chapter_number: int, container: Containe
     chapter = next((c for c in book.chapters if c.number == chapter_number), None)
     if chapter is None:
         raise HTTPException(status_code=404, detail=f"Chapitre {chapter_number} introuvable.")
+    formatted = context_builder.for_chapter(book, chapter_number)
     prev_summaries = "\n".join(f"Chapter {c.number} ({c.title}): {c.summary}" for c in book.chapters if c.number < chapter_number and c.summary)
     return {
         "authorIdea": book.author_idea,
@@ -131,4 +125,5 @@ def get_canonical_context(book_id: str, chapter_number: int, container: Containe
         "constraints": book.constraints,
         "previousSummaries": prev_summaries,
         "currentObjective": chapter.objective,
+        "formattedContext": formatted,
     }
