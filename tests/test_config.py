@@ -19,7 +19,11 @@ def test_auth_security_settings_are_configurable():
 
 def test_secure_cookie_configuration_rejects_short_secret():
     with pytest.raises(ValidationError, match="AUTH_SECRET_KEY"):
-        Settings(auth_secret_key="too-short", auth_cookie_secure=True)
+        Settings(
+            app_environment="production",
+            auth_secret_key="too-short",
+            auth_cookie_secure=True,
+        )
 
 
 def test_cookie_samesite_configuration_rejects_unknown_value():
