@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, CreditCard, Loader2 } from "lucide-react";
+import { ArrowLeft, CreditCard, Loader2, LogOut } from "lucide-react";
 import { realApiClient } from "@/services/realApiClient";
 import type { BackendBillingState, BackendUser } from "@/types/api";
 
@@ -17,6 +17,7 @@ export default function AccountPage() {
   const [billing, setBilling] = useState<BackendBillingState | null>(null);
   const [loading, setLoading] = useState(true);
   const [openingPortal, setOpeningPortal] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -46,6 +47,19 @@ export default function AccountPage() {
       console.error("Unable to open billing portal", err);
       setError("Impossible d’ouvrir la gestion de l’abonnement.");
       setOpeningPortal(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    setLoggingOut(true);
+    setError(null);
+    try {
+      await realApiClient.logout();
+      window.location.assign("/login");
+    } catch (err) {
+      console.error("Unable to log out", err);
+      setError("Impossible de fermer la session. Réessayez.");
+      setLoggingOut(false);
     }
   };
 
@@ -85,7 +99,7 @@ export default function AccountPage() {
 
               <div className="mt-5 flex flex-col gap-2 sm:flex-row">
                 {billing.plan !== "free" ? (
-                  <button type="button" onClick={handlePortal} disabled={openingPortal} className="inline-flex items-center justify-center gap-2 rounded bg-[#0b1c30] px-4 py-2.5 text-xs font-bold text-white disabled:opacity-50">
+                  <button type="button" onClick={handlePortal} disabled={openingPortal || loggingOut} className="inline-flex items-center justify-center gap-2 rounded bg-[#0b1c30] px-4 py-2.5 text-xs font-bold text-white disabled:opacity-50">
                     {openingPortal ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CreditCard className="h-3.5 w-3.5" />}
                     Gérer mon abonnement
                   </button>
@@ -97,6 +111,13 @@ export default function AccountPage() {
               </div>
             </section>
           ) : null}
+
+          <div className="mt-8 border-t border-[#c6c6cd]/30 pt-6">
+            <button type="button" onClick={handleLogout} disabled={loggingOut} className="inline-flex items-center justify-center gap-2 rounded border border-[#c6c6cd]/50 px-4 py-2.5 text-xs font-bold text-[#0b1c30] hover:bg-[#f8f9ff] disabled:opacity-50">
+              {loggingOut ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <LogOut className="h-3.5 w-3.5" />}
+              {loggingOut ? "Déconnexion…" : "Se déconnecter"}
+            </button>
+          </div>
 
           {error && <p role="alert" className="mt-4 rounded border border-[#d98980] bg-[#fff5f3] p-3 text-xs text-[#a33b32]">{error}</p>}
         </div>
