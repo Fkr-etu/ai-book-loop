@@ -6,7 +6,8 @@ from book_loop.agents.writer import WriterAgent
 from book_loop.application.services.context import ContextBuilder
 from book_loop.application.services.linter import ChapterLinter
 from book_loop.application.use_cases.generate_chapter import GenerateChapter
-from book_loop.domain.models import BookState, Chapter, ChapterStatus, Outline, SceneReview
+from book_loop.domain.models import BookState, Chapter, ChapterStatus, Outline, SceneReview, SubscriptionPlan, User
+from book_loop.infrastructure.database.workflow_store import InMemoryWorkflowRunStore
 from book_loop.workflow.chapter_graph import ChapterWorkflow, ChapterWorkflowState
 
 
@@ -38,6 +39,7 @@ class RecordingLLM:
 class InMemoryRepository:
     def __init__(self, book: BookState) -> None:
         self.books = {book.id: book}
+        self.users = {book.owner_id: User(id=book.owner_id, email="owner@example.com", password_hash="test", plan=SubscriptionPlan.PRO)}
         self.versions: list[tuple[str, int, int, str]] = []
         self.reviews = []
 
@@ -46,6 +48,13 @@ class InMemoryRepository:
 
     def get(self, book_id: str) -> BookState:
         return self.books[book_id]
+
+    def get_user_by_id(self, user_id: str) -> User | None:
+        return self.users.get(user_id)
+
+    def consume_workflow_capacity(self, *, user_id: str, period_start: str, idempotency_key: str, monthly_limit: int) -> bool:
+        del user_id, period_start, idempotency_key, monthly_limit
+        return True
 
     def save_chapter_version(self, book_id: str, chapter_number: int, version: int, draft: str) -> None:
         self.versions.append((book_id, chapter_number, version, draft))
@@ -60,8 +69,13 @@ class InMemoryRepository:
         self.reviews.append((book_id, chapter_number, version, review))
 
 
-def make_workflow(book: BookState, repository: InMemoryRepository, llm: RecordingLLM) -> ChapterWorkflow:
-    return ChapterWorkflow(repository=repository, writer=WriterAgent(llm), reviewer=ReviewerAgent(llm), summarizer=SummarizerAgent(llm), context_builder=ContextBuilder(), linter=ChapterLinter())
+def make_workflow(book: BookState, repository: InMemoryRepository, llm: RecordingLLM, workflow_store: InMemoryWorkflowRunStore | None = None) -> ChapterWorkflow:
+    return ChapterWorkflow(repository=repository, writer=WriterAgent(llm), reviewer=ReviewerAgent(llm), summarizer=SummarizerAgent(llm), context_builder=ContextBuilder(), linter=ChapterLinter(), workflow_store=workflow_store or InMemoryWorkflowRunStore())
+
+
+def make_use_case(book: BookState, repository: InMemoryRepository, llm: RecordingLLM) -> GenerateChapter:
+    workflow_store = InMemoryWorkflowRunStore()
+    return GenerateChapter(make_workflow(book, repository, llm, workflow_store), repository, workflow_store)
 
 
 def make_outline(*chapters: tuple[int, str, str]) -> Outline:
@@ -70,7 +84,7 @@ def make_outline(*chapters: tuple[int, str, str]) -> Outline:
 
 def test_generate_chapter_passes_canonical_context_through_real_workflow() -> None:
     book = BookState(
-        id="b1", title="Book", theme="Fantasy", author_idea="A hidden heir returns home.", lore="The old kingdom forbids magic.",
+        id="b1", owner_id="u1", title="Book", theme="Fantasy", author_idea="A hidden heir returns home.", lore="The old kingdom forbids magic.",
         outline=make_outline((1, "Return", "Introduce the protagonist's return."), (2, "The secret", "Reveal the first clue about the forbidden magic.")),
         outline_approved=True,
         chapters=[
@@ -80,7 +94,7 @@ def test_generate_chapter_passes_canonical_context_through_real_workflow() -> No
     )
     repository = InMemoryRepository(book)
     llm = RecordingLLM()
-    use_case = GenerateChapter(make_workflow(book, repository, llm))
+    use_case = make_use_case(book, repository, llm)
 
     result = use_case.execute(book, chapter_number=2)
 
@@ -102,10 +116,10 @@ def test_generate_chapter_passes_canonical_context_through_real_workflow() -> No
 
 
 def test_generate_chapter_retries_after_linter_failure_and_preserves_history() -> None:
-    book = BookState(id="b1", title="Book", theme="Fantasy", author_idea="Idea", outline=make_outline((1, "One", "Start")), outline_approved=True, chapters=[Chapter(id="c1", number=1, title="One", objective="Start")])
+    book = BookState(id="b1", owner_id="u1", title="Book", theme="Fantasy", author_idea="Idea", outline=make_outline((1, "One", "Start")), outline_approved=True, chapters=[Chapter(id="c1", number=1, title="One", objective="Start")])
     repository = InMemoryRepository(book)
     llm = RecordingLLM(drafts=["TODO: unfinished draft", "A corrected chapter draft."])
-    use_case = GenerateChapter(make_workflow(book, repository, llm))
+    use_case = make_use_case(book, repository, llm)
     result = use_case.execute(book, chapter_number=1)
     assert result.decision == "accept"
     assert result.attempt == 2
@@ -120,10 +134,10 @@ def test_generate_chapter_retries_after_linter_failure_and_preserves_history() -
 
 
 def test_generate_chapter_retries_after_low_review_and_preserves_reviews() -> None:
-    book = BookState(id="b1", title="Book", theme="Fantasy", author_idea="Idea", outline=make_outline((1, "One", "Start")), outline_approved=True, chapters=[Chapter(id="c1", number=1, title="One", objective="Start")])
+    book = BookState(id="b1", owner_id="u1", title="Book", theme="Fantasy", author_idea="Idea", outline=make_outline((1, "One", "Start")), outline_approved=True, chapters=[Chapter(id="c1", number=1, title="One", objective="Start")])
     repository = InMemoryRepository(book)
     llm = RecordingLLM(drafts=["First draft.", "Improved draft."], review_scores=[5, 9])
-    use_case = GenerateChapter(make_workflow(book, repository, llm))
+    use_case = make_use_case(book, repository, llm)
     result = use_case.execute(book, chapter_number=1)
     assert result.decision == "accept"
     assert result.attempt == 2
@@ -134,11 +148,11 @@ def test_generate_chapter_retries_after_low_review_and_preserves_reviews() -> No
 
 
 def test_generate_chapter_starts_after_existing_version() -> None:
-    book = BookState(id="b1", title="Book", theme="Fantasy", author_idea="Idea", outline=make_outline((1, "One", "Start")), outline_approved=True, chapters=[Chapter(id="c1", number=1, title="One", objective="Start")])
+    book = BookState(id="b1", owner_id="u1", title="Book", theme="Fantasy", author_idea="Idea", outline=make_outline((1, "One", "Start")), outline_approved=True, chapters=[Chapter(id="c1", number=1, title="One", objective="Start")])
     repository = InMemoryRepository(book)
     repository.save_chapter_version("b1", 1, 1, "Previous draft")
     llm = RecordingLLM(drafts=["A new chapter draft."])
-    use_case = GenerateChapter(make_workflow(book, repository, llm))
+    use_case = make_use_case(book, repository, llm)
 
     result = use_case.execute(book, chapter_number=1)
 

@@ -4,8 +4,8 @@ from book_loop.agents.writer import WriterAgent
 from book_loop.application.services.context import ContextBuilder
 from book_loop.application.services.linter import ChapterLinter
 from book_loop.domain.models import BookState, Chapter, Outline
+from book_loop.infrastructure.database.workflow_store import InMemoryWorkflowRunStore
 from book_loop.workflow.chapter_graph import ChapterWorkflow, ChapterWorkflowState
-from book_loop.domain.models import SceneReview
 
 
 class FakeLLM:
@@ -59,7 +59,7 @@ def make_workflow(book, repository):
     return ChapterWorkflow(
         repository=repository, writer=WriterAgent(llm), reviewer=ReviewerAgent(llm),
         summarizer=SummarizerAgent(llm), context_builder=ContextBuilder(),
-        linter=ChapterLinter(),
+        linter=ChapterLinter(), workflow_store=InMemoryWorkflowRunStore(),
     )
 
 

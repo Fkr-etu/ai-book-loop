@@ -40,6 +40,7 @@ from book_loop.infrastructure.linguistic.languagetool import LanguageToolChecker
 from book_loop.infrastructure.linguistic.spacy import SpacyFrenchChecker
 from book_loop.infrastructure.observability import ObservabilityStore
 from book_loop.infrastructure.stripe_billing import StripeBillingRepository, StripeBillingService
+from book_loop.infrastructure.workflow.chapter_workflow_adapter import ChapterWorkflowAdapter
 from book_loop.workflow.chapter_graph import ChapterWorkflow
 
 
@@ -65,6 +66,7 @@ class Container:
         self.linter = ChapterLinter()
         self.linguistic_contextualizer = GeminiDiagnosticContextualizer(llm=self.llm)
         self.chapter_workflow = ChapterWorkflow(repository=self.repository, writer=self.writer_agent, reviewer=self.reviewer_agent, summarizer=self.summarizer_agent, context_builder=self.context_builder, linter=self.linter, linguistic_validator_factory=self._linguistic_validator, linguistic_contextualizer=self._contextualize_linguistic_diagnostics, linguistic_language=self.settings.linguistic_language, max_retries=self.settings.max_retries, review_threshold=self.settings.review_threshold, workflow_store=self.workflow_store, observability=self.observability)
+        self.chapter_workflow_port = ChapterWorkflowAdapter(self.chapter_workflow, self.workflow_store)
 
     def _contextualize_linguistic_diagnostics(self, chapter: str, diagnostics):
         return self.linguistic_contextualizer.review(chapter=chapter, diagnostics=diagnostics)
@@ -91,7 +93,7 @@ class Container:
     def update_outline(self) -> UpdateOutline: return UpdateOutline(self.repository)
     def approve_outline(self) -> ApproveOutline: return ApproveOutline(self.repository)
     def add_chapter(self) -> AddChapter: return AddChapter(self.repository)
-    def generate_chapter(self) -> GenerateChapter: return GenerateChapter(self.chapter_workflow, repository=self.repository)
+    def generate_chapter(self) -> GenerateChapter: return GenerateChapter(self.chapter_workflow_port, repository=self.repository, workflow_store=self.workflow_store)
     def review_chapter(self) -> ReviewChapter: return ReviewChapter(repository=self.repository, reviewer=self.reviewer_agent, context_builder=self.context_builder, linter=self.linter, max_retries=self.settings.max_retries, threshold=self.settings.review_threshold)
     def approve_chapter(self) -> ApproveChapter: return ApproveChapter(self.repository)
     def approve_chapter_and_sync_canon(self) -> ApproveChapterAndSyncCanon: return ApproveChapterAndSyncCanon(book_repository=self.repository, knowledge_repository=self.repository, extractor=LLMAssertionExtractor(self.llm))
