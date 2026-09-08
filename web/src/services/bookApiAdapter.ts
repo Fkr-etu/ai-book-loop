@@ -4,15 +4,16 @@ import { realApiClient } from "@/services/realApiClient";
 import { adaptBackendBook } from "@/services/bookAdapter";
 import type { BookApi } from "@/services/api";
 
-const EMPTY_BOOK_ID = "proj-001";
-export function emptyBook(): BookState { return { id: EMPTY_BOOK_ID, title: "", theme: "", authorIdea: "", lore: "", constraints: [], outlineApproved: false, chapters: [] }; }
+export function emptyBook(): BookState {
+  return { id: "", title: "", theme: "", authorIdea: "", lore: "", constraints: [], outlineApproved: false, chapters: [] };
+}
 function unsupported(feature: string): Promise<never> { return Promise.reject(new Error(`${feature} n'est pas encore disponible via l'API réelle.`)); }
 function toCanonicalContext(context: Awaited<ReturnType<typeof realApiClient.getChapterContext>>): CanonicalContextResponse { const globalOutline = context.globalOutline?.chapters.map((c) => `## Chapitre ${c.number}: ${c.title}\nObjectif: ${c.objective}\n${c.synopsis}`).join("\n\n") ?? ""; return { authorIdea: context.authorIdea, theme: context.theme, lore: context.lore, globalOutline, constraints: context.constraints, previousSummaries: context.previousSummaries, currentObjective: context.currentObjective, formattedContext: context.formattedContext }; }
 
 export class RealBookApi implements BookApi {
-  async getBook(id = EMPTY_BOOK_ID): Promise<BookState> { if (id === EMPTY_BOOK_ID) { const books = await realApiClient.listBooks(); if (books.length === 0) return emptyBook(); return adaptBackendBook(books[0]); } return adaptBackendBook(await realApiClient.getBook(id)); }
+  async getBook(id: string): Promise<BookState> { return adaptBackendBook(await realApiClient.getBook(id)); }
   async createBook(book: Partial<BookState>): Promise<BookState> { return adaptBackendBook(await realApiClient.createBook({ title: book.title || "Nouveau Livre", theme: book.theme || "", author_idea: book.authorIdea || "", lore: book.lore, constraints: book.constraints })); }
-  async updateBook(id: string, updates: Partial<BookState>): Promise<BookState> { if (id === EMPTY_BOOK_ID) return this.createBook(updates); return adaptBackendBook(await realApiClient.updateBook(id, { ...(updates.title !== undefined ? { title: updates.title } : {}), ...(updates.theme !== undefined ? { theme: updates.theme } : {}), ...(updates.authorIdea !== undefined ? { author_idea: updates.authorIdea } : {}), ...(updates.lore !== undefined ? { lore: updates.lore } : {}), ...(updates.constraints !== undefined ? { constraints: updates.constraints } : {}) })); }
+  async updateBook(id: string, updates: Partial<BookState>): Promise<BookState> { return adaptBackendBook(await realApiClient.updateBook(id, { ...(updates.title !== undefined ? { title: updates.title } : {}), ...(updates.theme !== undefined ? { theme: updates.theme } : {}), ...(updates.authorIdea !== undefined ? { author_idea: updates.authorIdea } : {}), ...(updates.lore !== undefined ? { lore: updates.lore } : {}), ...(updates.constraints !== undefined ? { constraints: updates.constraints } : {}) })); }
   async generateOutline(id: string): Promise<BookState> { return adaptBackendBook(await realApiClient.generateOutline(id)); }
   async approveOutline(id: string): Promise<BookState> { return adaptBackendBook(await realApiClient.approveOutline(id)); }
   async addChapter(id: string, title: string, objective: string): Promise<BookState> { void title; void objective; const current = await realApiClient.getBook(id); return adaptBackendBook(await realApiClient.addChapter(id, current.chapters.length + 1)); }
