@@ -8,7 +8,7 @@ const realApiEnabled = process.env.NEXT_PUBLIC_USE_REAL_API === "true";
 test.describe("Book Loop — real API author journey", () => {
   test.skip(!realApiEnabled, "Requires NEXT_PUBLIC_USE_REAL_API=true");
 
-  test("registers, configures, approves the outline, completes two chapters and evolves Canon through review", async ({ page }) => {
+  test("registers, configures, approves the outline, generates a chapter and evolves Canon through review", async ({ page }) => {
     page.on("response", async (response) => {
       if (response.url().endsWith("/api/auth/register")) {
         console.log(`[real-api] register ${response.status()} ${await response.text()}`);
@@ -44,7 +44,7 @@ test.describe("Book Loop — real API author journey", () => {
 
     await expect(page).toHaveURL(/\/studio$/);
     await page.goto("/studio/outline");
-    await expect(page.getByRole("heading", { name: "Plan du livre" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Plan global" })).toBeVisible();
 
     await page.getByRole("button", { name: "Générer le plan IA" }).click();
     await expect(page.getByRole("heading", { name: "Plan proposé", exact: true })).toBeVisible();
@@ -54,9 +54,7 @@ test.describe("Book Loop — real API author journey", () => {
 
     const proposedOutline = await page.locator("pre").innerText();
     const firstChapterTitle = proposedOutline.match(/^## Chapitre 1: (.+)$/m)?.[1]?.trim();
-    const secondChapterTitle = proposedOutline.match(/^## Chapitre 2: (.+)$/m)?.[1]?.trim();
     expect(firstChapterTitle).toBeTruthy();
-    expect(secondChapterTitle).toBeTruthy();
 
     await page.getByTestId("add-chapter-btn").click();
     await page.locator('form input[type="text"]').nth(0).fill(firstChapterTitle!);
@@ -109,6 +107,12 @@ test.describe("Book Loop — real API author journey", () => {
     await expect(page.getByText("Propositions à décider").locator("..")).toContainText("0");
     await expect(page.getByText("Faits acceptés").locator("..")).toContainText("1");
 
+    const analyzeImpactButton = page.getByRole("button", { name: "Analyser l'impact" }).first();
+    await expect(analyzeImpactButton).toBeVisible();
+    await analyzeImpactButton.click();
+    await expect(page.getByText("Fait analysé")).toBeVisible();
+    await expect(page.getByText("Aucune preuve source affectée trouvée")).toBeVisible();
+
     const factsBeforeProposalResponse = await page.request.get(`${bookApiBase}/canonical-facts`);
     expect(factsBeforeProposalResponse.ok()).toBeTruthy();
     const factsBeforeProposal = (await factsBeforeProposalResponse.json()) as {
@@ -120,6 +124,7 @@ test.describe("Book Loop — real API author journey", () => {
     expect(originalFact.version).toBe(1);
     const firstProposalStatement = `${originalFact.statement} [corrigé]`;
 
+    // Golden path: active Canon fact -> impact analysis -> proposal -> accept -> new version/history.
     await page.getByLabel("Nouvelle affirmation").fill(firstProposalStatement);
     await page.getByLabel("Nouvel objet").fill("Aix-en-Provence");
     await page.getByLabel("Raison").fill("Correction validée par l'auteur.");
@@ -176,44 +181,61 @@ test.describe("Book Loop — real API author journey", () => {
     expect(acceptedFact.active).toBe(true);
     expect(acceptedFact.previous_fact_id).toBe(originalFact.id);
 
-    await page.goto("/studio/outline");
-    await expect(page.getByRole("heading", { name: "Plan du livre" })).toBeVisible();
-    await page.getByTestId("add-chapter-btn").click();
-    await page.locator('form input[type="text"]').nth(0).fill(secondChapterTitle!);
-    await page.locator('form input[type="text"]').nth(1).fill("Faire évoluer le conflit à partir du Canon approuvé.");
+    const proposalsAfterAcceptResponse = await page.request.get(`${bookApiBase}/canon-change-proposals`);
+    expect(proposalsAfterAcceptResponse.ok()).toBeTruthy();
+    const proposalsAfterAccept = (await proposalsAfterAcceptResponse.json()) as {
+      proposals: Array<{ id: string; status: string }>;
+    };
+    expect(proposalsAfterAccept.proposals.find((item) => item.id === proposal.id)?.status).toBe("accepted");
 
-    const createSecondChapterResponsePromise = page.waitForResponse(
+    // Reject path: a rejected proposal must never mutate the active Canon.
+    await page.getByLabel("Nouvelle affirmation").fill(`${acceptedFact.statement} [rejetée]`);
+    await page.getByLabel("Nouvel objet").fill("Marseille");
+    await page.getByLabel("Raison").fill("Proposition volontairement rejetée par l'auteur.");
+
+    const rejectProposalResponsePromise = page.waitForResponse(
       (response) =>
-        response.url().includes("/api/books/") &&
-        response.url().endsWith("/chapters") &&
+        response.url().endsWith("/canon-change-proposals") &&
         response.request().method() === "POST"
     );
-    await page.getByRole("button", { name: "Créer le chapitre" }).click();
-    const createSecondChapterResponse = await createSecondChapterResponsePromise;
-    expect(createSecondChapterResponse.ok()).toBeTruthy();
-    const bookAfterSecondChapter = (await createSecondChapterResponse.json()) as {
-      chapters?: Array<{ number: number; title: string }>;
+    await page.getByRole("button", { name: "Créer la proposition" }).click();
+    const rejectProposalResponse = await rejectProposalResponsePromise;
+    expect(rejectProposalResponse.status()).toBe(201);
+    const rejectedProposal = (await rejectProposalResponse.json()) as { id: string; status: string };
+    expect(rejectedProposal.status).toBe("proposed");
+
+    await expect(page.getByText("À décider").first()).toBeVisible();
+    const reviewRejectResponsePromise = page.waitForResponse(
+      (response) =>
+        response.url().endsWith(`/canon-change-proposals/${rejectedProposal.id}/review`) &&
+        response.request().method() === "POST"
+    );
+    await page.getByRole("button", { name: "Rejeter" }).last().click();
+    const reviewRejectResponse = await reviewRejectResponsePromise;
+    expect(reviewRejectResponse.ok()).toBeTruthy();
+    expect((await reviewRejectResponse.json()).decision).toBe("reject");
+    await expect(page.getByText("Proposition rejetée : le Canon actif reste inchangé.")).toBeVisible();
+
+    const factsAfterRejectResponse = await page.request.get(`${bookApiBase}/canonical-facts`);
+    expect(factsAfterRejectResponse.ok()).toBeTruthy();
+    const factsAfterReject = (await factsAfterRejectResponse.json()) as {
+      facts: Array<{ id: string; statement: string; object: string; version: number; active: boolean; previous_fact_id: string | null }>;
     };
-    expect(bookAfterSecondChapter.chapters?.at(-1)).toMatchObject({ number: 2, title: secondChapterTitle });
+    expect(factsAfterReject.facts).toHaveLength(1);
+    expect(factsAfterReject.facts[0]).toMatchObject({
+      id: acceptedFact.id,
+      statement: firstProposalStatement,
+      object: "Aix-en-Provence",
+      version: 2,
+      active: true,
+      previous_fact_id: originalFact.id,
+    });
 
-    await page.goto("/studio/chapters");
-    await expect(page.getByRole("heading", { name: secondChapterTitle!, exact: true })).toBeVisible();
-    await expect(page.getByText("Chapitre 2")).toBeVisible();
-    await page.getByRole("button", { name: "Générer" }).click();
-    await expect(page.getByRole("textbox", { name: "Contenu du chapitre" })).not.toHaveValue("");
-
-    await page.reload();
-    await expect(page.getByRole("textbox", { name: "Contenu du chapitre" })).not.toHaveValue("");
-    await expect(page.getByText("Version actuelle")).toBeVisible();
-
-    await page.getByRole("button", { name: "Analyser le chapitre" }).click();
-    await expect(page.getByText(/Analyse|Review|Relecture/).first()).toBeVisible({ timeout: 20_000 });
-    await page.reload();
-    await expect(page.getByRole("textbox", { name: "Contenu du chapitre" })).not.toHaveValue("");
-
-    const approvedSecondChapter = page.getByRole("button", { name: "Approuver" });
-    await expect(approvedSecondChapter).toBeVisible();
-    await approvedSecondChapter.click();
-    await expect(page.getByText("Chapitre approuvé")).toBeVisible();
+    const proposalsAfterRejectResponse = await page.request.get(`${bookApiBase}/canon-change-proposals`);
+    expect(proposalsAfterRejectResponse.ok()).toBeTruthy();
+    const proposalsAfterReject = (await proposalsAfterRejectResponse.json()) as {
+      proposals: Array<{ id: string; status: string }>;
+    };
+    expect(proposalsAfterReject.proposals.find((item) => item.id === rejectedProposal.id)?.status).toBe("rejected");
   });
 });
