@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import hashlib
 from typing import Protocol
 
 from book_loop.domain.models import User, UserPublic
@@ -39,6 +40,20 @@ class AuthRateLimiter(Protocol):
     def consume(self, key: str, *, limit: int, window_seconds: int) -> RateLimitReservation: ...
     def release(self, event_id: int | None) -> None: ...
     def reset(self, key: str) -> None: ...
+
+
+def normalize_email(email: str) -> str:
+    return email.strip().casefold()
+
+
+def email_key(email: str) -> str:
+    digest = hashlib.sha256(normalize_email(email).encode("utf-8")).hexdigest()
+    return f"email:{digest}"
+
+
+def ip_key(ip: str) -> str:
+    digest = hashlib.sha256(ip.encode("utf-8")).hexdigest()
+    return f"ip:{digest}"
 
 
 def to_public_user(user: User) -> UserPublic:
