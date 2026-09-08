@@ -106,10 +106,31 @@ steps:
       - "--concurrency=8"
       - "--port=8080"
 
-  - id: resolve-api-url
+  - id: verify-api-public-iam
     name: gcr.io/google.com/cloudsdktool/cloud-sdk
     entrypoint: bash
     waitFor: [deploy-api]
+    args:
+      - "-c"
+      - |
+        echo "Verifying public Cloud Run invoker policy for ${_API_SERVICE}"
+        MEMBERS="$$(gcloud run services get-iam-policy "${_API_SERVICE}" \
+          --region="${_REGION}" \
+          --flatten='bindings[].members' \
+          --filter='bindings.role=roles/run.invoker AND bindings.members=allUsers' \
+          --format='value(bindings.members)')"
+        test "$${MEMBERS}" = "allUsers" || {
+          echo "ERROR: ${_API_SERVICE} is not publicly invokable by allUsers."
+          echo "The --allow-unauthenticated deployment flag did not result in the required IAM binding."
+          echo "Check Cloud Run IAM permissions and organization policy restrictions."
+          exit 1
+        }
+        echo "Public IAM verification passed for ${_API_SERVICE}"
+
+  - id: resolve-api-url
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: bash
+    waitFor: [verify-api-public-iam]
     args:
       - "-c"
       - |
@@ -172,10 +193,31 @@ steps:
       - "--concurrency=40"
       - "--port=8080"
 
-  - id: resolve-web-url
+  - id: verify-web-public-iam
     name: gcr.io/google.com/cloudsdktool/cloud-sdk
     entrypoint: bash
     waitFor: [deploy-web]
+    args:
+      - "-c"
+      - |
+        echo "Verifying public Cloud Run invoker policy for ${_WEB_SERVICE}"
+        MEMBERS="$$(gcloud run services get-iam-policy "${_WEB_SERVICE}" \
+          --region="${_REGION}" \
+          --flatten='bindings[].members' \
+          --filter='bindings.role=roles/run.invoker AND bindings.members=allUsers' \
+          --format='value(bindings.members)')"
+        test "$${MEMBERS}" = "allUsers" || {
+          echo "ERROR: ${_WEB_SERVICE} is not publicly invokable by allUsers."
+          echo "The --allow-unauthenticated deployment flag did not result in the required IAM binding."
+          echo "Check Cloud Run IAM permissions and organization policy restrictions."
+          exit 1
+        }
+        echo "Public IAM verification passed for ${_WEB_SERVICE}"
+
+  - id: resolve-web-url
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: bash
+    waitFor: [verify-web-public-iam]
     args:
       - "-c"
       - |
