@@ -3,10 +3,10 @@ from __future__ import annotations
 import traceback
 from typing import Any
 
-from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from book_loop.api.dependencies import get_book, get_container
+from book_loop.api.dependencies import get_book, get_container, get_owned_book
 from book_loop.application.services.context import ContextBuilder
 from book_loop.infrastructure.container import Container
 
@@ -40,8 +40,8 @@ def _run_chapter_workflow(container: Container, book_id: str, chapter_number: in
 
 
 @router.post("")
-def add_chapter(book_id: str, payload: AddChapterPayload, container: Container = Depends(get_container)) -> dict[str, Any]:
-    book = get_book(book_id, container)
+def add_chapter(book_id: str, payload: AddChapterPayload, request: Request, container: Container = Depends(get_container)) -> dict[str, Any]:
+    book = get_owned_book(book_id, request, container)
     try:
         updated_book = container.add_chapter().execute(book, chapter_number=payload.chapter_number)
     except ValueError as exc:
@@ -50,8 +50,8 @@ def add_chapter(book_id: str, payload: AddChapterPayload, container: Container =
 
 
 @router.post("/{chapter_number}/generate", status_code=202)
-def generate_chapter(book_id: str, chapter_number: int, background_tasks: BackgroundTasks, container: Container = Depends(get_container)) -> dict[str, Any]:
-    book = get_book(book_id, container)
+def generate_chapter(book_id: str, chapter_number: int, background_tasks: BackgroundTasks, request: Request, container: Container = Depends(get_container)) -> dict[str, Any]:
+    book = get_owned_book(book_id, request, container)
     try:
         run = container.generate_chapter().start(book, chapter_number=chapter_number)
     except PermissionError as exc:
@@ -63,13 +63,15 @@ def generate_chapter(book_id: str, chapter_number: int, background_tasks: Backgr
 
 
 @router.get("/{chapter_number}/workflow-runs/latest")
-def get_latest_workflow_run(book_id: str, chapter_number: int, container: Container = Depends(get_container)) -> dict[str, Any]:
+def get_latest_workflow_run(book_id: str, chapter_number: int, request: Request, container: Container = Depends(get_container)) -> dict[str, Any]:
+    get_owned_book(book_id, request, container)
     run = container.generate_chapter().latest(book_id, chapter_number)
     return {"run": run.model_dump(mode="json") if run is not None else None}
 
 
 @router.get("/{chapter_number}/workflow-runs/{run_id}")
-def get_workflow_run(book_id: str, chapter_number: int, run_id: str, container: Container = Depends(get_container)) -> dict[str, Any]:
+def get_workflow_run(book_id: str, chapter_number: int, run_id: str, request: Request, container: Container = Depends(get_container)) -> dict[str, Any]:
+    get_owned_book(book_id, request, container)
     try:
         run = container.generate_chapter().get_run(run_id)
     except KeyError as exc:
@@ -80,8 +82,8 @@ def get_workflow_run(book_id: str, chapter_number: int, run_id: str, container: 
 
 
 @router.post("/{chapter_number}/review")
-def review_chapter(book_id: str, chapter_number: int, payload: ReviewPayload = Body(default_factory=ReviewPayload), container: Container = Depends(get_container)) -> dict[str, Any]:
-    book = get_book(book_id, container)
+def review_chapter(book_id: str, chapter_number: int, request: Request, payload: ReviewPayload = Body(default_factory=ReviewPayload), container: Container = Depends(get_container)) -> dict[str, Any]:
+    book = get_owned_book(book_id, request, container)
     try:
         updated_book, review = container.review_chapter().execute(book, chapter_number=chapter_number, version_number=payload.versionNumber, draft_text=payload.draftText)
     except ValueError as exc:
@@ -90,8 +92,8 @@ def review_chapter(book_id: str, chapter_number: int, payload: ReviewPayload = B
 
 
 @router.post("/{chapter_number}/approve")
-def approve_chapter(book_id: str, chapter_number: int, payload: ApprovePayload = Body(default_factory=ApprovePayload), container: Container = Depends(get_container)) -> dict[str, Any]:
-    book = get_book(book_id, container)
+def approve_chapter(book_id: str, chapter_number: int, request: Request, payload: ApprovePayload = Body(default_factory=ApprovePayload), container: Container = Depends(get_container)) -> dict[str, Any]:
+    book = get_owned_book(book_id, request, container)
     try:
         result = container.approve_chapter_and_sync_canon().execute(book, chapter_number=chapter_number, version_number=payload.versionNumber)
     except ValueError as exc:
@@ -104,8 +106,8 @@ def approve_chapter(book_id: str, chapter_number: int, payload: ApprovePayload =
 
 
 @router.post("/{chapter_number}/reject")
-def reject_chapter(book_id: str, chapter_number: int, container: Container = Depends(get_container)) -> dict[str, Any]:
-    book = get_book(book_id, container)
+def reject_chapter(book_id: str, chapter_number: int, request: Request, container: Container = Depends(get_container)) -> dict[str, Any]:
+    book = get_owned_book(book_id, request, container)
     try:
         updated_book = container.reject_chapter().execute(book, chapter_number=chapter_number)
     except ValueError as exc:
@@ -114,8 +116,8 @@ def reject_chapter(book_id: str, chapter_number: int, container: Container = Dep
 
 
 @router.get("/{chapter_number}/context")
-def get_canonical_context(book_id: str, chapter_number: int, container: Container = Depends(get_container)) -> dict[str, Any]:
-    book = get_book(book_id, container)
+def get_canonical_context(book_id: str, chapter_number: int, request: Request, container: Container = Depends(get_container)) -> dict[str, Any]:
+    book = get_owned_book(book_id, request, container)
     chapter = next((c for c in book.chapters if c.number == chapter_number), None)
     if chapter is None:
         raise HTTPException(status_code=404, detail=f"Chapitre {chapter_number} introuvable.")

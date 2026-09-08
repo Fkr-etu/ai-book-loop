@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
-from book_loop.api.dependencies import get_book, get_container
+from book_loop.api.dependencies import get_container, get_owned_book
 from book_loop.infrastructure.container import Container
 
 router = APIRouter(prefix="/api/books/{book_id}/documents", tags=["documents"])
@@ -19,8 +19,8 @@ class IngestDocumentPayload(BaseModel):
 
 
 @router.post("/ingest")
-def ingest_document(book_id: str, payload: IngestDocumentPayload, container: Container = Depends(get_container)) -> dict[str, Any]:
-    get_book(book_id, container)
+def ingest_document(book_id: str, payload: IngestDocumentPayload, request: Request, container: Container = Depends(get_container)) -> dict[str, Any]:
+    get_owned_book(book_id, request, container)
     try:
         result = container.ingest_document().execute(
             book_id=book_id,

@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
-from book_loop.api.dependencies import get_book, get_container
+from book_loop.api.dependencies import get_container, get_owned_book
 from book_loop.domain.models import Outline
 from book_loop.infrastructure.container import Container
 
@@ -17,14 +17,14 @@ class UpdateOutlinePayload(BaseModel):
 
 
 @router.post("/generate")
-def generate_outline(book_id: str, container: Container = Depends(get_container)) -> dict[str, Any]:
-    book = get_book(book_id, container)
+def generate_outline(book_id: str, request: Request, container: Container = Depends(get_container)) -> dict[str, Any]:
+    book = get_owned_book(book_id, request, container)
     return container.generate_outline().execute(book).model_dump(mode="json")
 
 
 @router.put("")
-def update_outline(book_id: str, payload: UpdateOutlinePayload, container: Container = Depends(get_container)) -> dict[str, Any]:
-    book = get_book(book_id, container)
+def update_outline(book_id: str, payload: UpdateOutlinePayload, request: Request, container: Container = Depends(get_container)) -> dict[str, Any]:
+    book = get_owned_book(book_id, request, container)
     try:
         updated_book = container.update_outline().execute(book, outline=payload.outline)
     except ValueError as exc:
@@ -33,8 +33,8 @@ def update_outline(book_id: str, payload: UpdateOutlinePayload, container: Conta
 
 
 @router.post("/approve")
-def approve_outline(book_id: str, container: Container = Depends(get_container)) -> dict[str, Any]:
-    book = get_book(book_id, container)
+def approve_outline(book_id: str, request: Request, container: Container = Depends(get_container)) -> dict[str, Any]:
+    book = get_owned_book(book_id, request, container)
     try:
         updated_book = container.approve_outline().execute(book)
     except ValueError as exc:
