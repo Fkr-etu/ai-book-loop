@@ -20,7 +20,7 @@ export class RealBookApi implements BookApi {
   async getChapterWorkflowRun(id: string, n: number, runId: string): Promise<BackendWorkflowRun> { return realApiClient.getChapterWorkflowRun(id, n, runId); }
   async getLatestChapterWorkflowRun(id: string, n: number): Promise<BackendWorkflowRun | null> { return realApiClient.getLatestChapterWorkflowRun(id, n); }
   async reviewChapter(id: string, n: number, v?: number, draft?: string): Promise<{ book: BookState; review: SceneReview }> { const result = await realApiClient.reviewChapter(id, n, v, draft); return { book: adaptBackendBook(result.book), review: result.review as SceneReview }; }
-  async approveChapter(id: string, n: number): Promise<BookState> { return adaptBackendBook(await realApiClient.approveChapter(id, n)); }
+  async approveChapter(id: string, n: number, v?: number): Promise<BookState> { return adaptBackendBook(await realApiClient.approveChapter(id, n, v)); }
   async rejectChapter(id: string, n: number): Promise<BookState> { return adaptBackendBook(await realApiClient.rejectChapter(id, n)); }
   async getCanonicalContext(id: string, n: number): Promise<CanonicalContextResponse> { return toCanonicalContext(await realApiClient.getChapterContext(id, n)); }
   async createCharacter(_id: string, _char: Omit<Character, "id">): Promise<BookState> { return unsupported("La gestion des personnages"); }
