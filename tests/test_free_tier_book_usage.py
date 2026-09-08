@@ -71,8 +71,8 @@ class Workflow:
         raise AssertionError("start() must not execute the workflow")
 
 
-def make_book(repository: Repository, usage: BookUsage, owner_id: str):
-    book = CreateBook(repository, usage).execute(
+def make_book(repository: Repository, owner_id: str):
+    book = CreateBook(repository).execute(
         owner_id=owner_id,
         title="The Same Book",
         theme="Fantasy",
@@ -92,8 +92,8 @@ def make_use_case(repository: Repository, usage: BookUsage) -> GenerateChapter:
 def test_free_capacity_is_not_shared_but_same_book_is_rejected_for_another_account() -> None:
     repository = Repository()
     usage = BookUsage()
-    book_a = make_book(repository, usage, "user-a")
-    book_b = make_book(repository, usage, "user-b")
+    book_a = make_book(repository, "user-a")
+    book_b = make_book(repository, "user-b")
     use_case = make_use_case(repository, usage)
 
     use_case.start(book_a, 1, idempotency_key="attempt-a")
@@ -108,7 +108,7 @@ def test_free_capacity_is_not_shared_but_same_book_is_rejected_for_another_accou
 def test_same_account_can_retry_the_same_book_until_its_own_quota_is_exhausted() -> None:
     repository = Repository()
     usage = BookUsage()
-    book = make_book(repository, usage, "user-a")
+    book = make_book(repository, "user-a")
     use_case = make_use_case(repository, usage)
 
     for index in range(5):
@@ -121,7 +121,7 @@ def test_same_account_can_retry_the_same_book_until_its_own_quota_is_exhausted()
 def test_free_capacity_is_idempotent_for_the_same_request_key() -> None:
     repository = Repository()
     usage = BookUsage()
-    book = make_book(repository, usage, "user-a")
+    book = make_book(repository, "user-a")
     use_case = make_use_case(repository, usage)
 
     use_case.start(book, 1, idempotency_key="same-request")
@@ -133,12 +133,12 @@ def test_free_capacity_is_idempotent_for_the_same_request_key() -> None:
 def test_free_book_identity_survives_book_edits() -> None:
     repository = Repository()
     usage = BookUsage()
-    book_a = make_book(repository, usage, "user-a")
-    book_a.title = "A Different Display Title"
-    book_b = make_book(repository, usage, "user-b")
+    book_a = make_book(repository, "user-a")
+    book_b = make_book(repository, "user-b")
     use_case = make_use_case(repository, usage)
 
     use_case.start(book_a, 1, idempotency_key="attempt-a")
+    book_a.title = "A Different Display Title"
 
     with pytest.raises(PermissionError, match="already used the free tier"):
         use_case.start(book_b, 1, idempotency_key="attempt-b")
