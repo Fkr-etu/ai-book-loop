@@ -6,7 +6,7 @@ from typing import Any
 from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from book_loop.api.dependencies import get_owned_book, get_container
+from book_loop.api.dependencies import get_container, get_owned_book
 from book_loop.application.services.context import ContextBuilder
 from book_loop.infrastructure.container import Container
 
