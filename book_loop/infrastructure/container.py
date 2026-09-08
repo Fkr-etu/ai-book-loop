@@ -65,6 +65,7 @@ class Container:
         self.password_hasher = Argon2PasswordHasher()
         self.token_service = JwtTokenService(self.settings.auth_secret_key)
         self.email_sender = self._email_sender()
+        self.verify_email_use_case = VerifyEmail(self.repository, self.email_sender, self.settings.email_verification_base_url)
         self.workflow_store = PostgresWorkflowRunStore(self.settings.database_url)
         self.observability = ObservabilityStore(self.settings.database_url)
         self.llm = create_llm(self.settings)
@@ -77,10 +78,9 @@ class Container:
         self.linguistic_contextualizer = GeminiDiagnosticContextualizer(llm=self.llm)
         self.chapter_workflow = ChapterWorkflow(repository=self.repository, writer=self.writer_agent, reviewer=self.reviewer_agent, summarizer=self.summarizer_agent, context_builder=self.context_builder, linter=self.linter, linguistic_validator_factory=self._linguistic_validator, linguistic_contextualizer=self._contextualize_linguistic_diagnostics, linguistic_language=self.settings.linguistic_language, max_retries=self.settings.max_retries, review_threshold=self.settings.review_threshold, workflow_store=self.workflow_store, observability=self.observability)
         self.chapter_workflow_port = ChapterWorkflowAdapter(self.chapter_workflow, self.workflow_store)
-        self.register_user_use_case = RegisterUser(self.repository, self.password_hasher, self.token_service, self.auth_rate_limiter, rate_limit=self.settings.auth_register_rate_limit, rate_window_seconds=self.settings.auth_register_rate_window_seconds)
+        self.register_user_use_case = RegisterUser(self.repository, self.password_hasher, self.token_service, self.auth_rate_limiter, rate_limit=self.settings.auth_register_rate_limit, rate_window_seconds=self.settings.auth_register_rate_window_seconds, email_verification=self.verify_email_use_case)
         self.login_user_use_case = LoginUser(self.repository, self.password_hasher, self.token_service, self.auth_rate_limiter, email_limit=self.settings.auth_login_rate_limit, email_window_seconds=self.settings.auth_login_rate_window_seconds, ip_limit=self.settings.auth_login_ip_rate_limit, ip_window_seconds=self.settings.auth_login_ip_rate_window_seconds, dummy_password_hash=DUMMY_PASSWORD_HASH)
         self.authenticate_user_use_case = AuthenticateUser(self.repository, self.token_service)
-        self.verify_email_use_case = VerifyEmail(self.repository, self.email_sender, self.settings.email_verification_base_url)
 
     def _email_sender(self):
         if self.settings.resend_api_key:
