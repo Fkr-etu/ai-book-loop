@@ -5,6 +5,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
+    app_environment: str = "local"
     llm_provider: str = "gemini"
     llm_model: str = "gemini-3.6-flash"
     gemini_api_key: str = ""
@@ -40,6 +41,8 @@ class Settings(BaseSettings):
     def validate_auth_security(self) -> "Settings":
         if self.auth_cookie_samesite not in {"lax", "strict", "none"}:
             raise ValueError("AUTH_COOKIE_SAMESITE must be lax, strict, or none")
-        if self.auth_cookie_secure and len(self.auth_secret_key) < 32:
-            raise ValueError("AUTH_SECRET_KEY must contain at least 32 characters when secure cookies are enabled")
+        if len(self.auth_secret_key) < 32:
+            raise ValueError("AUTH_SECRET_KEY must contain at least 32 characters")
+        if self.app_environment.strip().lower() not in {"local", "test"} and not self.auth_cookie_secure:
+            raise ValueError("AUTH_COOKIE_SECURE must be enabled outside local and test environments")
         return self
