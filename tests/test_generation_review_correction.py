@@ -5,6 +5,7 @@ from book_loop.agents.writer import WriterAgent
 from book_loop.application.services.context import ContextBuilder
 from book_loop.application.services.linter import ChapterLinter
 from book_loop.domain.models import BookState, Chapter, Outline, SceneReview
+from book_loop.infrastructure.database.workflow_store import InMemoryWorkflowRunStore
 from book_loop.workflow.chapter_graph import ChapterWorkflow
 
 
@@ -24,15 +25,7 @@ class SequenceLLM:
             return f"Corrected draft {self.correct_calls}."
         return "Initial draft."
 
-    def generate_structured(
-        self,
-        *,
-        system_prompt: str,
-        user_prompt: str,
-        schema: type[SceneReview],
-        thinking_level: str = "medium",
-        max_output_tokens: int | None = None,
-    ) -> SceneReview:
+    def generate_structured(self, *, system_prompt: str, user_prompt: str, schema: type[SceneReview], thinking_level: str = "medium", max_output_tokens: int | None = None) -> SceneReview:
         del system_prompt, user_prompt, thinking_level, max_output_tokens
         return schema.model_validate_json(next(self.reviews))
 
@@ -84,6 +77,7 @@ def make_workflow(book, repository, llm, *, max_retries=3):
         context_builder=ContextBuilder(),
         linter=ChapterLinter(),
         max_retries=max_retries,
+        workflow_store=InMemoryWorkflowRunStore(),
     )
 
 
@@ -170,6 +164,7 @@ def test_lint_failure_is_persisted_as_review():
         context_builder=ContextBuilder(),
         linter=ChapterLinter(),
         max_retries=1,
+        workflow_store=InMemoryWorkflowRunStore(),
     )
 
     result = workflow.run(book=book, chapter_number=1)
