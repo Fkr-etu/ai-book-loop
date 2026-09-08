@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from typing import Any
 
 from book_loop.domain.models import (
@@ -200,11 +201,26 @@ class BookRepositoryMixin:
         return self.get_user_by_email(user.email)  # type: ignore
 
     def get_user_by_email(self, email: str) -> User | None:
-        row = self._connection.execute("SELECT id, email, password_hash, name, plan, created_at FROM users WHERE lower(email) = ?", (email.lower().strip(),)).fetchone()
+        row = self._connection.execute("SELECT id, email, password_hash, name, plan, created_at, email_verified_at FROM users WHERE lower(email) = ?", (email.lower().strip(),)).fetchone()
         if row is None: return None
-        return User(id=row["id"], email=row["email"], password_hash=row["password_hash"], name=row["name"], plan=SubscriptionPlan(row["plan"]), created_at=row["created_at"])
+        return User(id=row["id"], email=row["email"], password_hash=row["password_hash"], name=row["name"], plan=SubscriptionPlan(row["plan"]), created_at=row["created_at"], email_verified_at=str(row["email_verified_at"]) if row["email_verified_at"] is not None else None)
 
     def get_user_by_id(self, user_id: str) -> User | None:
-        row = self._connection.execute("SELECT id, email, password_hash, name, plan, created_at FROM users WHERE id = ?", (user_id,)).fetchone()
+        row = self._connection.execute("SELECT id, email, password_hash, name, plan, created_at, email_verified_at FROM users WHERE id = ?", (user_id,)).fetchone()
         if row is None: return None
-        return User(id=row["id"], email=row["email"], password_hash=row["password_hash"], name=row["name"], plan=SubscriptionPlan(row["plan"]), created_at=row["created_at"])
+        return User(id=row["id"], email=row["email"], password_hash=row["password_hash"], name=row["name"], plan=SubscriptionPlan(row["plan"]), created_at=row["created_at"], email_verified_at=str(row["email_verified_at"]) if row["email_verified_at"] is not None else None)
+
+    def create_email_verification_token(self, *, user_id: str, token_hash: str, expires_at: datetime) -> None:
+        self._connection.execute("UPDATE email_verification_tokens SET used_at = CURRENT_TIMESTAMP WHERE user_id = ? AND used_at IS NULL", (user_id,))
+        self._connection.execute("INSERT INTO email_verification_tokens(token_hash, user_id, expires_at) VALUES(?, ?, ?)", (token_hash, user_id, expires_at))
+        self._connection.commit()
+
+    def consume_email_verification_token(self, *, token_hash: str, now: datetime) -> str | None:
+        with self._connection.transaction():
+            row = self._connection.execute("SELECT user_id FROM email_verification_tokens WHERE token_hash = ? AND used_at IS NULL AND expires_at > ? FOR UPDATE", (token_hash, now)).fetchone()
+            if row is None:
+                return None
+            user_id = str(row["user_id"])
+            self._connection.execute("UPDATE users SET email_verified_at = ? WHERE id = ?", (now, user_id))
+            self._connection.execute("UPDATE email_verification_tokens SET used_at = ? WHERE token_hash = ?", (now, token_hash))
+            return user_id

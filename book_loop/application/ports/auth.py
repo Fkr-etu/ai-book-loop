@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 import hashlib
 from typing import Protocol
 
@@ -23,6 +24,8 @@ class AuthRepository(Protocol):
     def get_user_by_email(self, email: str) -> User | None: ...
     def get_user_by_id(self, user_id: str) -> User | None: ...
     def create_user(self, user: User) -> User: ...
+    def create_email_verification_token(self, *, user_id: str, token_hash: str, expires_at: datetime) -> None: ...
+    def consume_email_verification_token(self, *, token_hash: str, now: datetime) -> str | None: ...
 
 
 class PasswordHasher(Protocol):
@@ -57,4 +60,4 @@ def ip_key(ip: str) -> str:
 
 
 def to_public_user(user: User) -> UserPublic:
-    return UserPublic(id=user.id, email=user.email, name=user.name, plan=user.plan)
+    return UserPublic(id=user.id, email=user.email, name=user.name, plan=user.plan, email_verified=user.email_verified_at is not None)

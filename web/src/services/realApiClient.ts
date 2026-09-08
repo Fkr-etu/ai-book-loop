@@ -16,6 +16,7 @@ export class RealApiClient {
   async getBillingState(): Promise<BackendBillingState> { return this.request("/api/billing/me"); }
   async login(email: string, password: string): Promise<BackendUser> { return unwrapUser(await this.request<unknown>("/api/auth/login", { method: "POST", body: JSON.stringify({ email, password }) })); }
   async register(email: string, password: string, name: string): Promise<BackendUser> { return unwrapUser(await this.request<unknown>("/api/auth/register", { method: "POST", body: JSON.stringify({ email, password, name }) })); }
+  async verifyEmail(token: string): Promise<BackendUser> { return unwrapUser(await this.request<unknown>(`/api/auth/verify-email?token=${encodeURIComponent(token)}`)); }
   async logout(): Promise<void> { await this.request("/api/auth/logout", { method: "POST" }); }
   async createCheckout(plan: "creator" | "pro", billingCycle: "monthly" | "yearly"): Promise<CheckoutResult> { return this.request("/api/billing/checkout", { method: "POST", body: JSON.stringify({ plan, billing_cycle: billingCycle }) }); }
   async createBillingPortal(): Promise<CheckoutResult> { return this.request("/api/billing/portal", { method: "POST" }); }

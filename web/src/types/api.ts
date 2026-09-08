@@ -9,7 +9,7 @@ export interface BackendChapter { id: string; number: number; title: string; obj
 export interface BackendCreativeBrief { premise: string; audience: string; tone: string; themes: string[]; must_include: string[]; must_avoid: string[]; }
 export interface BackendBook { id: string; owner_id: string; title: string; theme: string; author_idea: string; creative_brief: BackendCreativeBrief | null; lore: string; constraints: string[]; outline: BackendOutline | null; outline_approved: boolean; chapters: BackendChapter[]; }
 export type BackendSubscriptionPlan = "free" | "creator" | "pro";
-export interface BackendUser { id: string; email: string; name: string; plan: BackendSubscriptionPlan; }
+export interface BackendUser { id: string; email: string; name: string; plan: BackendSubscriptionPlan; email_verified: boolean; }
 export interface BackendBillingState { plan: BackendSubscriptionPlan; subscription_status: string; subscription_current_period_end: string | null; subscription_cancel_at_period_end: boolean; }
 export interface BackendSceneReview { score: number; approved: boolean; issues: string[]; suggestions: string[]; }
 export interface BackendSourceDocument { id: string; book_id: string; name: string; source_type: string; content: string; content_hash: string; metadata: Record<string, string>; version: number; }

@@ -27,6 +27,10 @@ class Settings(BaseSettings):
     auth_register_rate_window_seconds: int = 900
     cors_allowed_origins: list[str] = ["http://localhost:3000", "http://localhost:5173"]
 
+    email_verification_base_url: str = "http://localhost:8000"
+    resend_api_key: str = ""
+    resend_from_address: str = "Book Loop <noreply@example.com>"
+
     stripe_secret_key: str = ""
     stripe_webhook_secret: str = ""
     stripe_creator_monthly_price_id: str = ""
@@ -47,4 +51,6 @@ class Settings(BaseSettings):
                 raise ValueError("AUTH_SECRET_KEY must contain at least 32 characters outside local and test environments")
             if not self.auth_cookie_secure:
                 raise ValueError("AUTH_COOKIE_SECURE must be enabled outside local and test environments")
+        if environment not in {"local", "test"} and not self.resend_api_key:
+            raise ValueError("RESEND_API_KEY must be configured outside local and test environments")
         return self
