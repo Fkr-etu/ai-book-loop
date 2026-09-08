@@ -63,7 +63,7 @@ class PostgresBookRepository(BookRepositoryMixin):
             CREATE TABLE IF NOT EXISTS assertions (id TEXT PRIMARY KEY, source_document_id TEXT NOT NULL, chunk_id TEXT NOT NULL, statement TEXT NOT NULL, subject TEXT NOT NULL, predicate TEXT NOT NULL, object TEXT NOT NULL, confidence DOUBLE PRECISION NOT NULL, status TEXT NOT NULL, evidence_id TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS evidence (id TEXT PRIMARY KEY, assertion_id TEXT NOT NULL, source_document_id TEXT NOT NULL, chunk_id TEXT NOT NULL, start_offset INTEGER NOT NULL, end_offset INTEGER NOT NULL, excerpt TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS conflicts (id TEXT PRIMARY KEY, book_id TEXT NOT NULL, left_assertion_id TEXT NOT NULL, right_assertion_id TEXT NOT NULL, status TEXT NOT NULL, resolution_assertion_id TEXT);
-            CREATE TABLE IF NOT EXISTS review_decisions (id TEXT PRIMARY KEY, assertion_id TEXT NOT NULL, decision TEXT NOT NULL, reviewer_id TEXT, rationale TEXT NOT NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP);
+            CREATE TABLE IF NOT EXISTS review_decisions (id TEXT PRIMARY KEY, assertion_id TEXT NOT NULL, decision TEXT NOT NULL, reviewer_id TEXT, rationale TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP);
             CREATE TABLE IF NOT EXISTS canonical_facts (id TEXT PRIMARY KEY, book_id TEXT NOT NULL, assertion_id TEXT NOT NULL, statement TEXT NOT NULL, subject TEXT NOT NULL, predicate TEXT NOT NULL, object TEXT NOT NULL, decision_id TEXT NOT NULL, version INTEGER NOT NULL, active BOOLEAN NOT NULL, previous_fact_id TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE(book_id, subject, predicate, version));
             CREATE TABLE IF NOT EXISTS workflow_usage (user_id TEXT NOT NULL, period_start DATE NOT NULL, idempotency_key TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY(user_id, period_start, idempotency_key));
             CREATE TABLE IF NOT EXISTS book_usage_identities (book_id TEXT PRIMARY KEY, identity TEXT NOT NULL UNIQUE, user_id TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP);
@@ -124,14 +124,17 @@ class PostgresBookRepository(BookRepositoryMixin):
                 (user_id, period_start, idempotency_key),
             )
             return True
-    def consume_workflow_capacity(self, *, quota_subject: str, period_start: str, idempotency_key: str, monthly_limit: int) -> bool:
+    def consume_workflow_capacity(self, *, quota_subject: str | None = None, user_id: str | None = None, period_start: str, idempotency_key: str, monthly_limit: int) -> bool:
+        subject = quota_subject or (f"user:{user_id}" if user_id is not None else None)
+        if subject is None:
+            raise ValueError("Either quota_subject or user_id is required")
         with self.transaction():
-            self._connection.execute("SELECT pg_advisory_xact_lock(hashtext(?))", (quota_subject,))
+            self._connection.execute("SELECT pg_advisory_xact_lock(hashtext(?))", (subject,))
             inserted = self._connection.execute("""INSERT INTO workflow_usage_scoped(quota_subject, period_start, idempotency_key)
                 SELECT ?, ?, ? WHERE (SELECT COUNT(*) FROM workflow_usage_scoped WHERE quota_subject = ? AND period_start = ?) < ?
-                ON CONFLICT(quota_subject, period_start, idempotency_key) DO NOTHING RETURNING idempotency_key""", (quota_subject, period_start, idempotency_key, quota_subject, period_start, monthly_limit)).fetchone()
+                ON CONFLICT(quota_subject, period_start, idempotency_key) DO NOTHING RETURNING idempotency_key""", (subject, period_start, idempotency_key, subject, period_start, monthly_limit)).fetchone()
             if inserted is not None: return True
-            existing = self._connection.execute("SELECT 1 FROM workflow_usage_scoped WHERE quota_subject = ? AND period_start = ? AND idempotency_key = ?", (quota_subject, period_start, idempotency_key)).fetchone()
+            existing = self._connection.execute("SELECT 1 FROM workflow_usage_scoped WHERE quota_subject = ? AND period_start = ? AND idempotency_key = ?", (subject, period_start, idempotency_key)).fetchone()
             return existing is not None
 
 
