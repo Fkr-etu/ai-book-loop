@@ -5,10 +5,9 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, EmailStr, Field
 
-from book_loop.api.dependencies import get_container, get_current_user, set_session_cookie
+from book_loop.api.dependencies import COOKIE_NAME, get_container, get_current_user, set_session_cookie
+from book_loop.application.ports.auth import email_key, ip_key
 from book_loop.domain.models import UserPublic
-from book_loop.infrastructure.auth import COOKIE_NAME
-from book_loop.infrastructure.auth_rate_limit import email_key, ip_key
 from book_loop.infrastructure.container import Container
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -39,12 +38,7 @@ def _client_ip(request: Request) -> str:
 @router.post("/register", status_code=201)
 def register(payload: RegisterPayload, response: Response, request: Request, container: Container = Depends(get_container)) -> dict[str, Any]:
     try:
-        public, token = container.register_user_use_case.execute(
-            email=str(payload.email),
-            password=payload.password,
-            name=payload.name,
-            rate_key=ip_key(_client_ip(request)),
-        )
+        public, token = container.register_user_use_case.execute(email=str(payload.email), password=payload.password, name=payload.name, rate_key=ip_key(_client_ip(request)))
     except PermissionError as exc:
         if str(exc) == "Rate limit exceeded":
             raise HTTPException(status_code=429, detail=RATE_LIMIT_ERROR, headers={"Retry-After": "60"})
@@ -60,12 +54,7 @@ def register(payload: RegisterPayload, response: Response, request: Request, con
 @router.post("/login")
 def login(payload: LoginPayload, response: Response, request: Request, container: Container = Depends(get_container)) -> dict[str, Any]:
     try:
-        public, token = container.login_user_use_case.execute(
-            email=str(payload.email),
-            password=payload.password,
-            email_key=email_key(str(payload.email)),
-            ip_key=ip_key(_client_ip(request)),
-        )
+        public, token = container.login_user_use_case.execute(email=str(payload.email), password=payload.password, email_key=email_key(str(payload.email)), ip_key=ip_key(_client_ip(request)))
     except PermissionError as exc:
         if str(exc) == "Rate limit exceeded":
             raise HTTPException(status_code=429, detail=RATE_LIMIT_ERROR, headers={"Retry-After": "60"})
