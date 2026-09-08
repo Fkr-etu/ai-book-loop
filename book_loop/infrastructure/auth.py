@@ -18,6 +18,7 @@ PASSWORD_POLICY_MESSAGE = (
     "Le mot de passe doit contenir au moins 12 caractères, "
     "une majuscule, une minuscule, un chiffre et un caractère spécial."
 )
+DUMMY_PASSWORD_HASH = _ph.hash("dummy-password-for-timing-only")
 
 
 def validate_password(password: str) -> str:
@@ -51,15 +52,8 @@ def _key(secret_key: str) -> str:
     return secret_key
 
 
-def create_access_token(
-    user: User | UserPublic,
-    *,
-    secret_key: str,
-    expires_delta: timedelta | None = None,
-) -> str:
-    expire = datetime.now(timezone.utc) + (
-        expires_delta or timedelta(days=ACCESS_TOKEN_EXPIRE_DAYS)
-    )
+def create_access_token(user: User | UserPublic, *, secret_key: str, expires_delta: timedelta | None = None) -> str:
+    expire = datetime.now(timezone.utc) + (expires_delta or timedelta(days=ACCESS_TOKEN_EXPIRE_DAYS))
     return jwt.encode({"sub": user.id, "exp": expire}, _key(secret_key), algorithm=ALGORITHM)
 
 
