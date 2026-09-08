@@ -10,12 +10,12 @@ Do not call Gemini or another live provider from the normal test suite. Use dete
 
 ## What to test
 
-- **Python Backend Unit Tests (`tests/`):**
+- **Python Backend Tests (`tests/`):**
   - Domain invariants and state transitions.
   - Use cases with fake repositories/providers.
   - Workflow behavior, including linting, linguistic validation, review decisions, retries, correction, summaries and terminal `needs_review` outcomes.
   - Workflow idempotency and restart/recovery semantics.
-  - Repository persistence against an isolated SQLite database.
+  - PostgreSQL repository persistence and database-level invariants in the dedicated PostgreSQL integration workflow.
   - Canon extraction, conflict detection and explicit review-to-Canon transitions.
   - CLI parsing and command behavior without requiring external services.
   - Run with: `uv run --extra dev pytest`
@@ -39,7 +39,7 @@ At minimum, chapter workflow tests should cover:
 7. **Explicit idempotency key** — repeated calls with the same key address the same workflow run.
 8. **New generation** — once the accepted `current_version` advances, the default key changes so a deliberate later generation can create a new run/version.
 
-The recovery tests should use a real isolated SQLite workflow store when validating persistence across workflow instances. In-memory stores are appropriate for focused unit tests.
+The recovery tests should use the real isolated workflow store configured by the application when validating persistence across workflow instances. In-memory stores are appropriate for focused unit tests.
 
 ## Known recovery limitation
 
@@ -51,7 +51,7 @@ Cross-process duplicate execution is also not fully prevented. Same-process exec
 
 The GitHub Actions test pipeline is the required gate before merging. A local passing test run is useful, but a failing CI pipeline means the change is not complete.
 
-CI currently runs the Python test suite. Frontend build/lint/E2E checks remain local development checks until they are explicitly added to the CI workflow.
+CI runs backend tests, frontend lint/build, a zero-cost Playwright suite, and a real-backend Playwright journey. PostgreSQL repository integration tests have their own dedicated workflow and are not intentionally duplicated in the generic backend job.
 
 ## Regression discipline
 
