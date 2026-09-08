@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import hashlib
 from contextlib import contextmanager
-from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Iterator
 
@@ -10,30 +8,6 @@ import psycopg
 from psycopg.rows import dict_row
 
 from book_loop.application.ports.auth import RateLimitReservation
-
-
-@dataclass(frozen=True)
-class RateLimitResult:
-    event_id: int | None = None
-    retry_after_seconds: int | None = None
-
-    @property
-    def allowed(self) -> bool:
-        return self.retry_after_seconds is None
-
-
-def normalize_email(email: str) -> str:
-    return email.strip().casefold()
-
-
-def email_key(email: str) -> str:
-    digest = hashlib.sha256(normalize_email(email).encode("utf-8")).hexdigest()
-    return f"email:{digest}"
-
-
-def ip_key(ip: str) -> str:
-    digest = hashlib.sha256(ip.encode("utf-8")).hexdigest()
-    return f"ip:{digest}"
 
 
 class AuthRateLimiter:
@@ -68,29 +42,15 @@ class AuthRateLimiter:
     def consume(self, key: str, *, limit: int, window_seconds: int) -> RateLimitReservation:
         now = datetime.now(timezone.utc)
         window_start = now - timedelta(seconds=window_seconds)
-
         with self._transaction():
             self._connection.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", (key,)).fetchone()
-            self._connection.execute(
-                "DELETE FROM auth_rate_limit_events WHERE rate_key = %s AND attempted_at < %s",
-                (key, window_start),
-            )
-            row = self._connection.execute(
-                "SELECT attempted_at FROM auth_rate_limit_events WHERE rate_key = %s ORDER BY attempted_at ASC LIMIT 1",
-                (key,),
-            ).fetchone()
-            count = self._connection.execute(
-                "SELECT COUNT(*) AS count FROM auth_rate_limit_events WHERE rate_key = %s",
-                (key,),
-            ).fetchone()
+            self._connection.execute("DELETE FROM auth_rate_limit_events WHERE rate_key = %s AND attempted_at < %s", (key, window_start))
+            row = self._connection.execute("SELECT attempted_at FROM auth_rate_limit_events WHERE rate_key = %s ORDER BY attempted_at ASC LIMIT 1", (key,)).fetchone()
+            count = self._connection.execute("SELECT COUNT(*) AS count FROM auth_rate_limit_events WHERE rate_key = %s", (key,)).fetchone()
             if int(count["count"]) >= limit and row is not None:
                 retry_after = max(1, int((row["attempted_at"] + timedelta(seconds=window_seconds) - now).total_seconds()))
                 return RateLimitReservation(allowed=False, retry_after_seconds=retry_after)
-
-            inserted = self._connection.execute(
-                "INSERT INTO auth_rate_limit_events(rate_key, attempted_at) VALUES(%s, %s) RETURNING id",
-                (key, now),
-            ).fetchone()
+            inserted = self._connection.execute("INSERT INTO auth_rate_limit_events(rate_key, attempted_at) VALUES(%s, %s) RETURNING id", (key, now)).fetchone()
             return RateLimitReservation(allowed=True, event_id=int(inserted["id"]))
 
     def release(self, event_id: int | None) -> None:
