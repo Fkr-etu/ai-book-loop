@@ -82,7 +82,7 @@ def get_workflow_run(book_id: str, chapter_number: int, run_id: str, request: Re
 
 
 @router.post("/{chapter_number}/review")
-def review_chapter(book_id: str, chapter_number: int, payload: ReviewPayload = Body(default_factory=ReviewPayload), request: Request = None, container: Container = Depends(get_container)) -> dict[str, Any]:
+def review_chapter(book_id: str, chapter_number: int, request: Request, payload: ReviewPayload = Body(default_factory=ReviewPayload), container: Container = Depends(get_container)) -> dict[str, Any]:
     book = get_owned_book(book_id, request, container)
     try:
         updated_book, review = container.review_chapter().execute(book, chapter_number=chapter_number, version_number=payload.versionNumber, draft_text=payload.draftText)
@@ -92,7 +92,7 @@ def review_chapter(book_id: str, chapter_number: int, payload: ReviewPayload = B
 
 
 @router.post("/{chapter_number}/approve")
-def approve_chapter(book_id: str, chapter_number: int, payload: ApprovePayload = Body(default_factory=ApprovePayload), request: Request = None, container: Container = Depends(get_container)) -> dict[str, Any]:
+def approve_chapter(book_id: str, chapter_number: int, request: Request, payload: ApprovePayload = Body(default_factory=ApprovePayload), container: Container = Depends(get_container)) -> dict[str, Any]:
     book = get_owned_book(book_id, request, container)
     try:
         result = container.approve_chapter_and_sync_canon().execute(book, chapter_number=chapter_number, version_number=payload.versionNumber)
@@ -106,7 +106,7 @@ def approve_chapter(book_id: str, chapter_number: int, payload: ApprovePayload =
 
 
 @router.post("/{chapter_number}/reject")
-def reject_chapter(book_id: str, chapter_number: int, request: Request = None, container: Container = Depends(get_container)) -> dict[str, Any]:
+def reject_chapter(book_id: str, chapter_number: int, request: Request, container: Container = Depends(get_container)) -> dict[str, Any]:
     book = get_owned_book(book_id, request, container)
     try:
         updated_book = container.reject_chapter().execute(book, chapter_number=chapter_number)
