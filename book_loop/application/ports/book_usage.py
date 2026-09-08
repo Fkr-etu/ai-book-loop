@@ -4,11 +4,21 @@ from typing import Protocol
 
 
 class BookUsagePort(Protocol):
-    """Application port for free-tier book identity and workflow consumption."""
+    """Application port for free-tier book eligibility and workflow consumption."""
+
+    def get_book_identity(self, *, book_id: str) -> str | None: ...
 
     def register_book_identity(self, *, book_id: str, identity: str) -> None: ...
 
-    def get_book_identity(self, *, book_id: str) -> str | None: ...
+    def consume_free_workflow_capacity(
+        self,
+        *,
+        user_id: str,
+        book_identity: str,
+        period_start: str,
+        idempotency_key: str,
+        monthly_limit: int,
+    ) -> bool: ...
 
     def consume_workflow_capacity(
         self,
