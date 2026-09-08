@@ -26,9 +26,18 @@ class _LegacyBookUsageAdapter:
     def get_book_identity(self, *, book_id: str) -> str | None:
         return self._identities.get(book_id)
 
+    def consume_free_workflow_capacity(self, *, user_id: str, book_identity: str, period_start: str, idempotency_key: str, monthly_limit: int) -> bool:
+        del book_identity
+        return self._repository.consume_workflow_capacity(
+            quota_subject=f"user:{user_id}",
+            period_start=period_start,
+            idempotency_key=idempotency_key,
+            monthly_limit=monthly_limit,
+        )
+
     def consume_workflow_capacity(self, *, quota_subject: str, period_start: str, idempotency_key: str, monthly_limit: int) -> bool:
         return self._repository.consume_workflow_capacity(
-            user_id=quota_subject,
+            quota_subject=quota_subject,
             period_start=period_start,
             idempotency_key=idempotency_key,
             monthly_limit=monthly_limit,
@@ -78,19 +87,27 @@ class GenerateChapter:
             raise PermissionError("Unknown owner")
         plan = SubscriptionPlan(user.plan)
         period_start = datetime.now(timezone.utc).date().replace(day=1).isoformat()
-        quota_subject = f"user:{user.id}"
+
         if plan is SubscriptionPlan.FREE:
-            quota_subject = f"free-book:{self._ensure_book_identity(book)}"
-        allowed = self.book_usage.consume_workflow_capacity(
-            quota_subject=quota_subject,
-            period_start=period_start,
-            idempotency_key=key,
-            monthly_limit=limits_for(plan).monthly_workflow_runs,
-        )
-        if not allowed:
-            if plan is SubscriptionPlan.FREE:
-                raise PermissionError("Free-tier capacity for this book has been reached")
-            raise PermissionError("Monthly workflow capacity reached for the current plan")
+            identity = self._ensure_book_identity(book)
+            allowed = self.book_usage.consume_free_workflow_capacity(
+                user_id=user.id,
+                book_identity=identity,
+                period_start=period_start,
+                idempotency_key=key,
+                monthly_limit=limits_for(plan).monthly_workflow_runs,
+            )
+            if not allowed:
+                raise PermissionError("This book has already used the free tier")
+        else:
+            allowed = self.book_usage.consume_workflow_capacity(
+                quota_subject=f"user:{user.id}",
+                period_start=period_start,
+                idempotency_key=key,
+                monthly_limit=limits_for(plan).monthly_workflow_runs,
+            )
+            if not allowed:
+                raise PermissionError("Monthly workflow capacity reached for the current plan")
 
         return self.workflow.start_run(
             book_id=book.id,
