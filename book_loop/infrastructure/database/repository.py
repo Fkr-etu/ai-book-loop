@@ -154,7 +154,7 @@ class BookRepositoryMixin:
 
     def list_review_decisions(self, *, assertion_id: str) -> list[ReviewDecision]:
         rows = self._connection.execute("SELECT * FROM review_decisions WHERE assertion_id = ? ORDER BY id", (assertion_id,)).fetchall()
-        return [ReviewDecision(id=row["id"], assertion_id=row["assertion_id"], decision=row["decision"], reviewer_id=row["reviewer_id"], rationale=row["rationale"], created_at=row["created_at"]) for row in rows]
+        return [ReviewDecision(id=row["id"], assertion_id=row["assertion_id"], decision=row["decision"], reviewer_id=row["reviewer_id"], rationale=row["rationale"], created_at=str(row["created_at"])) for row in rows]
 
     def next_canonical_version(self, *, book_id: str, subject: str, predicate: str) -> int:
         row = self._connection.execute("SELECT COALESCE(MAX(version), 0) + 1 AS next_version FROM canonical_facts WHERE book_id = ? AND subject = ? AND predicate = ?", (book_id, subject, predicate)).fetchone()

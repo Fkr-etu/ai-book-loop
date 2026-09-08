@@ -102,7 +102,7 @@ class Container:
     def update_outline(self) -> UpdateOutline: return UpdateOutline(self.repository)
     def approve_outline(self) -> ApproveOutline: return ApproveOutline(self.repository)
     def add_chapter(self) -> AddChapter: return AddChapter(self.repository)
-    def generate_chapter(self) -> GenerateChapter: return GenerateChapter(self.chapter_workflow_port, repository=self.repository, workflow_store=self.workflow_store)
+    def generate_chapter(self) -> GenerateChapter: return GenerateChapter(self.chapter_workflow_port, repository=self.repository, workflow_store=self.workflow_store, book_usage=self.repository)
     def review_chapter(self) -> ReviewChapter: return ReviewChapter(repository=self.repository, reviewer=self.reviewer_agent, context_builder=self.context_builder, linter=self.linter, max_retries=self.settings.max_retries, threshold=self.settings.review_threshold)
     def approve_chapter(self) -> ApproveChapter: return ApproveChapter(self.repository)
     def approve_chapter_and_sync_canon(self) -> ApproveChapterAndSyncCanon: return ApproveChapterAndSyncCanon(book_repository=self.repository, knowledge_repository=self.repository, extractor=LLMAssertionExtractor(self.llm))

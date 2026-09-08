@@ -30,8 +30,6 @@ class CreateBook:
             lore=lore,
             constraints=constraints or [],
         )
-        # Production repositories expose an atomic capacity-aware insert.
-        # Lightweight in-memory repositories keep the existing behavior for unit tests.
         save_with_capacity = getattr(self.repository, "save_new_book_with_capacity", None)
         if save_with_capacity is not None:
             user = getattr(self.repository, "get_user_by_id")(owner_id)
