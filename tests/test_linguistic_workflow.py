@@ -16,6 +16,7 @@ from book_loop.domain.models import (
     LinguisticCheckStatus,
     Outline,
 )
+from book_loop.infrastructure.database.workflow_store import InMemoryWorkflowRunStore
 from book_loop.workflow.chapter_graph import ChapterWorkflow
 
 
@@ -79,6 +80,20 @@ def make_book():
     )
 
 
+def make_workflow(repository, llm, **kwargs):
+    return ChapterWorkflow(
+        repository=repository,
+        writer=WriterAgent(llm),
+        reviewer=ReviewerAgent(llm),
+        corrector=CorrectorAgent(llm),
+        summarizer=SummarizerAgent(llm),
+        context_builder=ContextBuilder(),
+        linter=ChapterLinter(),
+        workflow_store=InMemoryWorkflowRunStore(),
+        **kwargs,
+    )
+
+
 def test_blocking_linguistic_error_enters_correction_loop_before_reviewer():
     book = make_book()
     repository = Repository(book)
@@ -91,19 +106,12 @@ def test_blocking_linguistic_error_enters_correction_loop_before_reviewer():
         confidence=0.93,
         suggestions=["Corriger l'accord"],
     )
-    clean = LinguisticCheckResult(
-        status=LinguisticCheckStatus.NO_ISSUES_FOUND,
-        checker="test",
-    )
+    clean = LinguisticCheckResult(status=LinguisticCheckStatus.NO_ISSUES_FOUND, checker="test")
 
     class SequenceChecker:
         def __init__(self):
             self.results = iter([
-                LinguisticCheckResult(
-                    status=LinguisticCheckStatus.ISSUES_FOUND,
-                    checker="test",
-                    diagnostics=[blocking],
-                ),
+                LinguisticCheckResult(status=LinguisticCheckStatus.ISSUES_FOUND, checker="test", diagnostics=[blocking]),
                 clean,
             ])
 
@@ -111,17 +119,7 @@ def test_blocking_linguistic_error_enters_correction_loop_before_reviewer():
             return next(self.results)
 
     validator = LinguisticValidationService([SequenceChecker()])
-    workflow = ChapterWorkflow(
-        repository=repository,
-        writer=WriterAgent(llm),
-        reviewer=ReviewerAgent(llm),
-        corrector=CorrectorAgent(llm),
-        summarizer=SummarizerAgent(llm),
-        context_builder=ContextBuilder(),
-        linter=ChapterLinter(),
-        linguistic_validator_factory=lambda _book: validator,
-    )
-
+    workflow = make_workflow(repository, llm, linguistic_validator_factory=lambda _book: validator)
     result = workflow.run(book=book, chapter_number=1)
 
     assert result.decision == "accept"
@@ -141,18 +139,7 @@ def test_linguistic_checker_unavailable_is_fail_closed_when_enabled():
             raise RuntimeError("checker offline")
 
     unavailable = LinguisticValidationService([FailingChecker()])
-    workflow = ChapterWorkflow(
-        repository=repository,
-        writer=WriterAgent(llm),
-        reviewer=ReviewerAgent(llm),
-        corrector=CorrectorAgent(llm),
-        summarizer=SummarizerAgent(llm),
-        context_builder=ContextBuilder(),
-        linter=ChapterLinter(),
-        linguistic_validator_factory=lambda _book: unavailable,
-        max_retries=1,
-    )
-
+    workflow = make_workflow(repository, llm, linguistic_validator_factory=lambda _book: unavailable, max_retries=1)
     result = workflow.run(book=book, chapter_number=1)
 
     assert result.decision == "needs_review"
@@ -178,24 +165,10 @@ def test_non_blocking_linguistic_diagnostic_reaches_reviewer_without_retry():
     class WarningChecker:
         def check(self, text, *, language="fr"):
             del text, language
-            return LinguisticCheckResult(
-                status=LinguisticCheckStatus.ISSUES_FOUND,
-                checker="test",
-                diagnostics=[warning],
-            )
+            return LinguisticCheckResult(status=LinguisticCheckStatus.ISSUES_FOUND, checker="test", diagnostics=[warning])
 
     validator = LinguisticValidationService([WarningChecker()])
-    workflow = ChapterWorkflow(
-        repository=repository,
-        writer=WriterAgent(llm),
-        reviewer=ReviewerAgent(llm),
-        corrector=CorrectorAgent(llm),
-        summarizer=SummarizerAgent(llm),
-        context_builder=ContextBuilder(),
-        linter=ChapterLinter(),
-        linguistic_validator_factory=lambda _book: validator,
-    )
-
+    workflow = make_workflow(repository, llm, linguistic_validator_factory=lambda _book: validator)
     result = workflow.run(book=book, chapter_number=1)
 
     assert result.decision == "accept"
