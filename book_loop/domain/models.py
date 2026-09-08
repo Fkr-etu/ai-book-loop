@@ -95,6 +95,7 @@ class User(BaseModel):
     name: str = ""
     created_at: str | None = None
     plan: SubscriptionPlan = SubscriptionPlan.FREE
+    email_verified_at: str | None = None
 
 
 class UserPublic(BaseModel):
@@ -102,6 +103,7 @@ class UserPublic(BaseModel):
     email: str
     name: str = ""
     plan: SubscriptionPlan = SubscriptionPlan.FREE
+    email_verified: bool = False
 
 
 class SourceDocument(BaseModel):
