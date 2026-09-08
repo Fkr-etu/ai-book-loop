@@ -96,36 +96,27 @@ class PostgresBookRepository(BookRepositoryMixin):
     def consume_free_workflow_capacity(self, *, user_id: str, book_id: str, book_identity: str, period_start: str, idempotency_key: str, monthly_limit: int) -> bool:
         with self.transaction():
             self._connection.execute("SELECT pg_advisory_xact_lock(hashtext(?))", (f"free-book:{book_identity}",))
-            existing = self._connection.execute(
-                "SELECT 1 FROM workflow_usage WHERE user_id = ? AND period_start = ? AND idempotency_key = ?",
-                (user_id, period_start, idempotency_key),
-            ).fetchone()
-            if existing is not None:
-                return True
-            usage = self._connection.execute(
-                "SELECT COUNT(*) AS count FROM workflow_usage WHERE user_id = ? AND period_start = ?",
-                (user_id, period_start),
-            ).fetchone()
-            if int(usage["count"]) >= monthly_limit:
-                return False
-            identity_row = self._connection.execute(
-                "SELECT user_id FROM book_usage_identities WHERE identity = ?",
-                (book_identity,),
-            ).fetchone()
-            if identity_row is not None and identity_row["user_id"] != user_id:
-                return False
+            existing = self._connection.execute("SELECT 1 FROM workflow_usage WHERE user_id = ? AND period_start = ? AND idempotency_key = ?", (user_id, period_start, idempotency_key)).fetchone()
+            if existing is not None: return True
+            usage = self._connection.execute("SELECT COUNT(*) AS count FROM workflow_usage WHERE user_id = ? AND period_start = ?", (user_id, period_start)).fetchone()
+            if int(usage["count"]) >= monthly_limit: return False
+            identity_row = self._connection.execute("SELECT user_id FROM book_usage_identities WHERE identity = ?", (book_identity,)).fetchone()
+            if identity_row is not None and identity_row["user_id"] != user_id: return False
             if identity_row is None:
-                self._connection.execute(
-                    "INSERT INTO book_usage_identities(book_id, identity, user_id) VALUES(?, ?, ?)",
-                    (book_id, book_identity, user_id),
-                )
-            self._connection.execute(
-                "INSERT INTO workflow_usage(user_id, period_start, idempotency_key) VALUES(?, ?, ?)",
-                (user_id, period_start, idempotency_key),
-            )
+                self._connection.execute("INSERT INTO book_usage_identities(book_id, identity, user_id) VALUES(?, ?, ?)", (book_id, book_identity, user_id))
+            self._connection.execute("INSERT INTO workflow_usage(user_id, period_start, idempotency_key) VALUES(?, ?, ?)", (user_id, period_start, idempotency_key))
             return True
     def consume_workflow_capacity(self, *, quota_subject: str | None = None, user_id: str | None = None, period_start: str, idempotency_key: str, monthly_limit: int) -> bool:
-        subject = quota_subject or (f"user:{user_id}" if user_id is not None else None)
+        if user_id is not None and quota_subject is None:
+            with self.transaction():
+                self._connection.execute("SELECT pg_advisory_xact_lock(hashtext(?))", (user_id,))
+                inserted = self._connection.execute("""INSERT INTO workflow_usage(user_id, period_start, idempotency_key)
+                    SELECT ?, ?, ? WHERE (SELECT COUNT(*) FROM workflow_usage WHERE user_id = ? AND period_start = ?) < ?
+                    ON CONFLICT(user_id, period_start, idempotency_key) DO NOTHING RETURNING idempotency_key""", (user_id, period_start, idempotency_key, user_id, period_start, monthly_limit)).fetchone()
+                if inserted is not None: return True
+                existing = self._connection.execute("SELECT 1 FROM workflow_usage WHERE user_id = ? AND period_start = ? AND idempotency_key = ?", (user_id, period_start, idempotency_key)).fetchone()
+                return existing is not None
+        subject = quota_subject
         if subject is None:
             raise ValueError("Either quota_subject or user_id is required")
         with self.transaction():
