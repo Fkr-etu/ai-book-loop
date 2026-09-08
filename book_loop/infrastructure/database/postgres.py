@@ -66,11 +66,12 @@ class PostgresBookRepository(BookRepositoryMixin):
             CREATE TABLE IF NOT EXISTS review_decisions (id TEXT PRIMARY KEY, assertion_id TEXT NOT NULL, decision TEXT NOT NULL, reviewer_id TEXT, rationale TEXT NOT NULL, created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP);
             CREATE TABLE IF NOT EXISTS canonical_facts (id TEXT PRIMARY KEY, book_id TEXT NOT NULL, assertion_id TEXT NOT NULL, statement TEXT NOT NULL, subject TEXT NOT NULL, predicate TEXT NOT NULL, object TEXT NOT NULL, decision_id TEXT NOT NULL, version INTEGER NOT NULL, active BOOLEAN NOT NULL, previous_fact_id TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE(book_id, subject, predicate, version));
             CREATE TABLE IF NOT EXISTS workflow_usage (user_id TEXT NOT NULL, period_start DATE NOT NULL, idempotency_key TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY(user_id, period_start, idempotency_key));
-            CREATE TABLE IF NOT EXISTS book_usage_identities (book_id TEXT PRIMARY KEY, identity TEXT NOT NULL UNIQUE, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP);
+            CREATE TABLE IF NOT EXISTS book_usage_identities (book_id TEXT PRIMARY KEY, identity TEXT NOT NULL UNIQUE, user_id TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP);
             CREATE TABLE IF NOT EXISTS workflow_usage_scoped (quota_subject TEXT NOT NULL, period_start DATE NOT NULL, idempotency_key TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY(quota_subject, period_start, idempotency_key));
         """)
         self._connection._connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS plan TEXT NOT NULL DEFAULT 'free'")
         self._connection._connection.execute("ALTER TABLE canonical_facts ADD COLUMN IF NOT EXISTS previous_fact_id TEXT")
+        self._connection._connection.execute("ALTER TABLE book_usage_identities ADD COLUMN IF NOT EXISTS user_id TEXT")
         self._connection._connection.execute("CREATE UNIQUE INDEX IF NOT EXISTS uq_active_canonical_fact ON canonical_facts(book_id, subject, predicate) WHERE active = TRUE")
         self._connection._connection.execute("CREATE UNIQUE INDEX IF NOT EXISTS uq_conflict_assertion_pair ON conflicts(left_assertion_id, right_assertion_id)")
         self._connection.commit()
@@ -91,11 +92,7 @@ class PostgresBookRepository(BookRepositoryMixin):
         row = self._connection.execute("SELECT identity FROM book_usage_identities WHERE book_id = ?", (book_id,)).fetchone()
         return str(row["identity"]) if row is not None else None
     def register_book_identity(self, *, book_id: str, identity: str) -> None:
-        self._connection.execute(
-            "INSERT INTO book_usage_identities(book_id, identity) VALUES(?, ?) ON CONFLICT(book_id) DO NOTHING",
-            (book_id, identity),
-        )
-        self._connection.commit()
+        raise RuntimeError("Book identity must be registered as part of free-tier consumption")
     def consume_free_workflow_capacity(self, *, user_id: str, book_id: str, book_identity: str, period_start: str, idempotency_key: str, monthly_limit: int) -> bool:
         with self.transaction():
             self._connection.execute("SELECT pg_advisory_xact_lock(hashtext(?))", (f"free-book:{book_identity}",))
@@ -111,12 +108,17 @@ class PostgresBookRepository(BookRepositoryMixin):
             ).fetchone()
             if int(usage["count"]) >= monthly_limit:
                 return False
-            claimed = self._connection.execute(
-                "INSERT INTO book_usage_identities(book_id, identity) VALUES(?, ?) ON CONFLICT(identity) DO NOTHING RETURNING book_id",
-                (book_id, book_identity),
+            identity_row = self._connection.execute(
+                "SELECT user_id FROM book_usage_identities WHERE identity = ?",
+                (book_identity,),
             ).fetchone()
-            if claimed is None:
+            if identity_row is not None and identity_row["user_id"] != user_id:
                 return False
+            if identity_row is None:
+                self._connection.execute(
+                    "INSERT INTO book_usage_identities(book_id, identity, user_id) VALUES(?, ?, ?)",
+                    (book_id, book_identity, user_id),
+                )
             self._connection.execute(
                 "INSERT INTO workflow_usage(user_id, period_start, idempotency_key) VALUES(?, ?, ?)",
                 (user_id, period_start, idempotency_key),
