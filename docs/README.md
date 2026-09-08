@@ -15,7 +15,9 @@ This directory is the project's canonical knowledge base. Keep documentation sma
 - `product/b2c-france-commercial-readiness.md` — commercial-readiness planning.
 - `product/billing-capacity-policy.md` — billing/capacity planning.
 - `product/legal-launch-checklist.md` — launch/legal checklist.
-- `product/seo-content.md` / `product/seo-content-implementation.md` — SEO/marketing planning.
+- `product/seo-content.md` — consolidated SEO content, positioning and technical SEO baseline.
+- `product/seo-operations.md` — SEO production/deployment operations.
+- `product/ui-ux-audit.md` — UX audit/reference.
 
 ### Architecture
 
@@ -65,4 +67,4 @@ Do not use a product roadmap as evidence that a capability is unimplemented. Sea
 
 ## Documentation maintenance
 
-Documentation describing current behavior is updated in the same change as the code. Significant architectural decisions get an ADR. When a decision changes, preserve the old ADR and supersede it rather than rewriting history. Planning documents should clearly label assumptions and targets.
+Documentation describing current behavior is updated in the same change as the code. Significant architectural decisions get an ADR. When a decision changes, preserve the old ADR and supersede it rather than rewriting history. Planning documents should clearly label assumptions and targets. Avoid creating separate documents for the same source of truth; consolidate when two planning notes cover the same subject.
