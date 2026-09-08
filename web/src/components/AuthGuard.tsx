@@ -1,12 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { realApiClient } from "@/services/realApiClient";
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   const [authorized, setAuthorized] = useState(false);
 
   useEffect(() => {
@@ -19,19 +18,20 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      const query = searchParams.toString();
-      const destination = query ? `${pathname}?${query}` : pathname;
+      const query = window.location.search;
+      const destination = `${pathname}${query}`;
       window.location.assign(`/login?next=${encodeURIComponent(destination)}`);
     }).catch(() => {
       if (!cancelled) {
-        window.location.assign(`/login?next=${encodeURIComponent(pathname)}`);
+        const destination = `${pathname}${window.location.search}`;
+        window.location.assign(`/login?next=${encodeURIComponent(destination)}`);
       }
     });
 
     return () => {
       cancelled = true;
     };
-  }, [pathname, searchParams]);
+  }, [pathname]);
 
   if (!authorized) {
     return (
