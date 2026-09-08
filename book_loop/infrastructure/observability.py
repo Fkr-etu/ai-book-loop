@@ -3,26 +3,14 @@ from __future__ import annotations
 import json
 import logging
 import uuid
-from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Any
 
 import psycopg
 
+from book_loop.application.ports.chapter_workflow import ObservabilityEvent
+
 
 logger = logging.getLogger("book_loop.observability")
-
-
-@dataclass(frozen=True)
-class ObservabilityEvent:
-    event_type: str
-    workflow_run_id: str | None = None
-    book_id: str | None = None
-    chapter_number: int | None = None
-    attempt: int | None = None
-    duration_ms: int | None = None
-    status: str | None = None
-    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 class ObservabilityStore:
