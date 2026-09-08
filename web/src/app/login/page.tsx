@@ -7,6 +7,11 @@ import { Mail, Lock, Eye, EyeOff, ArrowRight, Feather } from "lucide-react";
 import { getApiClient } from "@/services/api";
 import { getLoginError } from "@/services/authErrors";
 
+function getSafeNext(): string {
+  const next = new URLSearchParams(window.location.search).get("next");
+  return next && next.startsWith("/") && !next.startsWith("//") ? next : "/studio";
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -23,7 +28,7 @@ export default function LoginPage() {
     try {
       const api = getApiClient();
       await api.loginUser(email.trim(), password);
-      router.push("/studio");
+      router.push(getSafeNext());
     } catch (err: unknown) {
       setError(getLoginError(err));
     } finally {
