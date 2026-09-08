@@ -14,13 +14,13 @@ from book_loop.agents.reviewer import ReviewerAgent
 from book_loop.agents.summarizer import SummarizerAgent
 from book_loop.agents.writer import WriterAgent
 from book_loop.application.policies.review import ReviewDecision, decide
+from book_loop.application.ports.chapter_workflow import ObservabilityEvent, ObservabilityPort, WorkflowRunStore
 from book_loop.application.services.context import ContextBuilder
 from book_loop.application.services.linguistic_validation import LinguisticValidationService
 from book_loop.application.services.linter import ChapterLinter
 from book_loop.domain.models import BookState, ChapterStatus, Diagnostic, DiagnosticSeverity, DiagnosticSource, LinguisticCheckStatus, SceneReview
-from book_loop.domain.workflow import ChapterWorkflowRun, WorkflowRunStatus, WorkflowStep
 from book_loop.domain.protocols import BookRepository
-from book_loop.infrastructure.observability import ObservabilityEvent, ObservabilityStore
+from book_loop.domain.workflow import ChapterWorkflowRun, WorkflowRunStatus, WorkflowStep
 
 
 @dataclass
@@ -44,7 +44,7 @@ class ChapterWorkflow:
     _locks: dict[str, Lock] = {}
     _locks_guard = Lock()
 
-    def __init__(self, *, repository: BookRepository, writer: WriterAgent, reviewer: ReviewerAgent, summarizer: SummarizerAgent, context_builder: ContextBuilder, linter: ChapterLinter, corrector: CorrectorAgent | None = None, linguistic_validator_factory: Callable[[BookState], LinguisticValidationService] | None = None, linguistic_contextualizer: Callable[[str, list[Diagnostic]], list[Diagnostic]] | None = None, linguistic_language: str = "fr", max_retries: int = 3, review_threshold: int = 7, workflow_store=None, observability: ObservabilityStore | None = None) -> None:
+    def __init__(self, *, repository: BookRepository, writer: WriterAgent, reviewer: ReviewerAgent, summarizer: SummarizerAgent, context_builder: ContextBuilder, linter: ChapterLinter, corrector: CorrectorAgent | None = None, linguistic_validator_factory: Callable[[BookState], LinguisticValidationService] | None = None, linguistic_contextualizer: Callable[[str, list[Diagnostic]], list[Diagnostic]] | None = None, linguistic_language: str = "fr", max_retries: int = 3, review_threshold: int = 7, workflow_store: WorkflowRunStore, observability: ObservabilityPort | None = None) -> None:
         if max_retries <= 0:
             raise ValueError("max_retries must be positive")
         if not linguistic_language.strip():
@@ -283,9 +283,6 @@ class ChapterWorkflow:
     def run(self, *, book: BookState, chapter_number: int, idempotency_key: str | None = None) -> ChapterWorkflowState:
         if not book.outline_approved:
             raise ValueError("The author must approve the outline before generating chapters")
-        if self.workflow_store is None:
-            from book_loop.infrastructure.database.workflow_store import InMemoryWorkflowRunStore
-            self.workflow_store = InMemoryWorkflowRunStore()
         key = idempotency_key or str(uuid4())
         with self._lock_for(f"{book.id}:{chapter_number}:{key}"):
             run = self.workflow_store.get_or_create(book_id=book.id, chapter_number=chapter_number, idempotency_key=key)
