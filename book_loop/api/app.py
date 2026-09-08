@@ -24,14 +24,6 @@ def create_app(container: Container | None = None) -> FastAPI:
     app = FastAPI(title="AI Book Loop API", version="0.1.0")
     app.state.container = container
 
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=container.settings.cors_allowed_origins,
-        allow_credentials=True,
-        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        allow_headers=["Content-Type", "Authorization", "Stripe-Signature"],
-    )
-
     @app.get("/health")
     def health() -> dict[str, str]:
         """Lightweight liveness endpoint for Cloud Run and load balancers."""
@@ -84,6 +76,16 @@ def create_app(container: Container | None = None) -> FastAPI:
             if book.owner_id != current_user.id:
                 return JSONResponse(status_code=404, content={"detail": "Livre introuvable."})
         return await call_next(request)
+
+    # Keep CORS as the outermost application middleware so its headers are added even
+    # when an inner security middleware returns a 401/403/404 response directly.
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=container.settings.cors_allowed_origins,
+        allow_credentials=True,
+        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        allow_headers=["Content-Type", "Authorization", "Stripe-Signature"],
+    )
 
     app.include_router(auth.router)
     app.include_router(billing.router)
