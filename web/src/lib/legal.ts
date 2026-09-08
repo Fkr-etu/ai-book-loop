@@ -1,11 +1,30 @@
 export const LEGAL_CONTENT_VERSION = "draft-micro-entreprise-2026-09";
 
+export type LegalStatus = "draft" | "ready";
+
 /**
  * Book Loop launch profile: French individual entrepreneur (micro-entreprise).
  * Business facts stay configurable until the operator supplies the definitive
  * information and validates the final legal texts.
  */
-export const legal = {
+export const legal: {
+  status: LegalStatus;
+  operator: {
+    legalForm: string;
+    name: string;
+    commercialName: string;
+    address: string;
+    siren: string;
+    siret: string;
+    ape: string;
+    vat: string;
+    contact: string;
+  };
+  hosting: { name: string; address: string };
+  mediation: { name: string; contact: string };
+  effectiveDate: string;
+} = {
+  status: "draft",
   operator: {
     legalForm: "Entrepreneur individuel — régime micro-entreprise",
     name: "À COMPLÉTER — prénom et nom de l'exploitant",
@@ -26,7 +45,13 @@ export const legal = {
     contact: "À COMPLÉTER — modalités de saisine",
   },
   effectiveDate: "À COMPLÉTER — date d'entrée en vigueur",
-} as const;
+};
+
+export const LEGAL_PLACEHOLDER_PREFIX = "À COMPLÉTER";
+
+export function isLegalReady(): boolean {
+  return legal.status === "ready" && !JSON.stringify(legal).includes(LEGAL_PLACEHOLDER_PREFIX);
+}
 
 export const legalPages = {
   mentions: {
