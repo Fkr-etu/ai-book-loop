@@ -61,6 +61,17 @@ def register(payload: RegisterPayload, response: Response, request: Request, con
     return {"user": public.model_dump(mode="json")}
 
 
+@router.get("/verify-email")
+def verify_email(token: str, response: Response, container: Container = Depends(get_container)) -> dict[str, Any]:
+    try:
+        user = container.verify_email_use_case.execute(token=token)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Lien de vérification invalide ou expiré.")
+    session = container.token_service.issue(user).value
+    set_session_cookie(response, session, container)
+    return {"user": user.model_dump(mode="json"), "message": "Adresse e-mail vérifiée."}
+
+
 @router.post("/login")
 def login(payload: LoginPayload, response: Response, request: Request, container: Container = Depends(get_container)) -> dict[str, Any]:
     try:
