@@ -1,15 +1,19 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { Suspense, useState } from "react";
 import { Navbar } from "./Navbar";
 import { Sidebar } from "./Sidebar";
 import { StudioErrorNotice } from "./StudioErrorNotice";
+import { StudioBookSelector } from "./StudioBookSelector";
 
 export function StudioLayout({ children }: { children: React.ReactNode }) {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-[#f8f9ff] flex flex-col font-inter">
+      <Suspense fallback={null}>
+        <StudioBookSelector />
+      </Suspense>
       <Navbar
         showSidebarToggle={true}
         onToggleSidebar={() => setMobileSidebarOpen(!mobileSidebarOpen)}
