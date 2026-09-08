@@ -25,15 +25,16 @@ class _LegacyBookUsageAdapter:
     def consume_free_workflow_capacity(self, *, user_id: str, book_id: str, book_identity: str, period_start: str, idempotency_key: str, monthly_limit: int) -> bool:
         del book_id, book_identity
         return self._repository.consume_workflow_capacity(
-            quota_subject=f"user:{user_id}",
+            user_id=user_id,
             period_start=period_start,
             idempotency_key=idempotency_key,
             monthly_limit=monthly_limit,
         )
 
     def consume_workflow_capacity(self, *, quota_subject: str, period_start: str, idempotency_key: str, monthly_limit: int) -> bool:
+        user_id = quota_subject.removeprefix("user:")
         return self._repository.consume_workflow_capacity(
-            quota_subject=quota_subject,
+            user_id=user_id,
             period_start=period_start,
             idempotency_key=idempotency_key,
             monthly_limit=monthly_limit,
