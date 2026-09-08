@@ -1,0 +1,67 @@
+import type { Assertion, BookState, CanonicalContextResponse, Character, IngestionResult, LoreItem, SceneReview, UserProfile } from "@/types";
+import type { BackendWorkflowRun } from "@/types/api";
+import type { BookApi } from "@/services/api";
+import { initialProjectData } from "@/lib/mockData";
+
+const STORAGE_KEY = "manuscript_studio_project";
+const ASSERTIONS_STORAGE_KEY = "manuscript_studio_assertions";
+
+function loadStorageProject(): BookState {
+  if (typeof window === "undefined") return initialProjectData;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) as BookState : initialProjectData;
+  } catch {
+    return initialProjectData;
+  }
+}
+function saveStorageProject(state: BookState): void {
+  if (typeof window === "undefined") return;
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch {}
+}
+function loadAssertions(): Assertion[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(ASSERTIONS_STORAGE_KEY);
+    return raw ? JSON.parse(raw) as Assertion[] : [];
+  } catch { return []; }
+}
+function saveAssertions(assertions: Assertion[]): void {
+  if (typeof window === "undefined") return;
+  try { localStorage.setItem(ASSERTIONS_STORAGE_KEY, JSON.stringify(assertions)); } catch {}
+}
+
+export class MockBookApi implements BookApi {
+  async getBook(): Promise<BookState> { return loadStorageProject(); }
+  async createBook(book: Partial<BookState>): Promise<BookState> {
+    const state = { ...initialProjectData, id: `proj-${Date.now()}`, title: book.title || "Nouveau Livre", theme: book.theme || "", authorIdea: book.authorIdea || "", lore: book.lore || "", constraints: book.constraints || [], outlineApproved: false, chapters: [] };
+    saveStorageProject(state); return state;
+  }
+  async updateBook(id: string, updates: Partial<BookState>): Promise<BookState> { const state = { ...loadStorageProject(), ...updates, id }; saveStorageProject(state); return state; }
+  async generateOutline(): Promise<BookState> { const state = loadStorageProject(); state.outline = state.outline || "# Structure proposée\n\n## Chapitre 1\nObjectif à définir."; state.outlineApproved = false; saveStorageProject(state); return state; }
+  async approveOutline(): Promise<BookState> { const state = loadStorageProject(); state.outlineApproved = true; saveStorageProject(state); return state; }
+  async addChapter(id: string, title: string, objective: string): Promise<BookState> { const state = loadStorageProject(); if (!state.outlineApproved) throw new Error("L'outline doit être approuvé avant d'ajouter un chapitre."); const number = state.chapters.length + 1; state.chapters.push({ id: `ch-${number}`, number, title, objective, status: "draft", currentVersion: 0, versions: [], scenes: [] }); saveStorageProject(state); return state; }
+  async generateChapter(_id: string, n: number): Promise<{ book: BookState; versionNumber: number; content: string; run: BackendWorkflowRun }> { const state = loadStorageProject(); const chapter = state.chapters.find((item) => item.number === n); if (!chapter) throw new Error(`Chapitre ${n} introuvable.`); const v = chapter.currentVersion + 1; const content = `[Version ${v}] Brouillon local du chapitre ${n}.`; const run: BackendWorkflowRun = { id: `mock-run-${Date.now()}`, book_id: state.id, chapter_number: n, idempotency_key: `mock-${Date.now()}`, status: "completed", step: "summarize", attempt: v, draft: content, review: null, decision: "accept", summary: null, error: null }; chapter.currentVersion = v; chapter.versions = [...(chapter.versions || []), { id: `v-${v}`, versionNumber: v, content, createdAt: new Date().toISOString(), source: "ai", status: "proposed" }]; chapter.status = "proposed"; saveStorageProject(state); return { book: state, versionNumber: v, content, run }; }
+  async getChapterWorkflowRun(_id: string, _n: number, runId: string): Promise<BackendWorkflowRun> { return { id: runId, book_id: loadStorageProject().id, chapter_number: _n, idempotency_key: "mock", status: "completed", step: "summarize", attempt: 0, draft: "", review: null, decision: "accept", summary: null, error: null }; }
+  async getLatestChapterWorkflowRun(_id: string, n: number): Promise<BackendWorkflowRun | null> { return { id: "mock-latest", book_id: loadStorageProject().id, chapter_number: n, idempotency_key: "mock", status: "completed", step: "summarize", attempt: 0, draft: "", review: null, decision: "accept", summary: null, error: null }; }
+  async reviewChapter(_id: string, n: number, versionNumber?: number): Promise<{ book: BookState; review: SceneReview }> { const state = loadStorageProject(); const chapter = state.chapters.find((item) => item.number === n); const review = { id: `review-${Date.now()}`, score: 0, approved: false, issues: ["Revue locale simulée."], suggestions: [] }; state.reviews = [review, ...(state.reviews || [])]; if (chapter) chapter.reviewedVersion = versionNumber ?? chapter.currentVersion; saveStorageProject(state); return { book: state, review }; }
+  async approveChapter(_id: string, n: number, versionNumber?: number): Promise<BookState> { const state = loadStorageProject(); const c = state.chapters.find((item) => item.number === n); if (c) { c.status = "approved"; c.currentVersion = versionNumber ?? c.currentVersion; } saveStorageProject(state); return state; }
+  async rejectChapter(_id: string, n: number): Promise<BookState> { return this.setChapterStatus(n, "rejected"); }
+  private async setChapterStatus(n: number, status: BookState["chapters"][number]["status"]): Promise<BookState> { const state = loadStorageProject(); const c = state.chapters.find((item) => item.number === n); if (c) c.status = status; saveStorageProject(state); return state; }
+  async getCanonicalContext(_id: string, n: number): Promise<CanonicalContextResponse> { const state = loadStorageProject(); const c = state.chapters.find((item) => item.number === n); const previousSummaries = state.chapters.filter((item) => item.number < n && item.summary).map((item) => `${item.title}: ${item.summary}`).join("\n"); return { authorIdea: state.authorIdea, theme: state.theme, lore: state.lore, globalOutline: state.outline || "", constraints: state.constraints, previousSummaries, currentObjective: c?.objective || "", formattedContext: [state.authorIdea, state.theme, state.lore, state.outline || "", ...state.constraints, previousSummaries, c?.objective || ""].join("\n\n") }; }
+  async createCharacter(_id: string, char: Omit<Character, "id">): Promise<BookState> { const state = loadStorageProject(); state.characters = [...(state.characters || []), { ...char, id: `char-${Date.now()}` }]; saveStorageProject(state); return state; }
+  async updateCharacter(_id: string, charId: string, updates: Partial<Character>): Promise<BookState> { const state = loadStorageProject(); state.characters = (state.characters || []).map((c) => c.id === charId ? { ...c, ...updates } : c); saveStorageProject(state); return state; }
+  async deleteCharacter(_id: string, charId: string): Promise<BookState> { const state = loadStorageProject(); state.characters = (state.characters || []).filter((c) => c.id !== charId); saveStorageProject(state); return state; }
+  async createLoreItem(_id: string, item: Omit<LoreItem, "id">): Promise<BookState> { const state = loadStorageProject(); state.loreItems = [...(state.loreItems || []), { ...item, id: `lore-${Date.now()}` }]; saveStorageProject(state); return state; }
+  async updateLoreItem(_id: string, loreId: string, updates: Partial<LoreItem>): Promise<BookState> { const state = loadStorageProject(); state.loreItems = (state.loreItems || []).map((i) => i.id === loreId ? { ...i, ...updates } : i); saveStorageProject(state); return state; }
+  async deleteLoreItem(_id: string, loreId: string): Promise<BookState> { const state = loadStorageProject(); state.loreItems = (state.loreItems || []).filter((i) => i.id !== loreId); saveStorageProject(state); return state; }
+  async ingestDocument(id: string, name: string, content: string, sourceType = "manual"): Promise<IngestionResult> { const source_document = { id: `source-${Date.now()}`, book_id: id, name, source_type: sourceType, content, content_hash: `mock-${content.length}`, version: 1 }; const assertion: Assertion = { id: `assertion-${Date.now()}`, source_document_id: source_document.id, chunk_id: `chunk-${Date.now()}`, statement: content, subject: "Valerius", predicate: "a découvert", object: "la seconde relique à Aethelgard", confidence: 1, status: "proposed" }; saveAssertions([assertion, ...loadAssertions()]); return { source_document, assertions: [assertion] }; }
+  async listAssertions(): Promise<Assertion[]> { return loadAssertions(); }
+  async reviewAssertion(_id: string, assertionId: string, decision: "accept" | "reject" | "defer"): Promise<void> { const status = decision === "accept" ? "accepted" : decision === "reject" ? "rejected" : "deferred"; saveAssertions(loadAssertions().map((a) => a.id === assertionId ? { ...a, status } : a)); }
+  async registerUser(email: string, _pass: string, name = ""): Promise<UserProfile> { return { id: "mock-user", email, name, plan: "free" }; }
+  async loginUser(email: string, _pass: string): Promise<UserProfile> { return { id: "mock-user", email, name: "Auteur", plan: "free" }; }
+  async logoutUser(): Promise<void> {}
+  async getCurrentUser(): Promise<UserProfile | null> { return null; }
+  async createCheckout(): Promise<string> { throw new Error("Le paiement Stripe nécessite l'API réelle."); }
+  async openBillingPortal(): Promise<string> { throw new Error("Le portail Stripe nécessite l'API réelle."); }
+}
