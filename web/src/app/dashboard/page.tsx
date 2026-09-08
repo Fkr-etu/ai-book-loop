@@ -5,12 +5,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/Navbar";
 import { realApiClient, RealApiError } from "@/services/realApiClient";
+import { getApiErrorMessage } from "@/services/apiErrorMessages";
 import type { BackendBook, BackendUser } from "@/types/api";
 import { track } from "@/lib/analytics";
 import { ArrowRight, BookOpen, CheckCircle2, Feather, Plus, ShieldCheck, Sparkles } from "lucide-react";
 
 function errorMessage(error: unknown): string {
-  if (error instanceof RealApiError) return error.message;
+  if (error instanceof RealApiError) return getApiErrorMessage(error, error.message);
   return "Impossible de charger vos livres.";
 }
 
