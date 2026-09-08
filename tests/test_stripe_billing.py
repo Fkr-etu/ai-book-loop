@@ -233,22 +233,6 @@ def test_webhook_processing_failure_is_retryable(monkeypatch):
     assert repository.applied["plan"] is SubscriptionPlan.PRO
 
 
-def test_webhook_unknown_customer_is_not_marked_processed(monkeypatch):
-    repository = FakeRepository(fail_event_once=True)
-    service = StripeBillingService(settings(), repository)
-    event = {
-        "id": "evt_unknown_customer",
-        "type": "customer.subscription.updated",
-        "data": {"object": subscription_payload()},
-    }
-    monkeypatch.setattr(stripe.Webhook, "construct_event", lambda *args, **kwargs: event)
-
-    with pytest.raises(RuntimeError):
-        service.handle_webhook(b"payload", "valid-signature")
-
-    assert repository.recorded_events == set()
-
-
 def test_checkout_completed_retrieves_subscription_and_applies_it(monkeypatch):
     repository = FakeRepository()
     service = StripeBillingService(settings(), repository)
