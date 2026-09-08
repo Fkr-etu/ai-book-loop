@@ -15,7 +15,7 @@ Do not call Gemini or another live provider from the normal test suite. Use dete
   - Use cases with fake repositories/providers.
   - Workflow behavior, including linting, linguistic validation, review decisions, retries, correction, summaries and terminal `needs_review` outcomes.
   - Workflow idempotency and restart/recovery semantics.
-  - PostgreSQL repository persistence and database-level invariants in the dedicated PostgreSQL integration workflow.
+  - PostgreSQL-specific persistence and concurrency/invariant behavior in the dedicated PostgreSQL integration workflow.
   - Canon extraction, conflict detection and explicit review-to-Canon transitions.
   - CLI parsing and command behavior without requiring external services.
   - Run with: `uv run --extra dev pytest`
@@ -49,9 +49,12 @@ Cross-process duplicate execution is also not fully prevented. Same-process exec
 
 ## CI
 
-The GitHub Actions test pipeline is the required gate before merging. A local passing test run is useful, but a failing CI pipeline means the change is not complete.
+The GitHub Actions pipeline is the required gate before merging. It separates concerns:
 
-CI runs backend tests, frontend lint/build, a zero-cost Playwright suite, and a real-backend Playwright journey. PostgreSQL repository integration tests have their own dedicated workflow and are not intentionally duplicated in the generic backend job.
+- the main CI workflow runs backend tests plus frontend lint/build and both frontend E2E suites;
+- the dedicated PostgreSQL integration workflow owns PostgreSQL-specific persistence/concurrency tests.
+
+A local passing test run is useful, but a failing CI pipeline means the change is not complete.
 
 ## Regression discipline
 
