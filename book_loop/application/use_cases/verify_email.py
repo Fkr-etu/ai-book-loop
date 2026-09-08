@@ -28,7 +28,7 @@ class VerifyEmail:
         token_hash = sha256(raw_token.encode("utf-8")).hexdigest()
         expires_at = datetime.now(timezone.utc) + TOKEN_TTL
         self.repository.create_email_verification_token(user_id=user.id, token_hash=token_hash, expires_at=expires_at)
-        verification_url = f"{self.public_base_url}/api/auth/verify-email?token={raw_token}"
+        verification_url = f"{self.public_base_url}/verify-email?token={raw_token}"
         self.email_sender.send_verification_email(recipient=user.email, verification_url=verification_url)
 
     def execute(self, *, token: str) -> UserPublic:
