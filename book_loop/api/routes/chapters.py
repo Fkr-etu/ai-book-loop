@@ -6,7 +6,7 @@ from typing import Any
 from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from book_loop.api.dependencies import get_container, get_owned_book
+from book_loop.api.dependencies import get_book, get_container, get_owned_book
 from book_loop.application.services.context import ContextBuilder
 from book_loop.infrastructure.container import Container
 
@@ -30,7 +30,7 @@ class ApprovePayload(BaseModel):
 def _run_chapter_workflow(container: Container, book_id: str, chapter_number: int, idempotency_key: str) -> None:
     print(f"[chapter-workflow] start book={book_id} chapter={chapter_number} key={idempotency_key}", flush=True)
     try:
-        book = container.repository.get(book_id)
+        book = get_book(book_id, container)
         result = container.generate_chapter().execute(book, chapter_number=chapter_number, idempotency_key=idempotency_key)
         print(f"[chapter-workflow] finished book={book_id} chapter={chapter_number} result={result!r}", flush=True)
     except Exception as exc:
