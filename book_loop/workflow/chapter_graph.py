@@ -69,6 +69,14 @@ class ChapterWorkflow:
         with cls._locks_guard:
             return cls._locks.setdefault(key, Lock())
 
+    def start_run(self, *, book_id: str, chapter_number: int, idempotency_key: str) -> ChapterWorkflowRun:
+        """Create or retrieve a durable run without executing workflow steps."""
+        return self.workflow_store.get_or_create(
+            book_id=book_id,
+            chapter_number=chapter_number,
+            idempotency_key=idempotency_key,
+        )
+
     def _emit(self, event_type: str, state: ChapterWorkflowState, *, status: str = "completed", duration_ms: int | None = None, **metadata) -> None:
         if self.observability is None:
             return
@@ -285,7 +293,7 @@ class ChapterWorkflow:
             raise ValueError("The author must approve the outline before generating chapters")
         key = idempotency_key or str(uuid4())
         with self._lock_for(f"{book.id}:{chapter_number}:{key}"):
-            run = self.workflow_store.get_or_create(book_id=book.id, chapter_number=chapter_number, idempotency_key=key)
+            run = self.start_run(book_id=book.id, chapter_number=chapter_number, idempotency_key=key)
             if run.status in {WorkflowRunStatus.COMPLETED, WorkflowRunStatus.NEEDS_REVIEW}:
                 return self._state_from_run(book, run)
             try:
