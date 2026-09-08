@@ -39,14 +39,14 @@ export default function OutlinePage() {
       <main className="p-4 sm:p-6 md:p-10 max-w-5xl mx-auto space-y-6 md:space-y-8">
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#c6c6cd]/30 pb-6">
           <div>
-            <span className="text-xs font-mono font-bold text-[#b87500] uppercase tracking-wider block mb-1">Structure narrative</span>
-            <h1 className="font-playfair text-2xl sm:text-3xl font-bold text-[#0b1c30]">Plan global</h1>
-            <p className="text-xs text-[#45464d] mt-1">L&apos;IA propose le plan. L&apos;auteur décide quand il devient canonique.</p>
+            <span className="text-xs font-mono font-bold text-[#b87500] uppercase tracking-wider block mb-1">Plan du livre</span>
+            <h1 className="font-playfair text-2xl sm:text-3xl font-bold text-[#0b1c30]">Plan du livre</h1>
+            <p className="text-xs text-[#45464d] mt-1">L&apos;IA propose le plan. Vous décidez de ce qui devient la référence pour la suite.</p>
           </div>
           <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
             <button type="button" onClick={() => void store.generateOutline()} disabled={store.loading} className="px-3.5 py-2 bg-[#eff4ff] text-[#0b1c30] text-xs font-semibold rounded border border-[#c6c6cd]/40 hover:bg-[#e5eeff] flex items-center justify-center gap-1.5 disabled:opacity-50 flex-1 md:flex-none">
               <Sparkles className="w-3.5 h-3.5 text-[#b87500]" />
-              {store.loading ? "Génération…" : "Générer le plan IA"}
+              {store.loading ? "Génération…" : "Générer le plan"}
             </button>
             {!project.outlineApproved ? (
               <button type="button" onClick={() => void store.approveOutline()} disabled={store.loading || !project.outline} data-testid="approve-outline-btn" className="px-4 py-2 bg-[#b87500] text-white text-xs font-bold rounded hover:bg-[#9a6200] flex items-center justify-center gap-1.5 disabled:opacity-50 flex-1 md:flex-none">
@@ -66,8 +66,8 @@ export default function OutlinePage() {
         <section data-testid="outline-gate-banner" className={`p-4 border-l-4 border border-[#c6c6cd]/30 rounded-r-lg flex items-start gap-3 ${project.outlineApproved ? "bg-[#eff4ff] border-l-[#0b1c30]" : "bg-[#fff8f0] border-l-[#b87500]"}`}>
           {project.outlineApproved ? <Unlock className="w-5 h-5 text-[#0b1c30] shrink-0 mt-0.5" /> : <Lock className="w-5 h-5 text-[#b87500] shrink-0 mt-0.5" />}
           <div className="space-y-1">
-            <h2 className="text-xs font-bold text-[#0b1c30]">{project.outlineApproved ? "Plan canonique approuvé" : "Plan proposé — approbation requise"}</h2>
-            <p className="text-xs text-[#45464d]">{project.outlineApproved ? "Le plan persistant du livre peut maintenant être utilisé pour préparer les chapitres." : "Le plan affiché vient de l'état du livre. La génération des chapitres reste verrouillée jusqu'à votre décision explicite."}</p>
+            <h2 className="text-xs font-bold text-[#0b1c30]">{project.outlineApproved ? "Plan approuvé" : "Plan proposé — votre décision est requise"}</h2>
+            <p className="text-xs text-[#45464d]">{project.outlineApproved ? "Ce plan sert maintenant de référence pour préparer les chapitres." : "L&apos;IA a proposé ce plan. Vous devez l&apos;approuver avant de pouvoir préparer les chapitres."}</p>
           </div>
         </section>
 
@@ -101,7 +101,7 @@ export default function OutlinePage() {
         )}
 
         <section className="space-y-4">
-          <div className="flex items-center justify-between"><div><h2 className="font-playfair text-xl font-bold text-[#0b1c30]">Chapitres</h2><p className="text-xs text-[#76777d] mt-1">État persistant retourné par le livre.</p></div><span className="text-xs font-mono text-[#76777d]">{chapters.length} chapitre(s)</span></div>
+          <div className="flex items-center justify-between"><div><h2 className="font-playfair text-xl font-bold text-[#0b1c30]">Chapitres</h2><p className="text-xs text-[#76777d] mt-1">Les chapitres et leur état sont enregistrés dans votre livre.</p></div><span className="text-xs font-mono text-[#76777d]">{chapters.length} chapitre(s)</span></div>
           {chapters.length === 0 ? (
             <div className="p-6 bg-white rounded-xl border border-dashed border-[#c6c6cd] text-center text-xs text-[#76777d]">Aucun chapitre disponible.</div>
           ) : chapters.map((chapter) => {
@@ -114,8 +114,8 @@ export default function OutlinePage() {
                   <button type="button" onClick={() => void store.generateChapter(chapter.number)} disabled={!project.outlineApproved || store.loading} className="px-3 py-1.5 text-xs font-semibold bg-[#0b1c30] text-white rounded hover:bg-[#131b2e] flex items-center justify-center gap-1 disabled:opacity-40"><Sparkles className="w-3.5 h-3.5 text-[#ffddb8]" />Générer une version</button>
                 </div>
                 <div className="p-4 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-                  <div className="p-3 rounded border border-[#c6c6cd]/30 bg-[#f8f9ff]"><div className="text-[#76777d]">Version courante</div><div className="font-mono font-bold text-[#0b1c30] mt-1">{currentVersion == null ? "—" : `V${currentVersion}`}</div></div>
-                  <div className="p-3 rounded border border-[#c6c6cd]/30 bg-[#f8f9ff]"><div className="text-[#76777d]">Versions disponibles</div><div className="font-mono font-bold text-[#0b1c30] mt-1">{versionCount}</div></div>
+                  <div className="p-3 rounded border border-[#c6c6cd]/30 bg-[#f8f9ff]"><div className="text-[#76777d]">Version actuelle</div><div className="font-mono font-bold text-[#0b1c30] mt-1">{currentVersion == null ? "—" : `V${currentVersion}`}</div></div>
+                  <div className="p-3 rounded border border-[#c6c6cd]/30 bg-[#f8f9ff]"><div className="text-[#76777d]">Versions</div><div className="font-mono font-bold text-[#0b1c30] mt-1">{versionCount}</div></div>
                   <div className="p-3 rounded border border-[#c6c6cd]/30 bg-[#f8f9ff]"><div className="text-[#76777d]">Décision</div><div className="font-mono font-bold text-[#0b1c30] mt-1">{chapter.status}</div></div>
                 </div>
               </article>
