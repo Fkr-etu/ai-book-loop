@@ -37,7 +37,9 @@ def test_second_proposal_on_same_fact_is_rejected_after_first_acceptance():
     source_id = "source-concurrency"
     chunk_id = "chunk-concurrency"
     evidence_id = "evidence-concurrency"
-    content = "Alice lives in Paris."
+    subject = "ConcurrencyAlice"
+    predicate = "lives_in_concurrency"
+    content = f"{subject} lives in Paris."
     container.repository.save_source(
         SourceDocument(
             id=source_id,
@@ -63,8 +65,8 @@ def test_second_proposal_on_same_fact_is_rejected_after_first_acceptance():
         source_document_id=source_id,
         chunk_id=chunk_id,
         statement=content,
-        subject="Alice",
-        predicate="lives_in",
+        subject=subject,
+        predicate=predicate,
         object="Paris",
         confidence=1.0,
         status=AssertionStatus.ACCEPTED,
@@ -100,11 +102,11 @@ def test_second_proposal_on_same_fact_is_rejected_after_first_acceptance():
 
     first = client.post(
         f"/api/books/{book_id}/canon-change-proposals",
-        json={"fact_id": "fact-concurrency", "statement": "Alice lives in Lyon.", "object": "Lyon", "rationale": "First edit"},
+        json={"fact_id": "fact-concurrency", "statement": f"{subject} lives in Lyon.", "object": "Lyon", "rationale": "First edit"},
     )
     second = client.post(
         f"/api/books/{book_id}/canon-change-proposals",
-        json={"fact_id": "fact-concurrency", "statement": "Alice lives in Marseille.", "object": "Marseille", "rationale": "Second edit"},
+        json={"fact_id": "fact-concurrency", "statement": f"{subject} lives in Marseille.", "object": "Marseille", "rationale": "Second edit"},
     )
     assert first.status_code == 201
     assert second.status_code == 201
@@ -113,7 +115,7 @@ def test_second_proposal_on_same_fact_is_rejected_after_first_acceptance():
         f"/api/books/{book_id}/canon-change-proposals/{first.json()['id']}/review",
         json={"decision": "accept", "rationale": "Use the first proposal"},
     )
-    assert accepted.status_code == 200
+    assert accepted.status_code == 200, accepted.text
 
     stale = client.post(
         f"/api/books/{book_id}/canon-change-proposals/{second.json()['id']}/review",
@@ -125,9 +127,10 @@ def test_second_proposal_on_same_fact_is_rejected_after_first_acceptance():
     facts = client.get(f"/api/books/{book_id}/canonical-facts")
     assert facts.status_code == 200
     active_facts = facts.json()["facts"]
-    assert len(active_facts) == 1
-    assert active_facts[0]["object"] == "Lyon"
-    assert active_facts[0]["version"] == 2
+    matching_facts = [fact for fact in active_facts if fact["subject"] == subject and fact["predicate"] == predicate]
+    assert len(matching_facts) == 1
+    assert matching_facts[0]["object"] == "Lyon"
+    assert matching_facts[0]["version"] == 2
 
     proposals = client.get(f"/api/books/{book_id}/canon-change-proposals")
     assert proposals.status_code == 200
