@@ -39,7 +39,7 @@ jobs:
       DATABASE_URL: postgresql://book_loop:book_loop@localhost:5432/book_loop
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Python
         uses: actions/setup-python@v5
