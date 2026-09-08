@@ -40,14 +40,15 @@ This inventory classifies repository documentation against implemented code, tes
 - `docs/product/b2c-france-commercial-readiness.md` — commercial-readiness planning.
 - `docs/product/billing-capacity-policy.md` — implemented billing/capacity model and operating assumptions.
 - `docs/product/legal-launch-checklist.md` — launch/legal checklist.
-- `docs/product/seo-content.md`, `docs/product/seo-content-implementation.md`, `docs/product/seo-operations.md`, `docs/product/seo-plan.md` — SEO/marketing planning.
-- `docs/product/strategy.md` — strategic planning reference.
+- `docs/product/seo-content.md` — consolidated SEO content, positioning and technical SEO baseline.
+- `docs/product/seo-operations.md` — SEO production/deployment operations.
 - `docs/product/ui-ux-audit.md` — UX audit/reference.
 
-### Contract/history documents
+### Historical implementation records
 
-- `docs/product/fe-2b2-studio-contract.md` and `docs/product/fe-2b-5-chapters-contract.md` — implementation/contract history; current behavior remains code + tests.
 - `docs/architecture/linguistic-validation-implementation.md` — historical implementation record; current workflow wiring belongs in live architecture documentation.
+
+The former standalone product strategy, SEO plan/implementation note and Studio contract have been removed because their useful content is now represented by the current product/SEO/architecture sources of truth.
 
 ## Source-of-truth hierarchy
 
