@@ -19,6 +19,7 @@ class FakeRepository:
     applied: dict | None = None
     billing_state: dict | None = None
     recorded_events: set[str] | None = None
+    fail_event_once: bool = False
 
     def __post_init__(self) -> None:
         if self.recorded_events is None:
@@ -50,6 +51,21 @@ class FakeRepository:
 
     def apply_subscription(self, **kwargs) -> None:
         self.applied = kwargs
+
+    def apply_subscription_event(self, **kwargs) -> bool:
+        event_id = kwargs["event_id"]
+        if self.recorded_events is None:
+            self.recorded_events = set()
+        if event_id in self.recorded_events:
+            return False
+        if self.fail_event_once:
+            self.fail_event_once = False
+            raise RuntimeError("transient database failure")
+        self.recorded_events.add(event_id)
+        self.applied = {
+            key: value for key, value in kwargs.items() if key not in {"event_id", "event_type"}
+        }
+        return True
 
 
 def settings() -> Settings:
@@ -192,6 +208,29 @@ def test_webhook_is_idempotent(monkeypatch):
 
     assert repository.recorded_events == {"evt_123"}
     assert repository.applied is first_application
+
+
+def test_webhook_processing_failure_is_retryable(monkeypatch):
+    repository = FakeRepository(fail_event_once=True)
+    service = StripeBillingService(settings(), repository)
+    event = {
+        "id": "evt_retry",
+        "type": "customer.subscription.updated",
+        "data": {"object": subscription_payload()},
+    }
+    monkeypatch.setattr(stripe.Webhook, "construct_event", lambda *args, **kwargs: event)
+
+    with pytest.raises(RuntimeError, match="transient database failure"):
+        service.handle_webhook(b"payload", "valid-signature")
+
+    assert repository.recorded_events == set()
+    assert repository.applied is None
+
+    service.handle_webhook(b"payload", "valid-signature")
+
+    assert repository.recorded_events == {"evt_retry"}
+    assert repository.applied is not None
+    assert repository.applied["plan"] is SubscriptionPlan.PRO
 
 
 def test_checkout_completed_retrieves_subscription_and_applies_it(monkeypatch):
