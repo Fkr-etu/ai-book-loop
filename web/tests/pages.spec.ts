@@ -8,12 +8,25 @@ test.describe("Book Loop - Complete Page Coverage Suite", () => {
     await expect(page.getByText("SIREN", { exact: true })).toBeVisible();
     await expect(page.getByText("SIRET", { exact: true })).toBeVisible();
     await expect(page.getByText("Code APE/NAF", { exact: true })).toBeVisible();
+    await expect(page.getByRole("status")).toContainText("Document en préparation");
 
     await page.goto("/cgv");
     await expect(page.getByRole("heading", { name: "Conditions générales de vente" })).toBeVisible();
     await expect(page.getByText(/entrepreneur individuel sous régime micro-entreprise/)).toBeVisible();
+    await expect(page.getByRole("status")).toContainText("Document en préparation");
 
     await page.goto("/politique-confidentialite");
+    await expect(page.getByRole("heading", { name: "Politique de confidentialité" })).toBeVisible();
+    await expect(page.getByRole("status")).toContainText("Document en préparation");
+  });
+
+  test("France B2C — legacy legal routes redirect to canonical pages", async ({ page }) => {
+    await page.goto("/terms");
+    await expect(page).toHaveURL(/\/cgv\/?$/);
+    await expect(page.getByRole("heading", { name: "Conditions générales de vente" })).toBeVisible();
+
+    await page.goto("/privacy");
+    await expect(page).toHaveURL(/\/politique-confidentialite\/?$/);
     await expect(page.getByRole("heading", { name: "Politique de confidentialité" })).toBeVisible();
   });
 
