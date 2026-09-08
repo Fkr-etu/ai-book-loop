@@ -1,33 +1,11 @@
-export type BackendChapterStatus =
-  | "draft"
-  | "proposed"
-  | "approved"
-  | "rejected"
-  | "canonical"
-  | "needs_review";
-
+export type BackendChapterStatus = "draft" | "proposed" | "approved" | "rejected" | "canonical" | "needs_review";
 export type BackendWorkflowRunStatus = "running" | "completed" | "needs_review" | "failed";
 export type BackendWorkflowStep = "write" | "review" | "correct" | "summarize";
-
-export interface BackendWorkflowRun {
-  id: string;
-  book_id: string;
-  chapter_number: number;
-  idempotency_key: string;
-  status: BackendWorkflowRunStatus;
-  step: BackendWorkflowStep;
-  attempt: number;
-  draft: string;
-  review: BackendSceneReview | null;
-  decision: string | null;
-  summary: string | null;
-  error: string | null;
-}
-
+export interface BackendWorkflowRun { id: string; book_id: string; chapter_number: number; idempotency_key: string; status: BackendWorkflowRunStatus; step: BackendWorkflowStep; attempt: number; draft: string; review: BackendSceneReview | null; decision: string | null; summary: string | null; error: string | null; }
 export interface BackendOutlineChapter { number: number; title: string; objective: string; synopsis: string; }
 export interface BackendOutline { chapters: BackendOutlineChapter[]; }
 export interface BackendChapterVersion { id: string; versionNumber: number; content: string; createdAt: string; source: "author" | "ai" | "edited" | "retry"; status: BackendChapterStatus; }
-export interface BackendChapter { id: string; number: number; title: string; objective: string; status: BackendChapterStatus; current_version: number; summary: string | null; versions: BackendChapterVersion[]; }
+export interface BackendChapter { id: string; number: number; title: string; objective: string; status: BackendChapterStatus; current_version: number; reviewed_version: number | null; summary: string | null; versions: BackendChapterVersion[]; }
 export interface BackendCreativeBrief { premise: string; audience: string; tone: string; themes: string[]; must_include: string[]; must_avoid: string[]; }
 export interface BackendBook { id: string; owner_id: string; title: string; theme: string; author_idea: string; creative_brief: BackendCreativeBrief | null; lore: string; constraints: string[]; outline: BackendOutline | null; outline_approved: boolean; chapters: BackendChapter[]; }
 export type BackendSubscriptionPlan = "free" | "creator" | "pro";
