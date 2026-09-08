@@ -3,8 +3,9 @@ from __future__ import annotations
 from fastapi import HTTPException, Request, Response
 
 from book_loop.domain.models import BookState, UserPublic
-from book_loop.infrastructure.auth import COOKIE_NAME, decode_access_token
 from book_loop.infrastructure.container import Container
+
+COOKIE_NAME = "session_token"
 
 
 def get_container(request: Request) -> Container:
@@ -20,15 +21,10 @@ def get_current_user(request: Request) -> UserPublic:
             token = auth_header.removeprefix("Bearer ")
     if not token:
         raise HTTPException(status_code=401, detail="Non authentifié.")
-
-    payload = decode_access_token(token, secret_key=container.settings.auth_secret_key)
-    if not payload or not isinstance(payload.get("sub"), str):
+    try:
+        return container.authenticate_user_use_case.execute(token=token)
+    except PermissionError:
         raise HTTPException(status_code=401, detail="Session invalide ou expirée.")
-
-    user = container.repository.get_user_by_id(payload["sub"])
-    if not user:
-        raise HTTPException(status_code=401, detail="Utilisateur introuvable.")
-    return UserPublic(id=user.id, email=user.email, name=user.name, plan=user.plan)
 
 
 def get_book(book_id: str, container: Container) -> BookState:
@@ -39,12 +35,7 @@ def get_book(book_id: str, container: Container) -> BookState:
 
 
 def get_owned_book(book_id: str, request: Request, container: Container) -> BookState:
-    """Return a book only when it belongs to the authenticated user.
-
-    Authorization is enforced at the route boundary as well as by the global
-    middleware so a future route cannot accidentally turn an object lookup into
-    an IDOR vulnerability.
-    """
+    """Return a book only when it belongs to the authenticated user."""
     current_user = get_current_user(request)
     book = get_book(book_id, container)
     if book.owner_id != current_user.id:

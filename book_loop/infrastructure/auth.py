@@ -6,6 +6,7 @@ import re
 import argon2
 import jwt
 
+from book_loop.application.ports.auth import AuthToken
 from book_loop.domain.models import User, UserPublic
 
 _ph = argon2.PasswordHasher()
@@ -17,6 +18,7 @@ PASSWORD_POLICY_MESSAGE = (
     "Le mot de passe doit contenir au moins 12 caractères, "
     "une majuscule, une minuscule, un chiffre et un caractère spécial."
 )
+DUMMY_PASSWORD_HASH = _ph.hash("dummy-password-for-timing-only")
 
 
 def validate_password(password: str) -> str:
@@ -50,15 +52,8 @@ def _key(secret_key: str) -> str:
     return secret_key
 
 
-def create_access_token(
-    user: User | UserPublic,
-    *,
-    secret_key: str,
-    expires_delta: timedelta | None = None,
-) -> str:
-    expire = datetime.now(timezone.utc) + (
-        expires_delta or timedelta(days=ACCESS_TOKEN_EXPIRE_DAYS)
-    )
+def create_access_token(user: User | UserPublic, *, secret_key: str, expires_delta: timedelta | None = None) -> str:
+    expire = datetime.now(timezone.utc) + (expires_delta or timedelta(days=ACCESS_TOKEN_EXPIRE_DAYS))
     return jwt.encode({"sub": user.id, "exp": expire}, _key(secret_key), algorithm=ALGORITHM)
 
 
@@ -67,3 +62,25 @@ def decode_access_token(token: str, *, secret_key: str) -> dict | None:
         return jwt.decode(token, _key(secret_key), algorithms=[ALGORITHM])
     except jwt.PyJWTError:
         return None
+
+
+class Argon2PasswordHasher:
+    def validate(self, password: str) -> str:
+        return validate_password(password)
+
+    def hash(self, password: str) -> str:
+        return hash_password(password)
+
+    def verify(self, password: str, password_hash: str) -> bool:
+        return verify_password(password, password_hash)
+
+
+class JwtTokenService:
+    def __init__(self, secret_key: str) -> None:
+        self.secret_key = secret_key
+
+    def issue(self, user: User | UserPublic) -> AuthToken:
+        return AuthToken(create_access_token(user, secret_key=self.secret_key))
+
+    def decode(self, token: str) -> dict | None:
+        return decode_access_token(token, secret_key=self.secret_key)
