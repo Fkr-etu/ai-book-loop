@@ -13,12 +13,34 @@ from book_loop.domain.protocols import BookRepository
 from book_loop.domain.workflow import ChapterWorkflowRun
 
 
+class _LegacyBookUsageAdapter:
+    """Compatibility adapter for lightweight repositories used by older tests."""
+
+    def __init__(self, repository: BookRepository) -> None:
+        self._repository = repository
+        self._identities: dict[str, str] = {}
+
+    def register_book_identity(self, *, book_id: str, identity: str) -> None:
+        self._identities.setdefault(book_id, identity)
+
+    def get_book_identity(self, *, book_id: str) -> str | None:
+        return self._identities.get(book_id)
+
+    def consume_workflow_capacity(self, *, quota_subject: str, period_start: str, idempotency_key: str, monthly_limit: int) -> bool:
+        return self._repository.consume_workflow_capacity(
+            user_id=quota_subject,
+            period_start=period_start,
+            idempotency_key=idempotency_key,
+            monthly_limit=monthly_limit,
+        )
+
+
 class GenerateChapter:
     def __init__(self, workflow: ChapterWorkflowPort, repository: BookRepository, workflow_store: WorkflowRunStore, book_usage: BookUsagePort | None = None) -> None:
         self.workflow = workflow
         self.repository = repository
         self.workflow_store = workflow_store
-        self.book_usage = book_usage or repository  # type: ignore[assignment]
+        self.book_usage: BookUsagePort = book_usage or _LegacyBookUsageAdapter(repository)  # type: ignore[assignment]
 
     def _validate(self, book: BookState, chapter_number: int):
         if not book.outline_approved:
