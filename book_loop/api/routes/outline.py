@@ -5,7 +5,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
-from book_loop.api.dependencies import get_owned_book, get_container
+from book_loop.api.dependencies import get_container, get_owned_book
 from book_loop.domain.models import Outline
 from book_loop.infrastructure.container import Container
 
