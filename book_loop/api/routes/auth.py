@@ -29,9 +29,19 @@ class LoginPayload(BaseModel):
 
 
 def _client_ip(request: Request) -> str:
+    """Return the client IP from Cloud Run's appended X-Forwarded-For value.
+
+    Cloud Run appends the connecting client address to X-Forwarded-For. Taking
+    the first value would let a caller spoof the rate-limit key by supplying a
+    forged leading address. The right-most value is the proxy-validated address
+    for this deployment topology; when no forwarded header exists, use the
+    direct ASGI client address (useful for local/test execution).
+    """
     forwarded = request.headers.get("x-forwarded-for")
     if forwarded:
-        return forwarded.split(",", 1)[0].strip()
+        values = [value.strip() for value in forwarded.split(",") if value.strip()]
+        if values:
+            return values[-1]
     return request.client.host if request.client else "unknown"
 
 

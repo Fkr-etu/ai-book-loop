@@ -98,6 +98,7 @@ steps:
       - "--service-account=${_API_SERVICE_ACCOUNT}"
       - "--add-cloudsql-instances=$PROJECT_ID:${_REGION}:${_DB_INSTANCE}"
       - "--set-secrets=DATABASE_URL=DATABASE_URL:latest,GEMINI_API_KEY=GEMINI_API_KEY:1,AUTH_SECRET_KEY=AUTH_SECRET_KEY:latest"
+      - "--set-env-vars=APP_ENVIRONMENT=production,AUTH_COOKIE_SECURE=true,AUTH_COOKIE_SAMESITE=lax"
       - "--min=0"
       - "--max=3"
       - "--cpu=1"
