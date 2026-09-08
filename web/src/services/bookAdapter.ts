@@ -9,6 +9,7 @@ function adaptChapter(chapter: BackendChapter): Chapter {
     objective: chapter.objective,
     status: chapter.status,
     currentVersion: chapter.current_version,
+    reviewedVersion: chapter.reviewed_version ?? undefined,
     summary: chapter.summary ?? undefined,
     versions: chapter.versions.map((version) => ({
       id: version.id,
