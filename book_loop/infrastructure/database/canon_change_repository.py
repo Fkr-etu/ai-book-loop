@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date, datetime
 from typing import Any
 
 from book_loop.domain.canon_change import (
@@ -50,10 +51,13 @@ class CanonChangeRepositoryMixin:
         self._connection.commit()
 
     def list_canon_change_review_decisions(self, *, proposal_id: str) -> list[CanonChangeReviewDecision]:
-        rows = self._connection.execute("SELECT * FROM canon_change_review_decisions WHERE proposal_id = ? ORDER BY created_at, id", (proposal_id,)).fetchall()
+        rows = self._connection.execute(
+            "SELECT * FROM canon_change_review_decisions WHERE proposal_id = ? ORDER BY created_at, id",
+            (proposal_id,),
+        ).fetchall()
         return [CanonChangeReviewDecision(
             id=row["id"], proposal_id=row["proposal_id"], decision=CanonChangeReviewDecisionType(row["decision"]),
-            reviewer_id=row["reviewer_id"], rationale=row["rationale"], created_at=row["created_at"],
+            reviewer_id=row["reviewer_id"], rationale=row["rationale"], created_at=_serialize_created_at(row["created_at"]),
         ) for row in rows]
 
     def lock_canon_change_proposal(self, proposal_id: str) -> None:
@@ -64,5 +68,14 @@ class CanonChangeRepositoryMixin:
         return CanonChangeProposal(
             id=row["id"], book_id=row["book_id"], canonical_fact_id=row["canonical_fact_id"], statement=row["statement"],
             subject=row["subject"], predicate=row["predicate"], object=row["object"], proposer_id=row["proposer_id"],
-            rationale=row["rationale"], status=row["status"], created_at=row["created_at"],
+            rationale=row["rationale"], status=row["status"], created_at=_serialize_created_at(row["created_at"]),
         )
+
+
+def _serialize_created_at(value: Any) -> str | None:
+    """Normalize database timestamp values to the domain's string representation."""
+    if value is None or isinstance(value, str):
+        return value
+    if isinstance(value, (datetime, date)):
+        return value.isoformat()
+    return str(value)
