@@ -8,12 +8,11 @@ class BookUsagePort(Protocol):
 
     def get_book_identity(self, *, book_id: str) -> str | None: ...
 
-    def register_book_identity(self, *, book_id: str, identity: str) -> None: ...
-
     def consume_free_workflow_capacity(
         self,
         *,
         user_id: str,
+        book_id: str,
         book_identity: str,
         period_start: str,
         idempotency_key: str,
