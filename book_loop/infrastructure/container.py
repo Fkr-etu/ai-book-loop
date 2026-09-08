@@ -95,7 +95,7 @@ class Container:
             raise ValueError("Unsupported LINGUISTIC_CHECKER value; use disabled, languagetool, spacy, canon, both or all")
         return LinguisticValidationService(checkers)
 
-    def create_book(self) -> CreateBook: return CreateBook(self.repository, self.repository)
+    def create_book(self) -> CreateBook: return CreateBook(self.repository)
     def set_creative_brief(self) -> SetCreativeBrief: return SetCreativeBrief(self.repository)
     def update_book(self) -> UpdateBook: return UpdateBook(self.repository)
     def generate_outline(self) -> GenerateOutline: return GenerateOutline(self.repository, self.outline_agent)
