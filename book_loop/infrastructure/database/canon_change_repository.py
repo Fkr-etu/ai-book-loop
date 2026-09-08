@@ -51,7 +51,10 @@ class CanonChangeRepositoryMixin:
         self._connection.commit()
 
     def list_canon_change_review_decisions(self, *, proposal_id: str) -> list[CanonChangeReviewDecision]:
-        rows = self._connection.execute("SELECT * FROM canon_change_review_decisions WHERE proposal_id = ? ORDER BY created_at, id").fetchall()
+        rows = self._connection.execute(
+            "SELECT * FROM canon_change_review_decisions WHERE proposal_id = ? ORDER BY created_at, id",
+            (proposal_id,),
+        ).fetchall()
         return [CanonChangeReviewDecision(
             id=row["id"], proposal_id=row["proposal_id"], decision=CanonChangeReviewDecisionType(row["decision"]),
             reviewer_id=row["reviewer_id"], rationale=row["rationale"], created_at=_serialize_created_at(row["created_at"]),
