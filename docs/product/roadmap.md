@@ -1,52 +1,32 @@
 # Product Roadmap
 
-This roadmap treats **narrative consistency** as the product direction and the **author/book workflow as the first commercial wedge**. Screenwriters and Game Masters are adjacent creator segments to validate after the Book loop proves repeated value.
+This roadmap treats **narrative consistency** as the product direction and the **author/book workflow as the first commercial wedge**. Screenwriters and Game Masters are adjacent creator segments to validate only after the Book loop proves repeated value.
 
 ## North star
 
 Build an AI workflow that repeatedly **review → propose → validate → approve → update Canon**, so creators can use AI without losing control of an evolving narrative universe.
 
-The strategic asset is not a generic writing assistant. It is the reusable engine that understands a long-lived narrative corpus, its claims, relationships, dependencies and approved state, and checks the effect of changes on that state.
-
 ## Current implementation status — September 2026
 
-Implemented foundations include:
+The current product already includes:
 
-- structured book/outline/chapter domain model and explicit approval gates;
-- bounded Writer → validation → Reviewer → Corrector → Summarizer chapter loop;
-- deterministic chapter linting and linguistic validation;
+- structured book/outline/chapter domain models and approval gates;
+- bounded Writer → validation → Reviewer → Corrector → Summarizer chapter workflow;
+- deterministic and linguistic validation;
 - immutable chapter versions and persisted reviews;
 - evidence-backed Canon assertions, conflicts, review decisions and canonical facts;
-- durable chapter workflow runs in SQLite with checkpoints;
+- durable workflow execution state and recovery in the production PostgreSQL architecture;
 - idempotent chapter execution;
-- restart recovery for persisted chapter versions;
-- provider abstraction with Gemini as current implementation;
-- deterministic/fake-based backend test strategy;
-- frontend flows for project setup, Studio, chapters, characters, lore and Canon-related workflows.
+- Gemini as the current LLM implementation behind a provider abstraction;
+- deterministic/fake-based backend tests;
+- frontend flows covering project setup, Studio, chapters, characters, lore and Canon/review workflows;
+- Stripe billing and capacity controls.
 
-Technical capability is not considered product validation. The remaining priority is proving that creators trust the loop and obtain repeated value from it.
-
-## Product positioning
-
-**Book Loop is a narrative consistency engine for creators who build complex, evolving universes.**
-
-Core promise:
-
-> **Keep your universe coherent, even as it grows and changes.**
-
-Commercial wedge:
-
-1. Authors / book projects.
-2. Game Masters / RPG campaigns.
-3. Screenwriters / screenplay or series continuity.
-
-These are not three products at launch. They are three expressions of the same underlying narrative-state problem.
-
-See [`positioning.md`](positioning.md) for the current product, competitive and business-model hypothesis.
+Technical capability is not product validation. The immediate product priority is evidence from real creators.
 
 ## Phase 0 — Prove the Book wedge
 
-**Goal:** prove that the agentic loop solves a painful continuity problem for real authors.
+**Goal:** prove that the loop solves a painful continuity problem for real authors.
 
 - [ ] Validate author intent capture and explicit constraints.
 - [ ] Validate outline → draft workflow.
@@ -54,8 +34,8 @@ See [`positioning.md`](positioning.md) for the current product, competitive and 
 - [ ] Validate continuity checks against Canon.
 - [ ] Validate explicit human approval gates.
 - [ ] Validate canonical state updates after approval.
-- [ ] Complete the end-to-end Studio loop for real projects.
-- [ ] Observe repeated use across multiple chapters and revisions.
+- [x] Complete the end-to-end Studio loop for real projects at the application/E2E level.
+- [ ] Observe repeated use across multiple chapters and revisions with real authors.
 - [ ] Compare the workflow with a generic LLM + notes workflow.
 - [ ] Validate willingness to pay.
 
@@ -67,53 +47,50 @@ See [`positioning.md`](positioning.md) for the current product, competitive and 
 
 ### Agentic workflow
 
-- [x] Intent / creative brief capture foundations.
-- [x] Context and research ingestion where useful.
+- [x] Intent / creative brief foundations.
+- [x] Context and research ingestion where implemented.
 - [x] Outline proposal and approval.
 - [x] Chapter drafting as bounded agent proposals.
 - [x] AI review with structured findings.
 - [x] Continuity / quality validation foundations.
-- [x] Revision proposals.
-- [ ] Human approval of generated chapter revisions as a complete UX flow.
+- [x] Revision proposal foundations.
+- [x] Human approval of generated chapter revisions as an application/UI decision loop.
 - [x] Canonical state update foundations.
-- [ ] Repeatable next-chapter / revision loop validated through the full UI.
+- [x] Multi-chapter author loop covered by E2E tests.
 
 ### Book intelligence
 
-- [ ] Characters.
-- [ ] Lore / world rules.
-- [ ] Relationships.
-- [ ] Timeline and events.
+- [x] Characters.
+- [x] Lore / world rules.
 - [x] Chapter versions.
 - [x] Provenance and review history.
 - [x] Canonical summaries.
 - [x] Deterministic validation where possible.
+- [ ] Richer relationships and timeline intelligence.
 
-**Exit criterion:** the product's main advantage over a generic LLM is its persistent, review-driven loop and trusted narrative Canon.
+**Exit criterion:** the product's main advantage over a generic LLM is its persistent, review-driven loop and trusted narrative Canon, demonstrated by real users.
 
 ## Phase 2 — Narrative Canon primitives
 
 **Goal:** generalize the underlying state model without prematurely changing the Book UX.
 
 - [ ] Define domain-neutral narrative entity model.
-- [x] Define canonical claims / facts.
+- [x] Canonical claims / facts.
 - [ ] Model relationships and dependencies.
 - [ ] Model events and temporal assertions.
 - [ ] Model rules / constraints.
-- [x] Attach provenance and confidence to claims.
-- [x] Track versions and approval decisions.
+- [x] Provenance and confidence on claims.
+- [x] Versions and approval decisions.
 - [x] Link claims to source content.
 - [ ] Separate domain-specific presentation from the underlying engine.
 
-The current Canon implementation is deliberately book-focused. Generalization should be driven by evidence from adjacent creator workflows.
-
-**Exit criterion:** book continuity can be expressed with reusable narrative primitives without degrading the author experience.
+Generalization should be driven by evidence from adjacent creator workflows.
 
 ## Phase 3 — Change impact / narrative regression engine
 
-**Goal:** turn continuity into an explicit change-analysis capability.
+**Goal:** turn continuity into explicit change analysis.
 
-- [ ] `What breaks if I change this?`.
+- [ ] Answer `What breaks if I change this?`.
 - [ ] Find content affected by a changed claim.
 - [ ] Detect stale assertions.
 - [x] Detect contradictory assertions.
@@ -123,86 +100,62 @@ The current Canon implementation is deliberately book-focused. Generalization sh
 - [ ] Produce evidence-backed regression reports.
 - [ ] Re-run analysis after proposed fixes.
 
-For books this is narrative continuity. The same mechanism should later be testable on campaigns and screenplays.
-
 ## Phase 4 — Game Master / RPG validation
 
-**Goal:** test whether the same Canon and change-review engine creates strong value for persistent tabletop RPG campaigns.
-
-Target ICP: GMs running campaigns with enough accumulated NPCs, factions, locations, events, relationships and player decisions that manual continuity becomes difficult.
+Validate campaign continuity with real GMs before building dedicated UX.
 
 - [ ] Interview GMs about campaign continuity pain.
 - [ ] Test Canon on real campaign notes.
 - [ ] Model session events and player decisions.
 - [ ] Test NPC / faction / location state changes.
 - [ ] Test contradiction and temporal checks across sessions.
-- [ ] Measure time saved versus existing notes/wiki tools.
-- [ ] Obtain strong repeated-use signal before building dedicated UX.
-
-**Decision gate:** only build dedicated GM features if the same core consistency problem is frequent, painful and valuable enough to support recurring use.
+- [ ] Measure time saved versus existing tools.
+- [ ] Obtain repeated-use and buying signal.
 
 ## Phase 5 — Screenwriter validation
 
-**Goal:** test whether the narrative consistency engine transfers to screenplay and series workflows.
+Validate continuity across screenplay/series scenes, drafts, characters and timelines before building dedicated workflows.
 
-Target ICP: individual screenwriters or small creative teams managing evolving scripts, drafts, characters, scenes and timelines.
-
-- [ ] Interview screenwriters about continuity/revision pain.
+- [ ] Interview screenwriters.
 - [ ] Test screenplay/series Canon representation.
 - [ ] Test scene-level change impact.
 - [ ] Test character/timeline regressions.
 - [ ] Compare with existing screenplay editors and generic LLM workflows.
 - [ ] Obtain repeated-use / buying signal.
 
-**Principle:** complement professional screenplay editors before attempting to replace them.
-
 ## Phase 6 — Creator integrations
-
-**Goal:** become a consistency layer around creators' existing sources rather than forcing migration.
 
 Prioritize only from observed demand:
 
 - [ ] Markdown / text / structured files.
 - [ ] Import/export of existing story or campaign knowledge.
-- [ ] Git / GitHub where relevant to creative workflows.
-- [ ] Notion / Confluence only if creator research demonstrates demand.
+- [ ] Git / GitHub where relevant.
+- [ ] Notion / Confluence only if research demonstrates demand.
 - [ ] API / webhooks.
-
-**Principle:** integrate with existing sources of truth before becoming a system of record for every creator workflow.
 
 ## Phase 7 — Creator SaaS maturity
 
-**Goal:** turn validated creator value into a sustainable subscription product.
+Stripe billing and capacity controls are already implemented; this phase now concerns **maturing and validating** the commercial system rather than first implementation.
 
-- [ ] Production billing.
-- [ ] Usage controls and quotas.
-- [ ] Subscription lifecycle.
-- [ ] Multi-project support.
+- [x] Production billing foundations.
+- [x] Usage controls and workflow capacity.
+- [x] Subscription checkout / lifecycle foundations.
+- [ ] Measure real plan usage and margins.
+- [ ] Tune plan boundaries from evidence.
+- [ ] Multi-project experience beyond current plan limits where evidence warrants it.
 - [ ] Collaboration where users demand it.
-- [ ] Review queues and shared decisions.
 - [ ] Export/publishing workflows.
-- [ ] Clear plan boundaries based on real usage.
-
-Pricing should remain simple and outcome-oriented. See [`pricing-strategy.md`](pricing-strategy.md).
 
 ## Phase 8 — Documentation / company knowledge QA experiment
 
-**Goal:** test the original long-term hypothesis that the Canon/change-regression engine also applies to non-fiction organizational knowledge.
-
-This phase is intentionally **after creator-market validation**. It is not the current product positioning.
+Only after creator-market validation:
 
 - [ ] Identify documentation-heavy design partners.
 - [ ] Map real sources and change workflows.
 - [ ] Identify costly knowledge regressions.
-- [ ] Reuse narrative claim/dependency primitives.
-- [ ] Prove that the same engine catches meaningful regressions.
+- [ ] Reuse claim/dependency/approval primitives.
+- [ ] Prove meaningful regression detection.
 - [ ] Obtain a paid pilot before building a B2B product.
-
-Potential future positioning:
-
-> **Documentation QA: test knowledge changes before they become company-wide misinformation.**
-
-If the problem does not demonstrate sufficient pain, frequency and willingness to pay, stop expansion.
 
 ## Phase 9 — Agentic resolution / knowledge infrastructure
 
@@ -211,7 +164,6 @@ Only after repeated commercial evidence:
 - [ ] Agent investigation of detected regressions.
 - [ ] Proposed minimal fixes.
 - [ ] Re-validation after fixes.
-- [ ] API / webhooks.
 - [ ] Multi-user governance.
 - [ ] Audit logs.
 - [ ] Enterprise access controls.
@@ -220,46 +172,20 @@ Only after repeated commercial evidence:
 
 ## LLM strategy
 
-The LLM layer is an enabling capability, not the product moat. Model quality and pricing will change; the Canon, provenance, evidence, approval history and regression logic should remain provider-independent.
+The LLM layer is an enabling capability, not the product moat. **Gemini is the current implementation.** The provider abstraction should remain provider-independent, but additional providers should be added only when representative benchmarks demonstrate a meaningful quality, cost or latency advantage.
 
-Current provider abstraction:
-
-```text
-LLMProvider
-├── GeminiProvider
-├── OpenAIProvider
-├── AnthropicProvider
-└── MistralProvider
-```
-
-Keep Gemini as the initial implementation. Add providers only when representative benchmarks show a meaningful quality, cost or latency advantage.
-
-Do not make model choice the primary marketing message.
+Do not document OpenAI, Anthropic or Mistral as implemented providers unless the corresponding code exists.
 
 ## Deferred / explicitly deprioritized
 
-- [ ] Competing directly with generic AI writing assistants on generation volume.
-- [ ] Building a simple lore/wiki product.
-- [ ] Replacing professional screenplay editors.
-- [ ] Replacing established RPG campaign-management tools as static systems of record.
-- [ ] Building three separate vertical products before validating the common problem.
-- [ ] Documentation/company knowledge SaaS before creator-market evidence.
-- [ ] Large-scale vector/RAG infrastructure before a measured retrieval bottleneck.
-- [ ] Enterprise infrastructure before product-market evidence.
-- [ ] Metrics/observability work that does not directly support current product reliability or economics.
-
-## Existing technical assets to preserve
-
-- explicit application use cases;
-- replaceable LLM providers;
-- approval gates;
-- chapter versions and review decisions;
-- canonical summaries;
-- bounded retries;
-- persistence and history;
-- lore / character / outline workflows;
-- validation and linting;
-- durable workflow checkpoints and idempotency.
+- Competing with generic AI writing assistants on generation volume.
+- Building a simple lore/wiki product.
+- Replacing professional screenplay editors.
+- Replacing established RPG campaign-management tools as static systems of record.
+- Building separate vertical products before validating the common problem.
+- Documentation/company knowledge SaaS before creator-market evidence.
+- Large-scale vector/RAG infrastructure before a measured retrieval bottleneck.
+- Enterprise infrastructure before product-market evidence.
 
 ## Decision gates
 
@@ -267,7 +193,7 @@ Every expansion must answer:
 
 1. **Value:** does the loop solve a painful continuity problem?
 2. **Trust:** do users trust the Canon and evidence?
-3. **Frequency:** does the workflow recur often enough for SaaS retention?
+3. **Frequency:** does the workflow recur often enough for retention?
 4. **Differentiation:** is the advantage meaningful versus a generic LLM plus existing tools?
 5. **Willingness to pay:** does the outcome justify payment?
 6. **Economics:** can the workflow maintain healthy margins?
