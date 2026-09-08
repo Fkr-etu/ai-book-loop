@@ -13,7 +13,9 @@ class AuthToken:
 
 @dataclass(frozen=True)
 class RateLimitReservation:
+    allowed: bool
     event_id: int | None = None
+    retry_after_seconds: int | None = None
 
 
 class AuthRepository(Protocol):
