@@ -7,9 +7,9 @@ test.describe("Book Loop — frontend API error states", () => {
   test.skip(!realApiEnabled, "Requires NEXT_PUBLIC_USE_REAL_API=true");
 
   for (const scenario of [
-    { status: 401, message: "Votre session a expiré. Reconnectez-vous pour continuer.", action: "Se reconnecter" },
-    { status: 403, message: "Vous n’avez pas accès à ce livre.", action: "Réessayer" },
-    { status: 404, message: "Ce livre n’existe plus ou n’est plus disponible.", action: "Réessayer" },
+    { status: 401, message: "Votre session a expiré. Reconnectez-vous pour continuer.", action: "Se reconnecter", actionType: "link" as const },
+    { status: 403, message: "Vous n’avez pas accès à ce livre.", action: "Réessayer", actionType: "button" as const },
+    { status: 404, message: "Ce livre n’existe plus ou n’est plus disponible.", action: "Réessayer", actionType: "button" as const },
   ]) {
     test(`${scenario.status} shows a contextual Studio error`, async ({ page }) => {
       await page.route(`${apiBaseUrl}/api/books/**`, async (route) => {
@@ -23,9 +23,11 @@ test.describe("Book Loop — frontend API error states", () => {
       await page.goto(`/studio?bookId=error-state-${scenario.status}`);
 
       await expect(page.getByRole("alert")).toContainText(scenario.message);
-      await expect(page.getByRole("button", { name: scenario.action })).toBeVisible().catch(async () => {
+      if (scenario.actionType === "link") {
         await expect(page.getByRole("link", { name: scenario.action })).toBeVisible();
-      });
+      } else {
+        await expect(page.getByRole("button", { name: scenario.action })).toBeVisible();
+      }
     });
   }
 });
