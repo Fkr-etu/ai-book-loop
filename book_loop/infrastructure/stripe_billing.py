@@ -86,6 +86,48 @@ class StripeBillingRepository:
             (subscription_id, status, current_period_end, cancel_at_period_end, plan.value, customer_id),
         )
 
+    def apply_subscription_event(
+        self,
+        *,
+        event_id: str,
+        event_type: str,
+        customer_id: str,
+        subscription_id: str | None,
+        status: str,
+        plan: SubscriptionPlan,
+        current_period_end: datetime | None,
+        cancel_at_period_end: bool,
+    ) -> bool:
+        """Atomically record a webhook and update its entitlement.
+
+        The event marker and entitlement update share one transaction. If the
+        entitlement update fails, the event marker is rolled back so Stripe can
+        safely retry the webhook.
+        """
+        with self._connection.transaction():
+            row = self._connection.execute(
+                "INSERT INTO stripe_webhook_events(event_id, event_type) VALUES(%s, %s) ON CONFLICT(event_id) DO NOTHING RETURNING event_id",
+                (event_id, event_type),
+            ).fetchone()
+            if row is None:
+                return False
+
+            updated = self._connection.execute(
+                """
+                UPDATE users
+                SET stripe_subscription_id = %s,
+                    subscription_status = %s,
+                    subscription_current_period_end = %s,
+                    subscription_cancel_at_period_end = %s,
+                    plan = %s
+                WHERE stripe_customer_id = %s
+                """,
+                (subscription_id, status, current_period_end, cancel_at_period_end, plan.value, customer_id),
+            )
+            if updated.rowcount != 1:
+                raise ValueError("Stripe customer is not linked to a Book Loop user")
+        return True
+
     def close(self) -> None:
         self._connection.close()
 
@@ -159,19 +201,58 @@ class StripeBillingService:
         if not self.settings.stripe_webhook_secret:
             raise RuntimeError("Stripe webhook secret is not configured")
         event = stripe.Webhook.construct_event(payload, signature, self.settings.stripe_webhook_secret)
-        if not self.repository.record_event(event["id"], event["type"]):
-            return
-
         event_type = event["type"]
         data: Any = event["data"]["object"]
+
         if event_type == "checkout.session.completed":
             subscription_id = data.get("subscription")
             customer_id = data.get("customer")
             if subscription_id and customer_id:
-                self._apply_subscription(stripe.Subscription.retrieve(subscription_id), customer_id=customer_id)
+                subscription = stripe.Subscription.retrieve(subscription_id)
+                self._apply_subscription_event(
+                    event_id=event["id"],
+                    event_type=event_type,
+                    subscription=subscription,
+                    customer_id=customer_id,
+                )
             return
         if event_type in {"customer.subscription.created", "customer.subscription.updated", "customer.subscription.deleted"}:
-            self._apply_subscription(data, customer_id=data.get("customer"))
+            self._apply_subscription_event(
+                event_id=event["id"],
+                event_type=event_type,
+                subscription=data,
+                customer_id=data.get("customer"),
+            )
+            return
+
+        self.repository.record_event(event["id"], event_type)
+
+    def _apply_subscription_event(
+        self,
+        *,
+        event_id: str,
+        event_type: str,
+        subscription: Any,
+        customer_id: str | None,
+    ) -> None:
+        if not customer_id:
+            raise ValueError("Stripe subscription webhook has no customer")
+        status = str(subscription.get("status", "inactive"))
+        items = subscription.get("items", {}).get("data", [])
+        price_id = items[0].get("price", {}).get("id") if items else None
+        plan = self._plan_for_price(price_id) if status in PAID_SUBSCRIPTION_STATUSES else SubscriptionPlan.FREE
+        period_end = subscription.get("current_period_end")
+        current_period_end = datetime.fromtimestamp(period_end, tz=timezone.utc) if period_end else None
+        self.repository.apply_subscription_event(
+            event_id=event_id,
+            event_type=event_type,
+            customer_id=customer_id,
+            subscription_id=subscription.get("id"),
+            status=status,
+            plan=plan,
+            current_period_end=current_period_end,
+            cancel_at_period_end=bool(subscription.get("cancel_at_period_end", False)),
+        )
 
     def _apply_subscription(self, subscription: Any, *, customer_id: str | None) -> None:
         if not customer_id:
