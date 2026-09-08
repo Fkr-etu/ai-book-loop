@@ -7,55 +7,31 @@ import "./globals.css";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://book-loop-web-nddyzebo7a-od.a.run.app";
 
-const playfair = Playfair_Display({
-  subsets: ["latin"],
-  variable: "--font-playfair",
-  display: "swap",
-});
-
-const merriweather = Merriweather({
-  weight: ["300", "400", "700"],
-  subsets: ["latin"],
-  variable: "--font-merriweather",
-  display: "swap",
-});
-
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
-  display: "swap",
-});
-
-const courier = Courier_Prime({
-  weight: ["400", "700"],
-  subsets: ["latin"],
-  variable: "--font-courier",
-  display: "swap",
-});
+const playfair = Playfair_Display({ subsets: ["latin"], variable: "--font-playfair", display: "swap" });
+const merriweather = Merriweather({ weight: ["300", "400", "700"], subsets: ["latin"], variable: "--font-merriweather", display: "swap" });
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
+const courier = Courier_Prime({ weight: ["400", "700"], subsets: ["latin"], variable: "--font-courier", display: "swap" });
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "Book Loop — Écrire avec l’IA, garder son histoire cohérente",
+    default: "Book Loop — Écrire, reprendre son histoire, garder le fil",
     template: "%s — Book Loop",
   },
-  description:
-    "Écrivez des histoires longues avec l’IA sans perdre le fil. Book Loop utilise un Canon narratif pour préserver personnages, lieux, événements et règles à chaque chapitre.",
+  description: "Écrivez vos histoires à votre rythme, retrouvez ce qui s'est déjà passé et continuez sans perdre le fil.",
   alternates: { canonical: "/" },
   openGraph: {
     type: "website",
     locale: "fr_FR",
     url: "/",
     siteName: "Book Loop",
-    title: "Book Loop — Écrire avec l’IA, garder son histoire cohérente",
-    description:
-      "L’atelier d’écriture IA conçu pour les histoires longues : votre Canon garde la mémoire de votre univers et vous restez l’autorité finale.",
+    title: "Book Loop — Écrire, reprendre son histoire, garder le fil",
+    description: "Un atelier pour écrire des histoires longues sans perdre le fil.",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Book Loop — Écrire avec l’IA, garder son histoire cohérente",
-    description:
-      "Écrivez avec l’IA sans perdre la cohérence de votre histoire. L’IA propose, vous décidez ce qui devient canon.",
+    title: "Book Loop — Écrire, reprendre son histoire, garder le fil",
+    description: "Écrivez, relisez et continuez votre histoire sans perdre ce qui compte.",
   },
   icons: {
     icon: "/book-loop-mark.svg",
@@ -64,11 +40,7 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="fr" className={`${playfair.variable} ${merriweather.variable} ${inter.variable} ${courier.variable}`}>
       <body className="antialiased min-h-screen bg-[#f8f9ff] text-[#0b1c30] selection:bg-[#ffddb8] selection:text-[#0b1c30]">
