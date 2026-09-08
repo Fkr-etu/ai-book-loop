@@ -4,12 +4,14 @@ import React, { useState } from "react";
 import { Navbar } from "./Navbar";
 import { Sidebar } from "./Sidebar";
 import { StudioErrorNotice } from "./StudioErrorNotice";
+import { StudioBookSelector } from "./StudioBookSelector";
 
 export function StudioLayout({ children }: { children: React.ReactNode }) {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-[#f8f9ff] flex flex-col font-inter">
+      <StudioBookSelector />
       <Navbar
         showSidebarToggle={true}
         onToggleSidebar={() => setMobileSidebarOpen(!mobileSidebarOpen)}
