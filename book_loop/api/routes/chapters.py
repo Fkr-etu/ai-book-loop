@@ -23,6 +23,10 @@ class ReviewPayload(BaseModel):
     draftText: str | None = None
 
 
+class ApprovePayload(BaseModel):
+    versionNumber: int | None = None
+
+
 def _run_chapter_workflow(container: Container, book_id: str, chapter_number: int, idempotency_key: str) -> None:
     print(f"[chapter-workflow] start book={book_id} chapter={chapter_number} key={idempotency_key}", flush=True)
     try:
@@ -86,10 +90,10 @@ def review_chapter(book_id: str, chapter_number: int, payload: ReviewPayload = B
 
 
 @router.post("/{chapter_number}/approve")
-def approve_chapter(book_id: str, chapter_number: int, container: Container = Depends(get_container)) -> dict[str, Any]:
+def approve_chapter(book_id: str, chapter_number: int, payload: ApprovePayload = Body(default_factory=ApprovePayload), container: Container = Depends(get_container)) -> dict[str, Any]:
     book = get_book(book_id, container)
     try:
-        result = container.approve_chapter_and_sync_canon().execute(book, chapter_number=chapter_number)
+        result = container.approve_chapter_and_sync_canon().execute(book, chapter_number=chapter_number, version_number=payload.versionNumber)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except KeyError as exc:
