@@ -40,24 +40,24 @@ export default function OutlinePage() {
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#c6c6cd]/30 pb-6">
           <div>
             <span className="text-xs font-mono font-bold text-[#b87500] uppercase tracking-wider block mb-1">Plan du livre</span>
-            <h1 className="font-playfair text-2xl sm:text-3xl font-bold text-[#0b1c30]">Plan du livre</h1>
-            <p className="text-xs text-[#45464d] mt-1">L&apos;IA propose le plan. Vous décidez de ce qui devient la référence pour la suite.</p>
+            <h1 className="font-playfair text-2xl sm:text-3xl font-bold text-[#0b1c30]">Votre plan</h1>
+            <p className="text-xs text-[#45464d] mt-1">Le plan vous aide à garder le cap. Vous décidez de ce qui guidera la suite de votre histoire.</p>
           </div>
           <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
             <button type="button" onClick={() => void store.generateOutline()} disabled={store.loading} className="px-3.5 py-2 bg-[#eff4ff] text-[#0b1c30] text-xs font-semibold rounded border border-[#c6c6cd]/40 hover:bg-[#e5eeff] flex items-center justify-center gap-1.5 disabled:opacity-50 flex-1 md:flex-none">
               <Sparkles className="w-3.5 h-3.5 text-[#b87500]" />
-              {store.loading ? "Génération…" : "Générer le plan"}
+              {store.loading ? "Préparation…" : "Proposer un plan"}
             </button>
             {!project.outlineApproved ? (
               <button type="button" onClick={() => void store.approveOutline()} disabled={store.loading || !project.outline} data-testid="approve-outline-btn" className="px-4 py-2 bg-[#b87500] text-white text-xs font-bold rounded hover:bg-[#9a6200] flex items-center justify-center gap-1.5 disabled:opacity-50 flex-1 md:flex-none">
-                <Check className="w-4 h-4" /> Approuver le plan
+                <Check className="w-4 h-4" /> Garder ce plan
               </button>
             ) : (
               <div className="px-3.5 py-2 bg-[#d3e4fe] text-[#0b1c30] text-xs font-bold rounded flex items-center justify-center gap-1.5 border border-[#0b1c30]/20 flex-1 md:flex-none">
-                <CheckCircle2 className="w-4 h-4" /> Plan approuvé
+                <CheckCircle2 className="w-4 h-4" /> Plan retenu
               </div>
             )}
-            <button type="button" onClick={() => setIsAddingChapter((value) => !value)} disabled={!project.outlineApproved} data-testid="add-chapter-btn" className="px-4 py-2 bg-[#0b1c30] text-[#ffddb8] text-xs font-bold rounded hover:bg-[#131b2e] flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed w-full sm:w-auto" title={!project.outlineApproved ? "Approuvez le plan avant d'ajouter un chapitre" : undefined}>
+            <button type="button" onClick={() => setIsAddingChapter((value) => !value)} disabled={!project.outlineApproved} data-testid="add-chapter-btn" className="px-4 py-2 bg-[#0b1c30] text-[#ffddb8] text-xs font-bold rounded hover:bg-[#131b2e] flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed w-full sm:w-auto" title={!project.outlineApproved ? "Gardez le plan avant d'ajouter un chapitre" : undefined}>
               <Plus className="w-4 h-4" /> Nouveau chapitre
             </button>
           </div>
@@ -66,23 +66,23 @@ export default function OutlinePage() {
         <section data-testid="outline-gate-banner" className={`p-4 border-l-4 border border-[#c6c6cd]/30 rounded-r-lg flex items-start gap-3 ${project.outlineApproved ? "bg-[#eff4ff] border-l-[#0b1c30]" : "bg-[#fff8f0] border-l-[#b87500]"}`}>
           {project.outlineApproved ? <Unlock className="w-5 h-5 text-[#0b1c30] shrink-0 mt-0.5" /> : <Lock className="w-5 h-5 text-[#b87500] shrink-0 mt-0.5" />}
           <div className="space-y-1">
-            <h2 className="text-xs font-bold text-[#0b1c30]">{project.outlineApproved ? "Plan approuvé" : "Plan proposé — votre décision est requise"}</h2>
-            <p className="text-xs text-[#45464d]">{project.outlineApproved ? "Ce plan sert maintenant de référence pour préparer les chapitres." : "L&apos;IA a proposé ce plan. Vous devez l&apos;approuver avant de pouvoir préparer les chapitres."}</p>
+            <h2 className="text-xs font-bold text-[#0b1c30]">{project.outlineApproved ? "Plan retenu" : "Un plan vous est proposé"}</h2>
+            <p className="text-xs text-[#45464d]">{project.outlineApproved ? "Ce plan sert maintenant de fil conducteur pour préparer les chapitres." : "Prenez le temps de le relire et gardez-le comme fil conducteur avant de préparer les chapitres."}</p>
           </div>
         </section>
 
         {project.outline ? (
           <section className="p-4 sm:p-5 bg-white rounded-xl border border-[#c6c6cd]/40 shadow-xs space-y-2">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-xs font-mono font-bold text-[#0b1c30] uppercase">Plan proposé</h2>
-              <span className="text-[10px] text-[#b87500]">{project.outlineApproved ? "Approuvé" : "En attente de décision"}</span>
+              <h2 className="text-xs font-mono font-bold text-[#0b1c30] uppercase">Plan</h2>
+              <span className="text-[10px] text-[#b87500]">{project.outlineApproved ? "Retenu" : "À relire"}</span>
             </div>
             <pre className="text-xs font-merriweather text-[#0f172a] whitespace-pre-wrap leading-relaxed bg-[#f8f5f0] p-3 sm:p-4 rounded border border-[#c6c6cd]/20 overflow-x-auto">{project.outline}</pre>
           </section>
         ) : (
           <section className="p-6 bg-white rounded-xl border border-dashed border-[#c6c6cd] text-center">
-            <h2 className="text-sm font-semibold text-[#0b1c30]">Aucun plan disponible</h2>
-            <p className="text-xs text-[#76777d] mt-1">Générez un plan pour obtenir une proposition à examiner.</p>
+            <h2 className="text-sm font-semibold text-[#0b1c30]">Votre plan apparaîtra ici</h2>
+            <p className="text-xs text-[#76777d] mt-1">Proposez un plan, relisez-le, puis gardez-le si cela vous convient.</p>
           </section>
         )}
 
@@ -91,7 +91,7 @@ export default function OutlinePage() {
             <h2 className="text-xs font-mono font-bold text-[#0b1c30] uppercase">Ajouter un chapitre</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <label className="space-y-1"><span className="block text-[11px] font-semibold text-[#45464d]">Titre</span><input type="text" value={newChapterTitle} onChange={(event) => setNewChapterTitle(event.target.value)} required className="w-full px-3 py-2 text-xs border border-[#c6c6cd] rounded bg-[#f8f9ff]" /></label>
-              <label className="space-y-1"><span className="block text-[11px] font-semibold text-[#45464d]">Objectif</span><input type="text" value={newChapterObjective} onChange={(event) => setNewChapterObjective(event.target.value)} className="w-full px-3 py-2 text-xs border border-[#c6c6cd] rounded bg-[#f8f9ff]" /></label>
+              <label className="space-y-1"><span className="block text-[11px] font-semibold text-[#45464d]">Fil conducteur</span><input type="text" value={newChapterObjective} onChange={(event) => setNewChapterObjective(event.target.value)} className="w-full px-3 py-2 text-xs border border-[#c6c6cd] rounded bg-[#f8f9ff]" /></label>
             </div>
             <div className="flex justify-end gap-2">
               <button type="button" onClick={() => setIsAddingChapter(false)} className="px-3 py-1.5 text-xs text-[#45464d] border border-[#c6c6cd] rounded">Annuler</button>
@@ -101,9 +101,9 @@ export default function OutlinePage() {
         )}
 
         <section className="space-y-4">
-          <div className="flex items-center justify-between"><div><h2 className="font-playfair text-xl font-bold text-[#0b1c30]">Chapitres</h2><p className="text-xs text-[#76777d] mt-1">Les chapitres et leur état sont enregistrés dans votre livre.</p></div><span className="text-xs font-mono text-[#76777d]">{chapters.length} chapitre(s)</span></div>
+          <div className="flex items-center justify-between"><div><h2 className="font-playfair text-xl font-bold text-[#0b1c30]">Chapitres</h2><p className="text-xs text-[#76777d] mt-1">Retrouvez ici les chapitres de votre livre.</p></div><span className="text-xs font-mono text-[#76777d]">{chapters.length} chapitre(s)</span></div>
           {chapters.length === 0 ? (
-            <div className="p-6 bg-white rounded-xl border border-dashed border-[#c6c6cd] text-center text-xs text-[#76777d]">Aucun chapitre disponible.</div>
+            <div className="p-6 bg-white rounded-xl border border-dashed border-[#c6c6cd] text-center text-xs text-[#76777d]">Aucun chapitre pour le moment.</div>
           ) : chapters.map((chapter) => {
             const versionCount = chapter.versions?.length ?? 0;
             const currentVersion = chapter.currentVersion;
@@ -111,12 +111,12 @@ export default function OutlinePage() {
               <article key={chapter.id} className="bg-white rounded-xl border border-[#c6c6cd]/40 shadow-xs overflow-hidden">
                 <div className="p-4 sm:p-5 bg-[#f8f9ff] border-b border-[#c6c6cd]/20 flex flex-col md:flex-row md:items-center justify-between gap-3">
                   <div className="flex items-start gap-3"><div className="w-8 h-8 rounded bg-[#0b1c30] text-[#ffddb8] font-mono font-bold text-xs flex items-center justify-center shrink-0">{chapter.number}</div><div><div className="flex flex-wrap items-center gap-2"><h3 className="font-playfair text-base sm:text-lg font-bold text-[#0b1c30]">{chapter.title}</h3><span className="text-[10px] font-mono px-2 py-0.5 rounded-full font-semibold bg-[#ffddb8] text-[#2a1700]">{chapterStatusLabel(chapter.status)}</span></div>{(chapter.objective ?? chapter.summary) && <p className="text-xs text-[#45464d] mt-1 font-merriweather">{chapter.objective ?? chapter.summary}</p>}</div></div>
-                  <button type="button" onClick={() => void store.generateChapter(chapter.number)} disabled={!project.outlineApproved || store.loading} className="px-3 py-1.5 text-xs font-semibold bg-[#0b1c30] text-white rounded hover:bg-[#131b2e] flex items-center justify-center gap-1 disabled:opacity-40"><Sparkles className="w-3.5 h-3.5 text-[#ffddb8]" />Générer une version</button>
+                  <button type="button" onClick={() => void store.generateChapter(chapter.number)} disabled={!project.outlineApproved || store.loading} className="px-3 py-1.5 text-xs font-semibold bg-[#0b1c30] text-white rounded hover:bg-[#131b2e] flex items-center justify-center gap-1 disabled:opacity-40"><Sparkles className="w-3.5 h-3.5 text-[#ffddb8]" />Proposer une version</button>
                 </div>
                 <div className="p-4 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                   <div className="p-3 rounded border border-[#c6c6cd]/30 bg-[#f8f9ff]"><div className="text-[#76777d]">Version actuelle</div><div className="font-mono font-bold text-[#0b1c30] mt-1">{currentVersion == null ? "—" : `V${currentVersion}`}</div></div>
-                  <div className="p-3 rounded border border-[#c6c6cd]/30 bg-[#f8f9ff]"><div className="text-[#76777d]">Versions</div><div className="font-mono font-bold text-[#0b1c30] mt-1">{versionCount}</div></div>
-                  <div className="p-3 rounded border border-[#c6c6cd]/30 bg-[#f8f9ff]"><div className="text-[#76777d]">Décision</div><div className="font-mono font-bold text-[#0b1c30] mt-1">{chapter.status}</div></div>
+                  <div className="p-3 rounded border border-[#c6c6cd]/30 bg-[#f8f9ff]"><div className="text-[#76777d]">Versions conservées</div><div className="font-mono font-bold text-[#0b1c30] mt-1">{versionCount}</div></div>
+                  <div className="p-3 rounded border border-[#c6c6cd]/30 bg-[#f8f9ff]"><div className="text-[#76777d]">Décision</div><div className="font-mono font-bold text-[#0b1c30] mt-1">{chapterStatusLabel(chapter.status)}</div></div>
                 </div>
               </article>
             );

@@ -7,9 +7,9 @@ import { ArrowRight, Check, Loader2 } from "lucide-react";
 import { getApiClient } from "@/services/api";
 
 const plans = [
-  { id: "free", name: "Free", subtitle: "Pour découvrir Book Loop sur un premier projet.", monthlyPrice: 0, yearlyPrice: 0, features: ["1 projet", "Création avec IA limitée", "Vérification de cohérence limitée", "Canon et univers persistant", "Historique limité"], popular: false },
-  { id: "creator", name: "Creator", subtitle: "Pour les créateurs qui veulent travailler sérieusement avec l'IA.", monthlyPrice: 19, yearlyPrice: 190, features: ["Jusqu'à 3 projets", "Création avec IA", "Vérification de cohérence", "Canon et univers persistant", "Historique et versions", "Revue et corrections"], popular: true },
-  { id: "pro", name: "Pro", subtitle: "Pour les projets ambitieux et les univers qui évoluent beaucoup.", monthlyPrice: 39, yearlyPrice: 390, features: ["Jusqu'à 10 projets", "Création avec IA", "Vérification de cohérence renforcée", "Canon et univers persistant", "Historique et versions complet", "Revue et corrections", "Priorité de traitement", "Support prioritaire"], popular: false }
+  { id: "free", name: "Free", subtitle: "Pour commencer une première histoire.", monthlyPrice: 0, yearlyPrice: 0, features: ["1 projet", "Création limitée", "Relire votre texte", "Votre univers conservé", "Historique limité"], popular: false },
+  { id: "creator", name: "Creator", subtitle: "Pour écrire régulièrement et faire grandir vos histoires.", monthlyPrice: 19, yearlyPrice: 190, features: ["Jusqu'à 3 projets", "Création sans limite de projet", "Relire et améliorer vos textes", "Votre univers conservé", "Historique et versions", "Relecture et corrections"], popular: true },
+  { id: "pro", name: "Pro", subtitle: "Pour les projets ambitieux et les univers qui évoluent beaucoup.", monthlyPrice: 39, yearlyPrice: 390, features: ["Jusqu'à 10 projets", "Création sans limite de projet", "Relecture renforcée", "Votre univers conservé", "Historique complet", "Relecture et corrections", "Traitement prioritaire", "Support prioritaire"], popular: false }
 ];
 
 export default function PricingPage() {
@@ -46,9 +46,9 @@ export default function PricingPage() {
       <Navbar />
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-12 md:py-16 space-y-12">
         <header className="text-center max-w-3xl mx-auto space-y-4">
-          <p className="text-xs font-mono font-bold text-[#b87500] uppercase tracking-wider">Tarifs simples, sans compteur de tokens</p>
-          <h1 className="font-playfair text-4xl sm:text-5xl font-bold text-[#0b1c30] tracking-tight">Payez pour créer. Pas pour compter les tokens.</h1>
-          <p className="text-sm sm:text-base text-[#45464d] leading-relaxed">Des limites d'utilisation équitables nous permettent de garder Book Loop rapide, prévisible et abordable. Vous pouvez changer ou arrêter votre abonnement à tout moment.</p>
+          <p className="text-xs font-mono font-bold text-[#b87500] uppercase tracking-wider">Des tarifs simples</p>
+          <h1 className="font-playfair text-4xl sm:text-5xl font-bold text-[#0b1c30] tracking-tight">Choisissez la façon dont vous voulez écrire.</h1>
+          <p className="text-sm sm:text-base text-[#45464d] leading-relaxed">Commencez gratuitement. Quand vos histoires prennent de l'ampleur, choisissez l'offre qui vous convient. Vous pouvez changer ou arrêter votre abonnement à tout moment.</p>
           <div className="inline-flex items-center gap-1 rounded-full bg-white border border-[#c6c6cd]/50 p-1 text-xs font-semibold">
             <button type="button" onClick={() => setBillingCycle("monthly")} className={`px-4 py-2 rounded-full ${billingCycle === "monthly" ? "bg-[#0b1c30] text-white" : "text-[#45464d]"}`}>Mensuel</button>
             <button type="button" onClick={() => setBillingCycle("yearly")} className={`px-4 py-2 rounded-full ${billingCycle === "yearly" ? "bg-[#0b1c30] text-white" : "text-[#45464d]"}`}>Annuel <span className="text-[#b87500]">~2 mois offerts</span></button>
