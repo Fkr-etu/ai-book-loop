@@ -103,6 +103,15 @@ def test_api_requires_authentication(test_client):
     assert test_client.post("/api/books", json={"title": "x", "theme": "x", "author_idea": "x"}).status_code == 401
 
 
+def test_unauthenticated_cors_error_keeps_allow_origin_header(test_client):
+    test_client.post("/api/auth/logout")
+    origin = "http://localhost:3000"
+    response = test_client.get("/api/books/anything", headers={"Origin": origin})
+    assert response.status_code == 401
+    assert response.headers["access-control-allow-origin"] == origin
+    assert response.headers["access-control-allow-credentials"] == "true"
+
+
 def test_books_are_isolated_between_users(test_client):
     book_id = create_book(test_client, "Private Book")
     test_client.post("/api/auth/logout")
