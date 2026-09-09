@@ -11,9 +11,10 @@ from book_loop.domain.embedding import CanonicalFactEmbedding
 from book_loop.domain.models import CanonicalFact
 
 
-# A deterministic, hand-labelled corpus keeps the benchmark reproducible in CI while
-# exercising the same retrieval path used by the application. The corpus deliberately
-# contains several books and distractors with overlapping vocabulary.
+# Deterministic regression corpus. It exercises the same retrieval path as the
+# application across several books, with paraphrases and lexical distractors.
+# Semantic vectors are deliberately hand-labelled: this test validates the
+# retrieval pipeline and fusion rules, not the quality of a specific embedding model.
 CORPUS = (
     ("fantasy", "1", "Maëlle porte une amulette protectrice héritée de sa mère", "protection"),
     ("fantasy", "2", "Le vieux pont de pierre cache une entrée vers les catacombes", "passage"),
@@ -121,7 +122,7 @@ class BenchmarkStore:
         return {fact_id: self.entries[fact_id] for fact_id in fact_ids if fact_id in self.entries}
 
 
-def test_retrieval_benchmark_on_multi_book_corpus() -> None:
+def test_retrieval_pipeline_regression_on_multi_book_corpus() -> None:
     facts = [fact(book_id, number, statement) for book_id, number, statement, _ in CORPUS]
     cases = tuple(
         RetrievalEvaluationCase(
@@ -145,8 +146,8 @@ def test_retrieval_benchmark_on_multi_book_corpus() -> None:
     semantic_report = evaluator.evaluate(semantic, facts, cases)
     hybrid_report = evaluator.evaluate(hybrid, facts, cases)
 
-    # The benchmark is intentionally diagnostic: semantic retrieval should add value
-    # on paraphrased queries, while hybrid retrieval must not regress the lexical baseline.
+    # Semantic retrieval should improve paraphrase recall, while hybrid retrieval
+    # must preserve the lexical baseline's quality.
     assert semantic_report.mean_recall_at_k > lexical_report.mean_recall_at_k
     assert semantic_report.mean_reciprocal_rank > lexical_report.mean_reciprocal_rank
     assert semantic_report.hit_rate_at_k >= lexical_report.hit_rate_at_k
