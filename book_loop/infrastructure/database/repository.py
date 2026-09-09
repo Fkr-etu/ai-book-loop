@@ -95,10 +95,28 @@ class BookRepositoryMixin:
 
     def save_chapter_version(self, book_id: str, chapter_number: int, version: int, draft: str) -> None:
         self._connection.execute("INSERT INTO chapter_versions(book_id, chapter_number, version, draft) VALUES(?, ?, ?, ?)", (book_id, chapter_number, version, draft)); self._connection.commit()
+
     def get_chapter_version(self, book_id: str, chapter_number: int, version: int) -> str:
         row = self._connection.execute("SELECT draft FROM chapter_versions WHERE book_id = ? AND chapter_number = ? AND version = ?", (book_id, chapter_number, version)).fetchone()
         if row is None: raise KeyError(f"Unknown chapter version: {chapter_number} v{version}")
         return str(row["draft"])
+
+    def list_chapter_versions(self, book_id: str, chapter_number: int) -> list[dict[str, Any]]:
+        """Return all persisted drafts for a chapter in version order."""
+        rows = self._connection.execute(
+            "SELECT id, version, draft, created_at FROM chapter_versions WHERE book_id = ? AND chapter_number = ? ORDER BY version",
+            (book_id, chapter_number),
+        ).fetchall()
+        return [
+            {
+                "id": row["id"],
+                "version": row["version"],
+                "draft": row["draft"],
+                "created_at": str(row["created_at"]),
+            }
+            for row in rows
+        ]
+
     def save_review(self, book_id: str, chapter_number: int, version: int, review: SceneReview) -> None:
         self._connection.execute("INSERT INTO reviews(book_id, chapter_number, version, score, approved, issues, suggestions) VALUES(?, ?, ?, ?, ?, ?, ?)", (book_id, chapter_number, version, review.score, review.approved, json.dumps(review.issues), json.dumps(review.suggestions))); self._connection.commit()
 
