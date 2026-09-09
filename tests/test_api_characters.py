@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 
 import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from book_loop.api.app import create_app
@@ -14,13 +15,17 @@ DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://book_loop:book_loop@local
 PASSWORD = "SecurePassword123!"
 
 
-@pytest.fixture
-def client():
+def make_client(email: str) -> TestClient:
     settings = Settings(database_url=DATABASE_URL, auth_secret_key=TEST_SECRET)
     client = TestClient(create_app(Container(settings=settings)))
-    response = client.post("/api/auth/register", json={"email": "character@example.com", "password": PASSWORD, "name": "Author"})
+    response = client.post("/api/auth/register", json={"email": email, "password": PASSWORD, "name": "Author"})
     assert response.status_code == 201
     return client
+
+
+@pytest.fixture
+def client():
+    return make_client("character@example.com")
 
 
 def create_book(client: TestClient, title: str = "Character Book") -> str:
@@ -70,10 +75,17 @@ def test_character_crud_and_relations(client: TestClient):
 
 def test_character_api_does_not_cross_book_boundary(client: TestClient):
     book_a = create_book(client, "Book A")
-    book_b = create_book(client, "Book B")
     character = client.post(f"/api/books/{book_a}/characters", json={"name": "Private"})
+    assert character.status_code == 201
     character_id = character.json()["id"]
 
-    assert client.get(f"/api/books/{book_b}/characters/{character_id}").status_code == 404
-    assert client.put(f"/api/books/{book_b}/characters/{character_id}", json={"name": "Stolen"}).status_code == 404
-    assert client.delete(f"/api/books/{book_b}/characters/{character_id}").status_code == 404
+    # The free tier intentionally allows only one active book per account.
+    # Use a second authenticated account to obtain another book without
+    # weakening the production capacity rule; the API must still reject
+    # access to a character belonging to the first book.
+    other_client = make_client("character-other@example.com")
+    book_b = create_book(other_client, "Book B")
+
+    assert other_client.get(f"/api/books/{book_b}/characters/{character_id}").status_code == 404
+    assert other_client.put(f"/api/books/{book_b}/characters/{character_id}", json={"name": "Stolen"}).status_code == 404
+    assert other_client.delete(f"/api/books/{book_b}/characters/{character_id}").status_code == 404
