@@ -7,6 +7,7 @@ from book_loop.application.use_cases.detect_conflicts import DetectConflicts
 from book_loop.application.use_cases.extract_chapter_assertions import ExtractChapterAssertions
 from book_loop.domain.models import BookState, Conflict, IngestionResult
 from book_loop.domain.protocols import AssertionExtractor, BookRepository, KnowledgeRepository
+from book_loop.domain.temporal import AssertionTemporalContextStore
 
 
 @dataclass(frozen=True)
@@ -25,14 +26,19 @@ class ApproveChapterAndSyncCanon:
         book_repository: BookRepository,
         knowledge_repository: KnowledgeRepository,
         extractor: AssertionExtractor,
+        temporal_context_store: AssertionTemporalContextStore | None = None,
     ) -> None:
         self._approve = ApproveChapter(book_repository)
         self._extract = ExtractChapterAssertions(
             book_repository=book_repository,
             knowledge_repository=knowledge_repository,
             extractor=extractor,
+            temporal_context_store=temporal_context_store,
         )
-        self._detect_conflicts = DetectConflicts(knowledge_repository)
+        self._detect_conflicts = DetectConflicts(
+            knowledge_repository,
+            temporal_context_store=temporal_context_store,
+        )
 
     def execute(self, book: BookState, *, chapter_number: int, version_number: int | None = None) -> ApprovedChapterCanonSync:
         approved = self._approve.execute(book, chapter_number=chapter_number, version_number=version_number)
