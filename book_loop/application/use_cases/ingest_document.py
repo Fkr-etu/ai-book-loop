@@ -5,6 +5,8 @@ from uuid import uuid4
 
 from book_loop.domain.models import Assertion, DocumentChunk, Evidence, IngestionResult, SourceDocument
 from book_loop.domain.protocols import AssertionExtractor, KnowledgeRepository
+from book_loop.domain.temporal import TemporalScope, TemporalScopeKind
+from book_loop.infrastructure.database.temporal_context import TemporalContextStore
 
 
 class IngestDocument:
@@ -14,6 +16,9 @@ class IngestDocument:
         self._repository = repository
         self._extractor = extractor
         self._chunk_size = chunk_size
+        self._temporal_context_store = (
+            TemporalContextStore(repository) if hasattr(repository, "_connection") else None
+        )
 
     def execute(self, *, book_id: str, name: str, source_type: str, content: str, metadata: dict[str, str] | None = None) -> IngestionResult:
         normalized = content.replace("\r\n", "\n").replace("\r", "\n").strip()
@@ -24,14 +29,16 @@ class IngestDocument:
         if existing is not None:
             return IngestionResult(source_document=existing, already_ingested=True)
 
+        source_metadata = metadata or {}
         source = SourceDocument(
             id=str(uuid4()), book_id=book_id, name=name.strip(), source_type=source_type.strip(),
-            content=normalized, content_hash=content_hash, metadata=metadata or {}, version=1,
+            content=normalized, content_hash=content_hash, metadata=source_metadata, version=1,
         )
         self._repository.save_source(source)
         chunks = self._chunk(source)
         assertions: list[Assertion] = []
         evidence: list[Evidence] = []
+        temporal_scope = self._temporal_scope(source_metadata)
         for chunk in chunks:
             self._repository.save_chunk(chunk)
             for extracted in self._extractor.extract(chunk=chunk):
@@ -54,10 +61,28 @@ class IngestDocument:
                     end_offset=chunk.start_offset + extracted.end_offset, excerpt=excerpt,
                 )
                 self._repository.save_assertion(assertion)
+                if self._temporal_context_store is not None and temporal_scope is not None:
+                    self._temporal_context_store.save_temporal_scope(
+                        assertion_id=assertion.id,
+                        scope=temporal_scope,
+                    )
                 self._repository.save_evidence(item)
                 assertions.append(assertion)
                 evidence.append(item)
         return IngestionResult(source_document=source, chunks=chunks, assertions=assertions, evidence=evidence)
+
+    @staticmethod
+    def _temporal_scope(metadata: dict[str, str]) -> TemporalScope | None:
+        chapter_number = metadata.get("chapter_number", "").strip()
+        if not chapter_number:
+            return None
+        try:
+            position = int(chapter_number)
+        except ValueError as exc:
+            raise ValueError("chapter_number metadata must be an integer") from exc
+        if position < 0:
+            raise ValueError("chapter_number metadata must be non-negative")
+        return TemporalScope(kind=TemporalScopeKind.STORY_POINT, position=position)
 
     def _chunk(self, source: SourceDocument) -> list[DocumentChunk]:
         chunks: list[DocumentChunk] = []
