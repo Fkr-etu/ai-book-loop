@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-import json
-from typing import Any
-
 from book_loop.domain.temporal import TemporalScope, TemporalScopeKind
 
 
@@ -29,17 +26,18 @@ class TemporalContextRepositoryMixin:
             return None
         return TemporalScope(kind=TemporalScopeKind(row["kind"]), position=row["position"])
 
-    def list_temporal_scopes(self, *, assertion_ids: list[str]) -> dict[str, TemporalScope]:
-        if not assertion_ids:
-            return {}
-        rows = self._connection.execute(
-            "SELECT assertion_id, kind, position FROM assertion_temporal_contexts WHERE assertion_id = ANY(?)",
-            (assertion_ids,),
-        ).fetchall()
-        return {
-            row["assertion_id"]: TemporalScope(
-                kind=TemporalScopeKind(row["kind"]),
-                position=row["position"],
-            )
-            for row in rows
-        }
+
+class TemporalContextStore:
+    """Adapter that lets existing repositories expose temporal context without changing their public base class."""
+
+    def __init__(self, repository: object) -> None:
+        connection = getattr(repository, "_connection", None)
+        if connection is None:
+            raise TypeError("Repository does not expose a database connection")
+        self._connection = connection
+
+    def save_temporal_scope(self, *, assertion_id: str, scope: TemporalScope) -> None:
+        TemporalContextRepositoryMixin.save_temporal_scope(self, assertion_id=assertion_id, scope=scope)
+
+    def get_temporal_scope(self, *, assertion_id: str) -> TemporalScope | None:
+        return TemporalContextRepositoryMixin.get_temporal_scope(self, assertion_id=assertion_id)
