@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+from book_loop.application.ports.knowledge import CanonicalKnowledgeRetriever, KnowledgeRepository
 from book_loop.application.services.retrieval import CanonicalRetriever
 from book_loop.domain.models import BookState
-from book_loop.domain.protocols import CanonicalKnowledgeRetriever, KnowledgeRepository
 
 
 class ContextBuilder:
