@@ -36,6 +36,28 @@ CORPUS = (
     ("c03", "Elara détruit le noyau de l'Écho Prédateur avec Givre-Âme", "finisher"),
     ("c03", "Elara et Kael décident de marcher ensemble vers Port-Argent", "port-argent"),
     ("c03", "Elara et Kael reconnaissent qu'ils ne se font pas confiance", "trust"),
+    ("c04", "Myra sauve Elara et Kael après leur affrontement avec l'Écho", "myra-rescue"),
+    ("c04", "Myra est une mercenaire rencontrée sur la route de Port-Argent", "myra"),
+    ("c04", "Myra conduit Elara et Kael jusqu'à Port-Argent", "arrival"),
+    ("c04", "Elara et Kael acceptent l'aide de Myra malgré leur méfiance", "reluctant-help"),
+    ("c05", "Le Marché aux Esprits vend des fragments de conscience de Djinns captifs", "spirit-market"),
+    ("c05", "La Rose des Vents sert de refuge aux voyageurs à Port-Argent", "rose-des-vents"),
+    ("c05", "Kael ressent de la culpabilité après le détournement du Secteur 402", "guilt"),
+    ("c05", "Le trio enquête sur les trafics liés aux Djinns au Marché aux Esprits", "investigation"),
+    ("c06", "Un Goliath-V attaque les protagonistes à proximité de Port-Argent", "goliath"),
+    ("c06", "Valerius poursuit Elara en tant que son ancien mentor", "valerius"),
+    ("c06", "Myra, Elara et Kael prennent la route vers le Cœur de Verre", "glass-heart"),
+    ("c06", "Elara reconnaît Valerius comme son mentor avant leur fuite", "mentor"),
+    ("c07", "L'Arbitre veut monétiser l'extinction des Djinns", "arbitre"),
+    ("c07", "Un siphon sous le Palais de Verre extrait les ressources du Gisement", "palace-siphon"),
+    ("c07", "Myra refuse de tuer Elara et Kael malgré la pression de l'Arbitre", "refusal"),
+    ("c07", "Le trio découvre les installations du Palais de Verre", "discovery"),
+    ("c08", "Kael découvre que l'Arbitre extrait des fréquences de mémoire du Gisement pour prolonger sa vie", "memory-frequencies"),
+    ("c08", "Quatre Clés de Djinn sont nécessaires pour ouvrir le portail vers la Source", "four-keys"),
+    ("c08", "Elara, Kael et Myra s'échappent du Palais de Verre", "escape-palace"),
+    ("c08", "Le trio part vers l'est à la recherche du Gardien", "guardian"),
+    ("c08", "Kael comprend que le Gisement est exploité pour prolonger une vie humaine", "understanding"),
+    ("c08", "Les trois compagnons poursuivent leur route ensemble après leur fuite", "companions"),
 )
 
 QUERIES = (
@@ -63,6 +85,28 @@ QUERIES = (
     ("qui porte le coup final à l'Écho", 21, "finisher"),
     ("leur prochaine destination commune", 22, "port-argent"),
     ("ce qu'ils pensent de leur confiance mutuelle", 23, "trust"),
+    ("qui secourt Elara et Kael après le combat", 24, "myra-rescue"),
+    ("le métier de Myra", 25, "myra"),
+    ("dans quelle ville Myra les conduit", 26, "arrival"),
+    ("pourquoi Elara et Kael acceptent l'aide de Myra", 27, "reluctant-help"),
+    ("ce que vend le Marché aux Esprits", 28, "spirit-market"),
+    ("le lieu qui sert de refuge à Port-Argent", 29, "rose-des-vents"),
+    ("le sentiment de Kael après le Secteur 402", 30, "guilt"),
+    ("ce que le trio enquête au Marché aux Esprits", 31, "investigation"),
+    ("la créature qui attaque près de Port-Argent", 32, "goliath"),
+    ("qui poursuit Elara depuis son passé", 33, "valerius"),
+    ("vers quel lieu le trio se dirige après Port-Argent", 34, "glass-heart"),
+    ("la relation passée entre Elara et Valerius", 35, "mentor"),
+    ("ce que l'Arbitre veut faire de l'extinction des Djinns", 36, "arbitre"),
+    ("où se trouve le siphon qui exploite le Gisement", 37, "palace-siphon"),
+    ("pourquoi Myra refuse de tuer les deux fugitifs", 38, "refusal"),
+    ("ce que découvre le trio au Palais de Verre", 39, "discovery"),
+    ("ce que l'Arbitre extrait pour prolonger sa vie", 40, "memory-frequencies"),
+    ("combien de Clés de Djinn ouvrent le portail", 41, "four-keys"),
+    ("comment le trio quitte le Palais de Verre", 42, "escape-palace"),
+    ("dans quelle direction ils partent après leur fuite", 43, "guardian"),
+    ("ce que Kael comprend sur l'exploitation du Gisement", 44, "understanding"),
+    ("ce que font les trois compagnons après leur fuite", 45, "companions"),
 )
 
 GROUPS = tuple(dict.fromkeys(group for _, _, group in CORPUS))
@@ -108,7 +152,7 @@ class BenchmarkStore:
         return {fact_id: self.entries[fact_id] for fact_id in fact_ids if fact_id in self.entries}
 
 
-def test_retrieval_pipeline_regression_on_livre_1_corpus() -> None:
+def test_retrieval_pipeline_regression_on_full_livre_1_corpus() -> None:
     facts = [fact(chapter, index, statement) for index, (chapter, statement, _) in enumerate(CORPUS)]
     cases = tuple(
         RetrievalEvaluationCase(
