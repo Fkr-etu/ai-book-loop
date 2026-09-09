@@ -2,90 +2,81 @@ from __future__ import annotations
 
 from book_loop.application.services.hybrid_retrieval import HybridCanonicalRetriever
 from book_loop.application.services.retrieval import CanonicalRetriever
-from book_loop.application.services.retrieval_evaluation import (
-    RetrievalEvaluationCase,
-    RetrievalEvaluator,
-)
+from book_loop.application.services.retrieval_evaluation import RetrievalEvaluationCase, RetrievalEvaluator
 from book_loop.application.services.semantic_retrieval import EmbeddingCanonicalRetriever
 from book_loop.domain.embedding import CanonicalFactEmbedding
 from book_loop.domain.models import CanonicalFact
 
 
-# A deterministic, hand-labelled corpus keeps the benchmark reproducible in CI while
-# exercising the same retrieval path used by the application. The corpus deliberately
-# contains several books and distractors with overlapping vocabulary.
+# Source-grounded deterministic corpus extracted from Fkr-etu/M4ges Livre I.
+# Only compact factual representations are stored here, not the manuscript prose.
+# Hand-labelled vectors validate retrieval plumbing and fusion, not Gemini quality.
 CORPUS = (
-    ("fantasy", "1", "Maëlle porte une amulette protectrice héritée de sa mère", "protection"),
-    ("fantasy", "2", "Le vieux pont de pierre cache une entrée vers les catacombes", "passage"),
-    ("fantasy", "3", "Le conseil interdit les sortilèges de feu dans la cité", "magic"),
-    ("fantasy", "4", "Un corbeau blanc avertit Maëlle avant chaque danger", "omen"),
-    ("fantasy", "5", "Le prince conserve une carte secrète des frontières du royaume", "map"),
-    ("fantasy", "6", "La forge royale produit des lames en acier noir", "weapon"),
-    ("fantasy", "7", "La rivière souterraine alimente les jardins du palais", "water"),
-    ("fantasy", "8", "Une ancienne cloche sonne lorsque la lune atteint son zénith", "signal"),
-    ("fantasy", "9", "Maëlle refuse de révéler le nom véritable du sorcier", "identity"),
-    ("fantasy", "10", "Les gardes patrouillent autour de la porte nord chaque nuit", "guard"),
-    ("fantasy", "11", "Le manuscrit décrit un rituel capable de briser une malédiction", "curse"),
-    ("fantasy", "12", "Le village célèbre la récolte autour d'un grand feu", "festival"),
-    ("thriller", "1", "Nora dissimule la clé USB dans la doublure de son manteau", "evidence"),
-    ("thriller", "2", "La caméra du parking cesse d'enregistrer à vingt-trois heures", "surveillance"),
-    ("thriller", "3", "Un témoin affirme avoir vu une berline noire devant l'entrepôt", "witness"),
-    ("thriller", "4", "Le laboratoire conserve les échantillons dans une chambre froide", "laboratory"),
-    ("thriller", "5", "Nora reçoit un message anonyme lui ordonnant de fuir la ville", "threat"),
-    ("thriller", "6", "Le commissaire garde les dossiers de l'enquête dans un coffre", "investigation"),
-    ("thriller", "7", "Le téléphone jetable sonne une seule fois avant de disparaître", "phone"),
-    ("thriller", "8", "Le tunnel ferroviaire possède une sortie condamnée depuis dix ans", "tunnel"),
-    ("thriller", "9", "Un badge falsifié permet d'entrer dans la zone sécurisée", "access"),
-    ("thriller", "10", "La voiture de Nora porte une rayure profonde sur l'aile arrière", "vehicle"),
-    ("thriller", "11", "Le rapport financier révèle des virements vers une société écran", "money"),
-    ("thriller", "12", "Un journaliste conserve une copie de la preuve originale", "archive"),
-    ("romance", "1", "Élise garde la lettre de Julien dans la poche de son manteau", "letter"),
-    ("romance", "2", "Julien joue du piano chaque dimanche dans le petit café", "music"),
-    ("romance", "3", "Le couple se retrouve près du phare après chaque dispute", "meeting"),
-    ("romance", "4", "Élise rêve d'ouvrir une librairie au bord de la mer", "dream"),
-    ("romance", "5", "La vieille maison familiale doit être vendue avant l'hiver", "house"),
-    ("romance", "6", "Julien déteste les voyages en avion mais adore les trains", "travel"),
-    ("romance", "7", "Une photo de leur premier été est accrochée au salon", "memory"),
-    ("romance", "8", "Élise rencontre la sœur de Julien lors d'un dîner improvisé", "family"),
-    ("romance", "9", "Le café ferme exceptionnellement pendant les travaux de la rue", "cafe"),
-    ("romance", "10", "Julien promet de revenir avant la première neige", "promise"),
-    ("romance", "11", "Élise cache ses billets de train dans un vieux roman", "ticket"),
-    ("romance", "12", "Le phare reste allumé malgré la tempête qui approche", "lighthouse"),
+    ("c01", "Elara garde le Cœur de Borael dans le Grand Reliquaire de Val-D'Or", "relic"),
+    ("c01", "La Cuirasse de Nacre d'Elara est forgée dans un alliage de métal et de résidus de Souffle", "armor"),
+    ("c01", "Givre-Âme est la rapière d'Elara", "elara-weapon"),
+    ("c01", "Lyra porte l'arme Éclat de Foi", "lyra-weapon"),
+    ("c01", "La Purification doit ouvrir toutes les vannes de la Flèche Blanche", "purification"),
+    ("c01", "Elara vole le Cœur de Borael et fuit la Flèche Blanche", "escape"),
+    ("c01", "La jambe gauche d'Elara se pétrifie après son contact avec le Cœur", "petrification"),
+    ("c01", "Le Talisman des Soupirs ralentit la progression de la pétrification d'Elara", "talisman"),
+    ("c02", "Kael travaille dans les Forges de Fer-Noir du Consortium de Fer", "fer-noir"),
+    ("c02", "La mère de Kael souffre de la Maladie du Froid", "mother"),
+    ("c02", "Kael détourne le Noyau Thermique du Secteur 402 pour charger une Cellule de Stase Portative", "sabotage"),
+    ("c02", "Le sabotage de Kael plonge le secteur 402 dans un froid immédiat", "consequence"),
+    ("c02", "La Lentille de Résonance révèle que le Gisement Originel est délibérément siphonné", "siphoning"),
+    ("c02", "Vestra ordonne la capture de Kael avec autorisation de force létale", "vestra"),
+    ("c02", "Kael emporte la Lentille de Résonance dans les Bas-Fonds", "lens"),
+    ("c02", "Kael quitte Fer-Noir avec la Cellule de Stase chargée pour sa mère", "exile"),
+    ("c03", "Elara et Kael se rencontrent dans la plaine de scories", "meeting"),
+    ("c03", "Kael utilise une Surchargeuse à Pistons comme arme", "kael-weapon"),
+    ("c03", "Elara combat avec Givre-Âme malgré sa jambe de cristal", "injury"),
+    ("c03", "Un Écho Prédateur de quatre mètres attaque Elara et Kael", "predator"),
+    ("c03", "Kael fragilise les pattes de l'Écho avec une décharge thermique", "alliance"),
+    ("c03", "Elara détruit le noyau de l'Écho Prédateur avec Givre-Âme", "finisher"),
+    ("c03", "Elara et Kael décident de marcher ensemble vers Port-Argent", "port-argent"),
+    ("c03", "Elara et Kael reconnaissent qu'ils ne se font pas confiance", "trust"),
 )
 
 QUERIES = (
-    ("un talisman qui protège Maëlle", "fantasy", "1", "protection"),
-    ("un passage dissimulé sous la ville", "fantasy", "2", "passage"),
-    ("une interdiction concernant la magie", "fantasy", "3", "magic"),
-    ("l'oiseau qui annonce les ennuis", "fantasy", "4", "omen"),
-    ("le plan secret des limites du royaume", "fantasy", "5", "map"),
-    ("la preuve cachée par Nora", "thriller", "1", "evidence"),
-    ("le dispositif qui surveillait le parking", "thriller", "2", "surveillance"),
-    ("la personne qui a aperçu la voiture", "thriller", "3", "witness"),
-    ("le lieu où sont stockés les prélèvements", "thriller", "4", "laboratory"),
-    ("le message qui menace Nora", "thriller", "5", "threat"),
-    ("l'endroit où le commissaire cache les documents", "thriller", "6", "investigation"),
-    ("la déclaration qui engage Julien à revenir", "romance", "10", "promise"),
-    ("le souvenir photographique de leurs débuts", "romance", "7", "memory"),
-    ("le rêve professionnel d'Élise", "romance", "4", "dream"),
-    ("le lieu où ils se retrouvent après une querelle", "romance", "3", "meeting"),
-    ("le document affectueux conservé par Élise", "romance", "1", "letter"),
-    ("le moyen de transport préféré de Julien", "romance", "6", "travel"),
-    ("le bâtiment qui continue à guider les bateaux", "romance", "12", "lighthouse"),
+    ("la relique gardée dans le sanctuaire de Val-D'Or", 0, "relic"),
+    ("l'armure nacrée portée par Elara", 1, "armor"),
+    ("l'épée personnelle d'Elara", 2, "elara-weapon"),
+    ("l'arme lumineuse de Lyra", 3, "lyra-weapon"),
+    ("ce qui doit être déclenché lors de la Purification", 4, "purification"),
+    ("comment Elara s'enfuit avec la relique", 5, "escape"),
+    ("ce qui arrive à la jambe d'Elara après avoir saisi le Cœur", 6, "petrification"),
+    ("l'amulette qui freine le mal qui gagne Elara", 7, "talisman"),
+    ("la cité industrielle d'où vient Kael", 8, "fer-noir"),
+    ("la maladie dont souffre la mère de Kael", 9, "mother"),
+    ("l'appareil que Kael charge en détournant le noyau", 10, "sabotage"),
+    ("les conséquences du sabotage du secteur 402", 11, "consequence"),
+    ("la découverte faite grâce à la Lentille sur l'origine de la pénurie", 12, "siphoning"),
+    ("qui lance la traque de Kael", 13, "vestra"),
+    ("le cristal qui permet d'analyser les flux du Souffle", 14, "lens"),
+    ("ce que Kael emporte en quittant Fer-Noir pour aider sa mère", 15, "exile"),
+    ("où Elara rencontre l'ingénieur de Fer-Noir", 16, "meeting"),
+    ("l'arme mécanique fixée au bras de Kael", 17, "kael-weapon"),
+    ("l'état de la jambe d'Elara pendant leur confrontation", 18, "injury"),
+    ("le monstre géant qui surgit dans les scories", 19, "predator"),
+    ("comment Kael aide Elara contre le monstre", 20, "alliance"),
+    ("qui porte le coup final à l'Écho", 21, "finisher"),
+    ("leur prochaine destination commune", 22, "port-argent"),
+    ("ce qu'ils pensent de leur confiance mutuelle", 23, "trust"),
 )
 
-GROUPS = tuple(dict.fromkeys(group for _, _, _, group in CORPUS))
+GROUPS = tuple(dict.fromkeys(group for _, _, group in CORPUS))
 GROUP_VECTORS = {
     group: tuple(float(index == group_index) for index in range(len(GROUPS)))
     for group_index, group in enumerate(GROUPS)
 }
 
 
-def fact(book_id: str, number: str, statement: str) -> CanonicalFact:
-    fact_id = f"{book_id}-{number}"
+def fact(chapter: str, index: int, statement: str) -> CanonicalFact:
+    fact_id = f"livre1-{chapter}-{index}"
     return CanonicalFact(
         id=fact_id,
-        book_id=book_id,
+        book_id="livre-1",
         assertion_id=f"assertion-{fact_id}",
         statement=statement,
         subject=fact_id,
@@ -97,38 +88,34 @@ def fact(book_id: str, number: str, statement: str) -> CanonicalFact:
 
 
 class BenchmarkProvider:
-    query_vectors = {query: GROUP_VECTORS[group] for query, _, _, group in QUERIES}
+    query_vectors = {query: GROUP_VECTORS[group] for query, _, group in QUERIES}
 
     def embed(self, *, text: str) -> tuple[float, ...]:
-        if text in self.query_vectors:
-            return self.query_vectors[text]
-        return GROUP_VECTORS.get(text, (0.0,) * len(GROUPS))
+        return self.query_vectors.get(text, (0.0,) * len(GROUPS))
 
 
 class BenchmarkStore:
     entries = {
-        f"{book_id}-{number}": CanonicalFactEmbedding(
-            fact_id=f"{book_id}-{number}",
+        f"livre1-{chapter}-{index}": CanonicalFactEmbedding(
+            fact_id=f"livre1-{chapter}-{index}",
             embedding=GROUP_VECTORS[group],
             model="benchmark",
         )
-        for book_id, number, _, group in CORPUS
+        for index, (chapter, _, group) in enumerate(CORPUS)
     }
 
-    def list_canonical_fact_embeddings(
-        self, *, fact_ids: list[str]
-    ) -> dict[str, CanonicalFactEmbedding]:
+    def list_canonical_fact_embeddings(self, *, fact_ids: list[str]) -> dict[str, CanonicalFactEmbedding]:
         return {fact_id: self.entries[fact_id] for fact_id in fact_ids if fact_id in self.entries}
 
 
-def test_retrieval_benchmark_on_multi_book_corpus() -> None:
-    facts = [fact(book_id, number, statement) for book_id, number, statement, _ in CORPUS]
+def test_retrieval_pipeline_regression_on_livre_1_corpus() -> None:
+    facts = [fact(chapter, index, statement) for index, (chapter, statement, _) in enumerate(CORPUS)]
     cases = tuple(
         RetrievalEvaluationCase(
             query=query,
-            relevant_fact_keys=frozenset({(f"{book_id}-{number}", 1)}),
+            relevant_fact_keys=frozenset({(facts[index].id, 1)}),
         )
-        for query, book_id, number, _ in QUERIES
+        for query, index, _ in QUERIES
     )
 
     semantic = EmbeddingCanonicalRetriever(
@@ -145,8 +132,6 @@ def test_retrieval_benchmark_on_multi_book_corpus() -> None:
     semantic_report = evaluator.evaluate(semantic, facts, cases)
     hybrid_report = evaluator.evaluate(hybrid, facts, cases)
 
-    # The benchmark is intentionally diagnostic: semantic retrieval should add value
-    # on paraphrased queries, while hybrid retrieval must not regress the lexical baseline.
     assert semantic_report.mean_recall_at_k > lexical_report.mean_recall_at_k
     assert semantic_report.mean_reciprocal_rank > lexical_report.mean_reciprocal_rank
     assert semantic_report.hit_rate_at_k >= lexical_report.hit_rate_at_k
