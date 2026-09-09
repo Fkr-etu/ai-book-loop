@@ -22,8 +22,8 @@ def fact(fact_id: str, statement: str) -> CanonicalFact:
 
 class BenchmarkProvider:
     vectors = {
-        "protective charm": (1.0, 0.0, 0.0),
-        "hidden heirloom": (0.0, 1.0, 0.0),
+        "warding charm": (1.0, 0.0, 0.0),
+        "ancestral keepsake": (0.0, 1.0, 0.0),
     }
 
     def embed(self, *, text: str) -> tuple[float, ...]:
@@ -49,11 +49,11 @@ def test_retrieval_benchmark_shows_semantic_gain_without_harming_hybrid() -> Non
     ]
     cases = (
         RetrievalEvaluationCase(
-            query="protective charm",
+            query="warding charm",
             relevant_fact_keys=frozenset({("amulet", 1)}),
         ),
         RetrievalEvaluationCase(
-            query="hidden heirloom",
+            query="ancestral keepsake",
             relevant_fact_keys=frozenset({("heirloom", 1)}),
         ),
     )
