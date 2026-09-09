@@ -25,8 +25,7 @@ class _PostgresConnectionAdapter:
         self._transaction_depth = 0
     def execute(self, sql: str, params: tuple[Any, ...] = ()):
         sql = sql.replace("?", "%s")
-        if "INSERT INTO workflow_runs" in sql and "ON CONFLICT" not in sql:
-            sql += " ON CONFLICT DO NOTHING"
+        if "INSERT INTO workflow_runs" in sql and "ON CONFLICT" not in sql: sql += " ON CONFLICT DO NOTHING"
         return self._connection.execute(sql, params)
     def commit(self) -> None:
         if self._transaction_depth == 0: self._connection.commit()
@@ -68,6 +67,10 @@ class PostgresBookRepository(BookRepositoryMixin):
             CREATE TABLE IF NOT EXISTS workflow_usage (user_id TEXT NOT NULL, period_start DATE NOT NULL, idempotency_key TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY(user_id, period_start, idempotency_key));
             CREATE TABLE IF NOT EXISTS book_usage_identities (book_id TEXT PRIMARY KEY, identity TEXT NOT NULL UNIQUE, user_id TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP);
             CREATE TABLE IF NOT EXISTS workflow_usage_scoped (quota_subject TEXT NOT NULL, period_start DATE NOT NULL, idempotency_key TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY(quota_subject, period_start, idempotency_key));
+            CREATE TABLE IF NOT EXISTS characters (id TEXT PRIMARY KEY, book_id TEXT NOT NULL, name TEXT NOT NULL, aliases TEXT NOT NULL, summary TEXT NOT NULL, attributes TEXT NOT NULL, status TEXT NOT NULL, assertion_ids TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS character_relations (id TEXT PRIMARY KEY, book_id TEXT NOT NULL, source_character_id TEXT NOT NULL, target_character_id TEXT NOT NULL, relation_type TEXT NOT NULL, status TEXT NOT NULL, assertion_ids TEXT NOT NULL, FOREIGN KEY(source_character_id) REFERENCES characters(id) ON DELETE CASCADE, FOREIGN KEY(target_character_id) REFERENCES characters(id) ON DELETE CASCADE);
+            CREATE INDEX IF NOT EXISTS idx_characters_book ON characters(book_id);
+            CREATE INDEX IF NOT EXISTS idx_character_relations_book ON character_relations(book_id);
         """)
         self._connection._connection.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS plan TEXT NOT NULL DEFAULT 'free'")
         self._connection._connection.execute("ALTER TABLE canonical_facts ADD COLUMN IF NOT EXISTS previous_fact_id TEXT")
@@ -89,10 +92,8 @@ class PostgresBookRepository(BookRepositoryMixin):
             if int(row["count"]) >= max_active_projects: raise PermissionError("Project capacity reached for the current plan")
             self._connection.execute("INSERT INTO books(id, data) VALUES(?, ?)", (book.id, json.dumps(book.model_dump(mode="json"))))
     def get_book_identity(self, *, book_id: str) -> str | None:
-        row = self._connection.execute("SELECT identity FROM book_usage_identities WHERE book_id = ?", (book_id,)).fetchone()
-        return str(row["identity"]) if row is not None else None
-    def register_book_identity(self, *, book_id: str, identity: str) -> None:
-        raise RuntimeError("Book identity must be registered as part of free-tier consumption")
+        row = self._connection.execute("SELECT identity FROM book_usage_identities WHERE book_id = ?", (book_id,)).fetchone(); return str(row["identity"]) if row is not None else None
+    def register_book_identity(self, *, book_id: str, identity: str) -> None: raise RuntimeError("Book identity must be registered as part of free-tier consumption")
     def consume_free_workflow_capacity(self, *, user_id: str, book_id: str, book_identity: str, period_start: str, idempotency_key: str, monthly_limit: int) -> bool:
         with self.transaction():
             self._connection.execute("SELECT pg_advisory_xact_lock(hashtext(?))", (f"free-book:{book_identity}",))
@@ -102,47 +103,34 @@ class PostgresBookRepository(BookRepositoryMixin):
             if int(usage["count"]) >= monthly_limit: return False
             identity_row = self._connection.execute("SELECT user_id FROM book_usage_identities WHERE identity = ?", (book_identity,)).fetchone()
             if identity_row is not None and identity_row["user_id"] != user_id: return False
-            if identity_row is None:
-                self._connection.execute("INSERT INTO book_usage_identities(book_id, identity, user_id) VALUES(?, ?, ?)", (book_id, book_identity, user_id))
-            self._connection.execute("INSERT INTO workflow_usage(user_id, period_start, idempotency_key) VALUES(?, ?, ?)", (user_id, period_start, idempotency_key))
-            return True
+            if identity_row is None: self._connection.execute("INSERT INTO book_usage_identities(book_id, identity, user_id) VALUES(?, ?, ?)", (book_id, book_identity, user_id))
+            self._connection.execute("INSERT INTO workflow_usage(user_id, period_start, idempotency_key) VALUES(?, ?, ?)", (user_id, period_start, idempotency_key)); return True
     def consume_workflow_capacity(self, *, quota_subject: str | None = None, user_id: str | None = None, period_start: str, idempotency_key: str, monthly_limit: int) -> bool:
         if user_id is not None and quota_subject is None:
             with self.transaction():
                 self._connection.execute("SELECT pg_advisory_xact_lock(hashtext(?))", (user_id,))
-                inserted = self._connection.execute("""INSERT INTO workflow_usage(user_id, period_start, idempotency_key)
-                    SELECT ?, ?, ? WHERE (SELECT COUNT(*) FROM workflow_usage WHERE user_id = ? AND period_start = ?) < ?
-                    ON CONFLICT(user_id, period_start, idempotency_key) DO NOTHING RETURNING idempotency_key""", (user_id, period_start, idempotency_key, user_id, period_start, monthly_limit)).fetchone()
+                inserted = self._connection.execute("INSERT INTO workflow_usage(user_id, period_start, idempotency_key) SELECT ?, ?, ? WHERE (SELECT COUNT(*) FROM workflow_usage WHERE user_id = ? AND period_start = ?) < ? ON CONFLICT(user_id, period_start, idempotency_key) DO NOTHING RETURNING idempotency_key", (user_id, period_start, idempotency_key, user_id, period_start, monthly_limit)).fetchone()
                 if inserted is not None: return True
-                existing = self._connection.execute("SELECT 1 FROM workflow_usage WHERE user_id = ? AND period_start = ? AND idempotency_key = ?", (user_id, period_start, idempotency_key)).fetchone()
-                return existing is not None
+                existing = self._connection.execute("SELECT 1 FROM workflow_usage WHERE user_id = ? AND period_start = ? AND idempotency_key = ?", (user_id, period_start, idempotency_key)).fetchone(); return existing is not None
         subject = quota_subject
-        if subject is None:
-            raise ValueError("Either quota_subject or user_id is required")
+        if subject is None: raise ValueError("Either quota_subject or user_id is required")
         with self.transaction():
             self._connection.execute("SELECT pg_advisory_xact_lock(hashtext(?))", (subject,))
-            inserted = self._connection.execute("""INSERT INTO workflow_usage_scoped(quota_subject, period_start, idempotency_key)
-                SELECT ?, ?, ? WHERE (SELECT COUNT(*) FROM workflow_usage_scoped WHERE quota_subject = ? AND period_start = ?) < ?
-                ON CONFLICT(quota_subject, period_start, idempotency_key) DO NOTHING RETURNING idempotency_key""", (subject, period_start, idempotency_key, subject, period_start, monthly_limit)).fetchone()
+            inserted = self._connection.execute("INSERT INTO workflow_usage_scoped(quota_subject, period_start, idempotency_key) SELECT ?, ?, ? WHERE (SELECT COUNT(*) FROM workflow_usage_scoped WHERE quota_subject = ? AND period_start = ?) < ? ON CONFLICT(quota_subject, period_start, idempotency_key) DO NOTHING RETURNING idempotency_key", (subject, period_start, idempotency_key, subject, period_start, monthly_limit)).fetchone()
             if inserted is not None: return True
-            existing = self._connection.execute("SELECT 1 FROM workflow_usage_scoped WHERE quota_subject = ? AND period_start = ? AND idempotency_key = ?", (subject, period_start, idempotency_key)).fetchone()
-            return existing is not None
+            existing = self._connection.execute("SELECT 1 FROM workflow_usage_scoped WHERE quota_subject = ? AND period_start = ? AND idempotency_key = ?", (subject, period_start, idempotency_key)).fetchone(); return existing is not None
 
 
 class PostgresWorkflowRunStore:
     def __init__(self, database_url: str):
         self._connection = _PostgresConnectionAdapter(database_url)
-        self._connection._connection.execute("""CREATE TABLE IF NOT EXISTS workflow_runs (
-            id TEXT PRIMARY KEY, book_id TEXT NOT NULL, chapter_number INTEGER NOT NULL, idempotency_key TEXT NOT NULL,
-            status TEXT NOT NULL, state TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE(book_id, chapter_number, idempotency_key))""")
+        self._connection._connection.execute("""CREATE TABLE IF NOT EXISTS workflow_runs (id TEXT PRIMARY KEY, book_id TEXT NOT NULL, chapter_number INTEGER NOT NULL, idempotency_key TEXT NOT NULL, status TEXT NOT NULL, state TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE(book_id, chapter_number, idempotency_key))""")
         self._connection.commit()
     def get_or_create(self, *, book_id: str, chapter_number: int, idempotency_key: str) -> ChapterWorkflowRun:
         row = self._connection.execute("SELECT state FROM workflow_runs WHERE book_id = ? AND chapter_number = ? AND idempotency_key = ?", (book_id, chapter_number, idempotency_key)).fetchone()
         if row is not None: return ChapterWorkflowRun.model_validate(json.loads(row["state"]))
         run = ChapterWorkflowRun(id=str(uuid.uuid4()), book_id=book_id, chapter_number=chapter_number, idempotency_key=idempotency_key)
-        self._connection.execute("INSERT INTO workflow_runs(id, book_id, chapter_number, idempotency_key, status, state) VALUES(?, ?, ?, ?, ?, ?)", (run.id, run.book_id, run.chapter_number, run.idempotency_key, run.status.value, json.dumps(run.model_dump(mode="json"))))
-        self._connection.commit()
+        self._connection.execute("INSERT INTO workflow_runs(id, book_id, chapter_number, idempotency_key, status, state) VALUES(?, ?, ?, ?, ?, ?)", (run.id, run.book_id, run.chapter_number, run.idempotency_key, run.status.value, json.dumps(run.model_dump(mode="json")))); self._connection.commit()
         row = self._connection.execute("SELECT state FROM workflow_runs WHERE book_id = ? AND chapter_number = ? AND idempotency_key = ?", (book_id, chapter_number, idempotency_key)).fetchone()
         if row is None: raise RuntimeError("Workflow run could not be created")
         return ChapterWorkflowRun.model_validate(json.loads(row["state"]))
@@ -151,8 +139,7 @@ class PostgresWorkflowRunStore:
         if row is None: raise KeyError(run_id)
         return ChapterWorkflowRun.model_validate(json.loads(row["state"]))
     def latest(self, *, book_id: str, chapter_number: int) -> ChapterWorkflowRun | None:
-        row = self._connection.execute("SELECT state FROM workflow_runs WHERE book_id = ? AND chapter_number = ? ORDER BY updated_at DESC, created_at DESC LIMIT 1", (book_id, chapter_number)).fetchone()
-        return ChapterWorkflowRun.model_validate(json.loads(row["state"])) if row is not None else None
+        row = self._connection.execute("SELECT state FROM workflow_runs WHERE book_id = ? AND chapter_number = ? ORDER BY updated_at DESC, created_at DESC LIMIT 1", (book_id, chapter_number)).fetchone(); return ChapterWorkflowRun.model_validate(json.loads(row["state"])) if row is not None else None
     def save(self, run: ChapterWorkflowRun) -> None:
         self._connection.execute("UPDATE workflow_runs SET status = ?, state = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", (run.status.value, json.dumps(run.model_dump(mode="json")), run.id)); self._connection.commit()
     def close(self) -> None: self._connection.close()
