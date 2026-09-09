@@ -5,20 +5,24 @@ from uuid import uuid4
 
 from book_loop.domain.models import Assertion, DocumentChunk, Evidence, IngestionResult, SourceDocument
 from book_loop.domain.protocols import AssertionExtractor, KnowledgeRepository
-from book_loop.domain.temporal import TemporalScope, TemporalScopeKind
-from book_loop.infrastructure.database.temporal_context import TemporalContextStore
+from book_loop.domain.temporal import AssertionTemporalContextStore, TemporalScope, TemporalScopeKind
 
 
 class IngestDocument:
-    def __init__(self, *, repository: KnowledgeRepository, extractor: AssertionExtractor, chunk_size: int = 1800) -> None:
+    def __init__(
+        self,
+        *,
+        repository: KnowledgeRepository,
+        extractor: AssertionExtractor,
+        chunk_size: int = 1800,
+        temporal_context_store: AssertionTemporalContextStore | None = None,
+    ) -> None:
         if chunk_size < 1:
             raise ValueError("chunk_size must be positive")
         self._repository = repository
         self._extractor = extractor
         self._chunk_size = chunk_size
-        self._temporal_context_store = (
-            TemporalContextStore(repository) if hasattr(repository, "_connection") else None
-        )
+        self._temporal_context_store = temporal_context_store
 
     def execute(self, *, book_id: str, name: str, source_type: str, content: str, metadata: dict[str, str] | None = None) -> IngestionResult:
         normalized = content.replace("\r\n", "\n").replace("\r", "\n").strip()
@@ -62,10 +66,7 @@ class IngestDocument:
                 )
                 self._repository.save_assertion(assertion)
                 if self._temporal_context_store is not None and temporal_scope is not None:
-                    self._temporal_context_store.save_temporal_scope(
-                        assertion_id=assertion.id,
-                        scope=temporal_scope,
-                    )
+                    self._temporal_context_store.save_temporal_scope(assertion_id=assertion.id, scope=temporal_scope)
                 self._repository.save_evidence(item)
                 assertions.append(assertion)
                 evidence.append(item)
