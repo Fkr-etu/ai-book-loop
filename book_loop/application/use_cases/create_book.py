@@ -3,7 +3,7 @@ from __future__ import annotations
 from uuid import uuid4
 
 from book_loop.application.services.plan_limits import limits_for
-from book_loop.domain.models import BookState, SubscriptionPlan
+from book_loop.domain.models import BookState, CreativeBrief, SubscriptionPlan
 from book_loop.domain.protocols import BookRepository
 
 
@@ -20,6 +20,7 @@ class CreateBook:
         author_idea: str,
         lore: str = "",
         constraints: list[str] | None = None,
+        creative_brief: CreativeBrief | None = None,
     ) -> BookState:
         book = BookState(
             id=str(uuid4()),
@@ -27,6 +28,7 @@ class CreateBook:
             title=title,
             theme=theme,
             author_idea=author_idea,
+            creative_brief=creative_brief,
             lore=lore,
             constraints=constraints or [],
         )

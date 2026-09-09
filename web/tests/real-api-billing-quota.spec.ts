@@ -10,7 +10,6 @@ test.describe("Book Loop — real API billing quota", () => {
     const password = "BookLoop-Billing-123!";
 
     await page.goto("/register");
-
     const cookieBanner = page.getByRole("complementary", { name: "Préférences de cookies" });
     if (await cookieBanner.isVisible()) {
       await cookieBanner.getByRole("button", { name: "Refuser" }).click();
@@ -23,37 +22,37 @@ test.describe("Book Loop — real API billing quota", () => {
     await page.getByRole("button", { name: "Créer mon compte", exact: true }).click();
 
     await expect(page).toHaveURL(/\/setup$/);
-    await page.getByRole("textbox").nth(0).fill("Projet quota Free");
-    await page.getByRole("textbox").nth(1).fill("Fantasy");
-    await page.getByRole("textbox").nth(2).fill("Vérifier que la capacité projet est imposée par le backend.");
+    await page.getByLabel("Comment appelez-vous votre projet ?").fill("Projet quota Free");
+    await page.getByRole("button", { name: "Fantasy" }).click();
+    await page.getByLabel("De quoi parle votre histoire ?").fill("Vérifier que la capacité projet est imposée par le backend.");
     await page.getByTestId("next-step-btn").click();
-
-    await expect(page.getByRole("heading", { name: "Règles, Reliques et Lieux Canoniques" })).toBeVisible();
-    await page.getByPlaceholder("Ex: Dans l'Empire de Cendres, les mages utilisent l'Obsidienne pour capturer la mémoire...").fill("Une seule œuvre active est autorisée sur Free.");
+    await page.getByLabel("Qu'aimeriez-vous faire ressentir, raconter ou explorer ?").fill("Vérifier les limites du forfait.");
     await page.getByTestId("next-step-btn").click();
+    await page.getByRole("button", { name: "Voir la synthèse" }).click();
+    await page.getByRole("button", { name: /C'est bien ça — commencer l'atelier/ }).click();
 
-    await expect(page.getByRole("heading", { name: "Ton, Voix Narrative & Verrouillage Canon" })).toBeVisible();
-    await page.getByPlaceholder("Ex: Scholastique, poétique, sombre, rythme soutenu mais descriptif.").fill("Sobre et précis.");
-    await page.getByRole("button", { name: "Ouvrir l'Atelier de Rédaction" }).click();
-
-    await expect(page).toHaveURL(/\/studio(?:\?.*)?$/);
+    await expect(page).toHaveURL(/\/studio\?bookId=/);
     await page.goto("/dashboard");
     await expect(page.getByRole("heading", { name: "Bibliothèque & Tableau de Bord" })).toBeVisible();
     await expect(page.getByText("Vos récits (1)")).toBeVisible();
 
-    await page.getByRole("button", { name: "Nouveau Livre" }).click();
-    await page.getByLabel("Titre").fill("Projet quota refusé");
-    await page.getByLabel("Thème").fill("Fantasy");
-    await page.getByLabel("Intention de l'auteur").fill("Ce projet doit être refusé par la capacité du forfait Free.");
+    await page.getByRole("link", { name: "Commencer un livre" }).click();
+    await expect(page).toHaveURL(/\/setup$/);
+    await page.getByLabel("Comment appelez-vous votre projet ?").fill("Projet quota refusé");
+    await page.getByRole("button", { name: "Fantasy" }).click();
+    await page.getByLabel("De quoi parle votre histoire ?").fill("Ce projet doit être refusé par la capacité du forfait Free.");
+    await page.getByTestId("next-step-btn").click();
+    await page.getByTestId("next-step-btn").click();
+    await page.getByRole("button", { name: "Voir la synthèse" }).click();
 
     const createResponsePromise = page.waitForResponse(
       (response) => response.url().endsWith("/api/books") && response.request().method() === "POST"
     );
-    await page.getByRole("button", { name: "Créer et ouvrir l'atelier" }).click();
+    await page.getByRole("button", { name: /C'est bien ça — commencer l'atelier/ }).click();
 
     const createResponse = await createResponsePromise;
     expect(createResponse.status()).toBe(429);
     await expect(page.getByRole("alert")).toContainText("La limite de votre forfait est atteinte");
-    await expect(page.getByText("Vos récits (1)")).toBeVisible();
+    await expect(page).toHaveURL(/\/setup$/);
   });
 });

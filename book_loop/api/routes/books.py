@@ -6,7 +6,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from book_loop.api.dependencies import get_container, get_owned_book
-from book_loop.domain.models import UserPublic
+from book_loop.domain.models import CreativeBrief, UserPublic
 from book_loop.infrastructure.container import Container
 
 router = APIRouter(prefix="/api/books", tags=["books"])
@@ -14,10 +14,11 @@ router = APIRouter(prefix="/api/books", tags=["books"])
 
 class CreateBookPayload(BaseModel):
     title: str
-    theme: str
-    author_idea: str
+    theme: str = "Manuscrit importé"
+    author_idea: str = "À préciser à partir du manuscrit importé."
     lore: str = ""
     constraints: list[str] = Field(default_factory=list)
+    creative_brief: CreativeBrief | None = None
 
 
 def _serialize_book(book: Any, container: Container) -> dict[str, Any]:
@@ -62,6 +63,7 @@ def create_book(payload: CreateBookPayload, request: Request, container: Contain
             author_idea=payload.author_idea,
             lore=payload.lore,
             constraints=payload.constraints,
+            creative_brief=payload.creative_brief,
         )
     except PermissionError as exc:
         raise HTTPException(status_code=429, detail=str(exc))
