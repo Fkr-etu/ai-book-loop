@@ -4,14 +4,6 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from book_loop.api.dependencies import get_container, get_owned_book
-from book_loop.application.use_cases.create_character import CreateCharacter
-from book_loop.application.use_cases.create_character_relation import CreateCharacterRelation
-from book_loop.application.use_cases.delete_character import DeleteCharacter
-from book_loop.application.use_cases.delete_character_relation import DeleteCharacterRelation
-from book_loop.application.use_cases.get_character import GetCharacter
-from book_loop.application.use_cases.list_character_relations import ListCharacterRelations
-from book_loop.application.use_cases.list_characters import ListCharacters
-from book_loop.application.use_cases.update_character import UpdateCharacter
 from book_loop.domain.models import BookState, Character, CharacterRelation
 from book_loop.infrastructure.container import Container
 
@@ -41,11 +33,6 @@ class CharacterRelationCreatePayload(BaseModel):
     assertion_ids: list[str] = Field(default_factory=list)
 
 
-def _owned_book(book_id: str, container: Container = Depends(get_container)) -> BookState:
-    # Ownership is enforced by the shared API dependency; the returned book is unused here.
-    raise RuntimeError("_owned_book must be overridden by FastAPI dependency resolution")
-
-
 @router.get("", response_model=list[Character])
 def list_characters(book: BookState = Depends(get_owned_book), container: Container = Depends(get_container)) -> list[Character]:
     return container.list_characters().execute(book_id=book.id)
@@ -61,6 +48,35 @@ def create_character(payload: CharacterCreatePayload, book: BookState = Depends(
         attributes=payload.attributes,
         assertion_ids=payload.assertion_ids,
     )
+
+
+@router.get("/relations", response_model=list[CharacterRelation])
+def list_relations(book: BookState = Depends(get_owned_book), container: Container = Depends(get_container)) -> list[CharacterRelation]:
+    return container.list_character_relations().execute(book_id=book.id)
+
+
+@router.post("/{character_id}/relations", response_model=CharacterRelation, status_code=201)
+def create_relation(character_id: str, payload: CharacterRelationCreatePayload, book: BookState = Depends(get_owned_book), container: Container = Depends(get_container)) -> CharacterRelation:
+    try:
+        return container.create_character_relation().execute(
+            book_id=book.id,
+            source_character_id=character_id,
+            target_character_id=payload.target_character_id,
+            relation_type=payload.relation_type,
+            assertion_ids=payload.assertion_ids,
+        )
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Personnage introuvable.")
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+
+
+@router.delete("/relations/{relation_id}", status_code=204)
+def delete_relation(relation_id: str, book: BookState = Depends(get_owned_book), container: Container = Depends(get_container)) -> None:
+    relations = container.list_character_relations().execute(book_id=book.id)
+    if not any(relation.id == relation_id for relation in relations):
+        raise HTTPException(status_code=404, detail="Relation introuvable.")
+    container.delete_character_relation().execute(relation_id=relation_id)
 
 
 @router.get("/{character_id}", response_model=Character)
@@ -100,35 +116,3 @@ def delete_character(character_id: str, book: BookState = Depends(get_owned_book
     if character.book_id != book.id:
         raise HTTPException(status_code=404, detail="Personnage introuvable.")
     container.delete_character().execute(character_id=character_id)
-
-
-@router.get("/relations", response_model=list[CharacterRelation])
-def list_relations(book: BookState = Depends(get_owned_book), container: Container = Depends(get_container)) -> list[CharacterRelation]:
-    return container.list_character_relations().execute(book_id=book.id)
-
-
-@router.post("/{character_id}/relations", response_model=CharacterRelation, status_code=201)
-def create_relation(character_id: str, payload: CharacterRelationCreatePayload, book: BookState = Depends(get_owned_book), container: Container = Depends(get_container)) -> CharacterRelation:
-    try:
-        return container.create_character_relation().execute(
-            book_id=book.id,
-            source_character_id=character_id,
-            target_character_id=payload.target_character_id,
-            relation_type=payload.relation_type,
-            assertion_ids=payload.assertion_ids,
-        )
-    except KeyError:
-        raise HTTPException(status_code=404, detail="Personnage introuvable.")
-    except ValueError as exc:
-        raise HTTPException(status_code=422, detail=str(exc))
-
-
-@router.delete("/relations/{relation_id}", status_code=204)
-def delete_relation(relation_id: str, book: BookState = Depends(get_owned_book), container: Container = Depends(get_container)) -> None:
-    try:
-        relations = container.list_character_relations().execute(book_id=book.id)
-    except KeyError:
-        relations = []
-    if not any(relation.id == relation_id for relation in relations):
-        raise HTTPException(status_code=404, detail="Relation introuvable.")
-    container.delete_character_relation().execute(relation_id=relation_id)
