@@ -17,12 +17,19 @@ from book_loop.application.use_cases.approve_chapter_and_sync_canon import Appro
 from book_loop.application.use_cases.approve_outline import ApproveOutline
 from book_loop.application.use_cases.authenticate_user import AuthenticateUser
 from book_loop.application.use_cases.create_book import CreateBook
+from book_loop.application.use_cases.create_character import CreateCharacter
+from book_loop.application.use_cases.create_character_relation import CreateCharacterRelation
+from book_loop.application.use_cases.delete_character import DeleteCharacter
+from book_loop.application.use_cases.delete_character_relation import DeleteCharacterRelation
 from book_loop.application.use_cases.extract_chapter_assertions import ExtractChapterAssertions
 from book_loop.application.use_cases.generate_chapter import GenerateChapter
 from book_loop.application.use_cases.generate_outline import GenerateOutline
 from book_loop.application.use_cases.get_canonical_fact_history import GetCanonicalFactHistory
+from book_loop.application.use_cases.get_character import GetCharacter
 from book_loop.application.use_cases.ingest_document import IngestDocument
 from book_loop.application.use_cases.list_canonical_facts import ListCanonicalFacts
+from book_loop.application.use_cases.list_character_relations import ListCharacterRelations
+from book_loop.application.use_cases.list_characters import ListCharacters
 from book_loop.application.use_cases.login_user import LoginUser
 from book_loop.application.use_cases.propose_canon_change import ProposeCanonChange
 from book_loop.application.use_cases.reject_chapter import RejectChapter
@@ -32,6 +39,7 @@ from book_loop.application.use_cases.review_canon_change import ReviewCanonChang
 from book_loop.application.use_cases.review_chapter import ReviewChapter
 from book_loop.application.use_cases.set_creative_brief import SetCreativeBrief
 from book_loop.application.use_cases.update_book import UpdateBook
+from book_loop.application.use_cases.update_character import UpdateCharacter
 from book_loop.application.use_cases.update_outline import UpdateOutline
 from book_loop.infrastructure.auth import Argon2PasswordHasher, DUMMY_PASSWORD_HASH, JwtTokenService
 from book_loop.infrastructure.auth_rate_limit import AuthRateLimiter
@@ -98,6 +106,14 @@ class Container:
     def create_book(self) -> CreateBook: return CreateBook(self.repository)
     def set_creative_brief(self) -> SetCreativeBrief: return SetCreativeBrief(self.repository)
     def update_book(self) -> UpdateBook: return UpdateBook(self.repository)
+    def create_character(self) -> CreateCharacter: return CreateCharacter(self.repository)
+    def get_character(self) -> GetCharacter: return GetCharacter(self.repository)
+    def list_characters(self) -> ListCharacters: return ListCharacters(self.repository)
+    def update_character(self) -> UpdateCharacter: return UpdateCharacter(self.repository)
+    def delete_character(self) -> DeleteCharacter: return DeleteCharacter(self.repository)
+    def create_character_relation(self) -> CreateCharacterRelation: return CreateCharacterRelation(self.repository)
+    def list_character_relations(self) -> ListCharacterRelations: return ListCharacterRelations(self.repository)
+    def delete_character_relation(self) -> DeleteCharacterRelation: return DeleteCharacterRelation(self.repository)
     def generate_outline(self) -> GenerateOutline: return GenerateOutline(self.repository, self.outline_agent)
     def update_outline(self) -> UpdateOutline: return UpdateOutline(self.repository)
     def approve_outline(self) -> ApproveOutline: return ApproveOutline(self.repository)
