@@ -5,54 +5,24 @@ from typing import Protocol, TypeVar
 
 from pydantic import BaseModel
 
-from book_loop.domain.canon_change import (
-    CanonChangeProposal,
-    CanonChangeProposalStatus,
-    CanonChangeReviewDecision,
-)
-from book_loop.domain.models import (
-    Assertion,
-    AssertionStatus,
-    BookState,
-    CanonicalFact,
-    Conflict,
-    DocumentChunk,
-    Evidence,
-    ExtractedAssertion,
-    ReviewDecision,
-    SceneReview,
-    SourceDocument,
-    User,
-)
+from book_loop.domain.canon_change import CanonChangeProposal, CanonChangeProposalStatus, CanonChangeReviewDecision
+from book_loop.domain.models import Assertion, AssertionStatus, BookState, CanonicalFact, Character, CharacterRelation, Conflict, DocumentChunk, Evidence, ExtractedAssertion, ReviewDecision, SceneReview, SourceDocument, User
 
 StructuredModel = TypeVar("StructuredModel", bound=BaseModel)
-
 
 class LLMProvider(Protocol):
     def generate(self, *, system_prompt: str, user_prompt: str) -> str: ...
     def generate_structured(self, *, system_prompt: str, user_prompt: str, schema: type[StructuredModel], thinking_level: str = "medium", max_output_tokens: int | None = None) -> StructuredModel: ...
-
-
 class EmbeddingProvider(Protocol):
     def embed(self, *, text: str) -> Sequence[float]: ...
-
-
 class Writer(Protocol):
     def write(self, *, context: str) -> str: ...
-
-
 class Reviewer(Protocol):
     def review(self, *, context: str, draft: str) -> SceneReview: ...
-
-
 class Corrector(Protocol):
     def correct(self, *, context: str, draft: str, review: SceneReview) -> str: ...
-
-
 class Summarizer(Protocol):
     def summarize(self, *, context: str, chapter: str) -> str: ...
-
-
 class BookRepository(Protocol):
     def save(self, book: BookState) -> None: ...
     def get(self, book_id: str) -> BookState: ...
@@ -61,20 +31,20 @@ class BookRepository(Protocol):
     def save_chapter_version(self, book_id: str, chapter_number: int, version: int, draft: str) -> None: ...
     def get_chapter_version(self, book_id: str, chapter_number: int, version: int) -> str: ...
     def save_review(self, book_id: str, chapter_number: int, version: int, review: SceneReview) -> None: ...
-
-
+    def save_character(self, character: Character) -> None: ...
+    def get_character(self, character_id: str) -> Character: ...
+    def list_characters(self, *, book_id: str) -> list[Character]: ...
+    def delete_character(self, character_id: str) -> None: ...
+    def save_character_relation(self, relation: CharacterRelation) -> None: ...
+    def get_character_relation(self, relation_id: str) -> CharacterRelation: ...
+    def list_character_relations(self, *, book_id: str) -> list[CharacterRelation]: ...
+    def delete_character_relation(self, relation_id: str) -> None: ...
 class AssertionExtractor(Protocol):
     def extract(self, *, chunk: DocumentChunk) -> list[ExtractedAssertion]: ...
-
-
 class PredicateNormalizer(Protocol):
     def normalize(self, *, predicate: str, language: str = "fr") -> str: ...
-
-
 class CanonicalKnowledgeRetriever(Protocol):
     def retrieve(self, facts: Iterable[CanonicalFact], *, query: str) -> list[CanonicalFact]: ...
-
-
 class KnowledgeRepository(Protocol):
     def find_source_by_hash(self, *, book_id: str, content_hash: str) -> SourceDocument | None: ...
     def save_source(self, source: SourceDocument) -> None: ...
