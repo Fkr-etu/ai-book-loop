@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from book_loop.application.use_cases.ingest_document import IngestDocument
 from book_loop.domain.models import IngestionResult
 from book_loop.domain.protocols import AssertionExtractor, BookRepository, KnowledgeRepository
-from book_loop.application.use_cases.ingest_document import IngestDocument
+from book_loop.domain.temporal import AssertionTemporalContextStore
 
 
 class ExtractChapterAssertions:
@@ -15,6 +16,7 @@ class ExtractChapterAssertions:
         knowledge_repository: KnowledgeRepository,
         extractor: AssertionExtractor,
         chunk_size: int = 1800,
+        temporal_context_store: AssertionTemporalContextStore | None = None,
     ) -> None:
         self._books = book_repository
         self._knowledge = knowledge_repository
@@ -22,6 +24,7 @@ class ExtractChapterAssertions:
             repository=knowledge_repository,
             extractor=extractor,
             chunk_size=chunk_size,
+            temporal_context_store=temporal_context_store,
         )
 
     def execute(self, *, book_id: str, chapter_number: int, version: int | None = None) -> IngestionResult:
