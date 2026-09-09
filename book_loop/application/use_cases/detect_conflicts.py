@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from typing import Protocol
 from uuid import NAMESPACE_URL, uuid5
 
 from book_loop.domain.models import Assertion, Conflict, ConflictStatus
@@ -7,7 +8,7 @@ from book_loop.domain.temporal import TemporalScope
 from book_loop.domain.protocols import KnowledgeRepository
 
 
-class AssertionTemporalContextStore:
+class AssertionTemporalContextStore(Protocol):
     """Read temporal scopes associated with assertions."""
 
     def get_temporal_scope(self, *, assertion_id: str) -> TemporalScope | None: ...
