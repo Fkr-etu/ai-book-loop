@@ -24,3 +24,7 @@ export interface BackendCanonChangeProposal { id: string; book_id: string; canon
 export type BackendCanonChangeReviewDecision = "accept" | "reject";
 export interface BackendCanonChangeReview { id: string; proposal_id: string; decision: BackendCanonChangeReviewDecision; reviewer_id: string | null; rationale: string; created_at: string | null; }
 export interface BackendIngestionResult { source_document: BackendSourceDocument; assertions: BackendAssertion[]; already_ingested: boolean; }
+
+export type BackendCharacterStatus = "proposed" | "active" | "archived";
+export interface BackendCharacter { id: string; book_id: string; name: string; aliases: string[]; summary: string; attributes: Record<string, string>; status: BackendCharacterStatus; assertion_ids: string[]; }
+export interface BackendCharacterRelation { id: string; book_id: string; source_character_id: string; target_character_id: string; relation_type: string; status: BackendCharacterStatus; assertion_ids: string[]; }

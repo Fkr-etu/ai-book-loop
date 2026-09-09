@@ -9,6 +9,7 @@ on:
       - main
   workflow_dispatch:
 
+# Keep the full CI suite running for pull requests targeting main.
 jobs:
   backend:
     name: Backend tests

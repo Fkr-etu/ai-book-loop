@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from book_loop.api.dependencies import get_current_user
-from book_loop.api.routes import auth, billing, books, canon, chapters, documents, outline
+from book_loop.api.routes import auth, billing, books, canon, chapters, characters, documents, outline
 from book_loop.infrastructure.auth import COOKIE_NAME
 from book_loop.infrastructure.container import Container
 
@@ -47,10 +47,7 @@ def create_app(container: Container | None = None) -> FastAPI:
             and not _origin_is_allowed(request, container)
             and not request.url.path == "/api/billing/webhook"
         ):
-            return JSONResponse(
-                status_code=403,
-                content={"detail": "Requête d'origine non autorisée."},
-            )
+            return JSONResponse(status_code=403, content={"detail": "Requête d'origine non autorisée."})
         return await call_next(request)
 
     @app.middleware("http")
@@ -77,8 +74,6 @@ def create_app(container: Container | None = None) -> FastAPI:
                 return JSONResponse(status_code=404, content={"detail": "Livre introuvable."})
         return await call_next(request)
 
-    # Keep CORS as the outermost application middleware so its headers are added even
-    # when an inner security middleware returns a 401/403/404 response directly.
     app.add_middleware(
         CORSMiddleware,
         allow_origins=container.settings.cors_allowed_origins,
@@ -93,6 +88,7 @@ def create_app(container: Container | None = None) -> FastAPI:
     app.include_router(outline.router)
     app.include_router(chapters.router)
     app.include_router(canon.router)
+    app.include_router(characters.router)
     app.include_router(documents.router)
 
     return app
