@@ -64,7 +64,12 @@ class Extractor:
 
 def test_chapter_ingestion_persists_story_point_for_each_assertion():
     repository = Repository()
-    result = IngestDocument(repository=repository, extractor=Extractor()).execute(
+    temporal_context_store = TemporalContextStore(repository)
+    result = IngestDocument(
+        repository=repository,
+        extractor=Extractor(),
+        temporal_context_store=temporal_context_store,
+    ).execute(
         book_id="book-1",
         name="Chapter 3",
         source_type="approved_chapter",
@@ -73,7 +78,7 @@ def test_chapter_ingestion_persists_story_point_for_each_assertion():
     )
 
     assertion_id = result.assertions[0].id
-    scope = TemporalContextStore(repository).get_temporal_scope(assertion_id=assertion_id)
+    scope = temporal_context_store.get_temporal_scope(assertion_id=assertion_id)
 
     assert scope is not None
     assert scope.kind is TemporalScopeKind.STORY_POINT
