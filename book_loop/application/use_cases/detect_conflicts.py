@@ -4,8 +4,9 @@ from typing import Protocol
 from uuid import NAMESPACE_URL, uuid5
 
 from book_loop.domain.models import Assertion, Conflict, ConflictStatus
-from book_loop.domain.temporal import TemporalScope
 from book_loop.domain.protocols import KnowledgeRepository
+from book_loop.domain.temporal import TemporalScope
+from book_loop.infrastructure.database.temporal_context import TemporalContextStore
 
 
 class AssertionTemporalContextStore(Protocol):
@@ -24,7 +25,13 @@ class DetectConflicts:
         temporal_context_store: AssertionTemporalContextStore | None = None,
     ) -> None:
         self.repository = repository
-        self.temporal_context_store = temporal_context_store
+        self.temporal_context_store = temporal_context_store or self._default_temporal_store(repository)
+
+    @staticmethod
+    def _default_temporal_store(repository: KnowledgeRepository) -> AssertionTemporalContextStore | None:
+        if not hasattr(repository, "_connection"):
+            return None
+        return TemporalContextStore(repository)
 
     def execute(self, *, book_id: str) -> list[Conflict]:
         assertions = [
