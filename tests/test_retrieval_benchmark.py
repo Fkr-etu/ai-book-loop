@@ -74,25 +74,10 @@ QUERIES = (
     ("le bâtiment qui continue à guider les bateaux", "romance", "12", "lighthouse"),
 )
 
+GROUPS = tuple(dict.fromkeys(group for _, _, _, group in CORPUS))
 GROUP_VECTORS = {
-    "protection": (1.0, 0.0, 0.0, 0.0, 0.0),
-    "passage": (0.0, 1.0, 0.0, 0.0, 0.0),
-    "magic": (0.0, 0.0, 1.0, 0.0, 0.0),
-    "omen": (0.0, 0.0, 0.0, 1.0, 0.0),
-    "map": (0.0, 0.0, 0.0, 0.0, 1.0),
-    "evidence": (1.0, 1.0, 0.0, 0.0, 0.0),
-    "surveillance": (1.0, 0.0, 1.0, 0.0, 0.0),
-    "witness": (1.0, 0.0, 0.0, 1.0, 0.0),
-    "laboratory": (1.0, 0.0, 0.0, 0.0, 1.0),
-    "threat": (0.0, 1.0, 1.0, 0.0, 0.0),
-    "investigation": (0.0, 1.0, 0.0, 1.0, 0.0),
-    "promise": (0.0, 0.0, 1.0, 1.0, 0.0),
-    "memory": (0.0, 0.0, 1.0, 0.0, 1.0),
-    "dream": (0.0, 1.0, 1.0, 0.0, 1.0),
-    "meeting": (0.0, 1.0, 0.0, 1.0, 1.0),
-    "letter": (1.0, 1.0, 1.0, 0.0, 0.0),
-    "travel": (1.0, 1.0, 0.0, 0.0, 1.0),
-    "lighthouse": (1.0, 0.0, 1.0, 1.0, 1.0),
+    group: tuple(float(index == group_index) for index in range(len(GROUPS)))
+    for group_index, group in enumerate(GROUPS)
 }
 
 
@@ -117,7 +102,7 @@ class BenchmarkProvider:
     def embed(self, *, text: str) -> tuple[float, ...]:
         if text in self.query_vectors:
             return self.query_vectors[text]
-        return GROUP_VECTORS.get(text, (0.0, 0.0, 0.0, 0.0, 0.0))
+        return GROUP_VECTORS.get(text, (0.0,) * len(GROUPS))
 
 
 class BenchmarkStore:
