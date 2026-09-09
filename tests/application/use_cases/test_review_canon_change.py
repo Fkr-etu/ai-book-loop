@@ -11,6 +11,14 @@ from book_loop.domain.canon_change import (
 from book_loop.domain.models import CanonicalFact
 
 
+class FakeEmbeddingIndexer:
+    def __init__(self) -> None:
+        self.facts: list[CanonicalFact] = []
+
+    def index(self, fact: CanonicalFact) -> None:
+        self.facts.append(fact)
+
+
 class FakeKnowledgeRepository:
     def __init__(self, proposal: CanonChangeProposal, fact: CanonicalFact) -> None:
         self.proposal = proposal
@@ -73,6 +81,22 @@ def test_accept_creates_new_active_version_and_preserves_history_link():
     assert new_fact.previous_fact_id == old_fact.id
     assert new_fact.decision_id == review.id
     assert repository.proposal.status is CanonChangeProposalStatus.ACCEPTED
+
+
+def test_accept_indexes_new_fact_after_canon_persistence():
+    repository, old_fact = make_fixture()
+    indexer = FakeEmbeddingIndexer()
+
+    ReviewCanonChange(repository, embedding_indexer=indexer).execute(
+        book_id="book-1",
+        proposal_id="proposal-1",
+        decision=CanonChangeReviewDecisionType.ACCEPT,
+        reviewer_id="user-1",
+    )
+
+    assert len(indexer.facts) == 1
+    assert indexer.facts[0] is repository.facts[1]
+    assert indexer.facts[0].previous_fact_id == old_fact.id
 
 
 def test_reject_does_not_mutate_active_canon():
