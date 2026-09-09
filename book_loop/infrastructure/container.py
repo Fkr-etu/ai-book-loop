@@ -50,6 +50,7 @@ from book_loop.infrastructure.auth_rate_limit import AuthRateLimiter
 from book_loop.infrastructure.config import Settings
 from book_loop.infrastructure.database.canon_change_postgres import PostgresCanonChangeRepository
 from book_loop.infrastructure.database.postgres import PostgresWorkflowRunStore
+from book_loop.infrastructure.database.temporal_context import TemporalContextStore
 from book_loop.infrastructure.embeddings.factory import create_embedding_provider
 from book_loop.infrastructure.llm.assertion_extractor import LLMAssertionExtractor
 from book_loop.infrastructure.llm.factory import create_llm
@@ -69,6 +70,7 @@ class Container:
         if not self.settings.database_url.startswith(("postgresql://", "postgres://", "postgresql+psycopg://")):
             raise ValueError("Unsupported DATABASE_URL; PostgreSQL is required (postgresql://...)")
         self.repository = PostgresCanonChangeRepository(self.settings.database_url)
+        self.temporal_context_store = TemporalContextStore(self.repository)
         self.billing_repository = StripeBillingRepository(self.settings.database_url)
         self.billing = StripeBillingService(self.settings, self.billing_repository)
         self.auth_rate_limiter = AuthRateLimiter(self.settings.database_url)
@@ -144,14 +146,14 @@ class Container:
     def generate_chapter(self) -> GenerateChapter: return GenerateChapter(self.chapter_workflow_port, repository=self.repository, workflow_store=self.workflow_store, book_usage=self.repository)
     def review_chapter(self) -> ReviewChapter: return ReviewChapter(repository=self.repository, reviewer=self.reviewer_agent, context_builder=self.context_builder, linter=self.linter, max_retries=self.settings.max_retries, threshold=self.settings.review_threshold)
     def approve_chapter(self) -> ApproveChapter: return ApproveChapter(self.repository)
-    def approve_chapter_and_sync_canon(self) -> ApproveChapterAndSyncCanon: return ApproveChapterAndSyncCanon(book_repository=self.repository, knowledge_repository=self.repository, extractor=LLMAssertionExtractor(self.llm))
+    def approve_chapter_and_sync_canon(self) -> ApproveChapterAndSyncCanon: return ApproveChapterAndSyncCanon(book_repository=self.repository, knowledge_repository=self.repository, extractor=LLMAssertionExtractor(self.llm), temporal_context_store=self.temporal_context_store)
     def reject_chapter(self) -> RejectChapter: return RejectChapter(self.repository)
-    def ingest_document(self) -> IngestDocument: return IngestDocument(repository=self.repository, extractor=LLMAssertionExtractor(self.llm))
-    def extract_chapter_assertions(self) -> ExtractChapterAssertions: return ExtractChapterAssertions(book_repository=self.repository, knowledge_repository=self.repository, extractor=LLMAssertionExtractor(self.llm))
+    def ingest_document(self) -> IngestDocument: return IngestDocument(repository=self.repository, extractor=LLMAssertionExtractor(self.llm), temporal_context_store=self.temporal_context_store)
+    def extract_chapter_assertions(self) -> ExtractChapterAssertions: return ExtractChapterAssertions(book_repository=self.repository, knowledge_repository=self.repository, extractor=LLMAssertionExtractor(self.llm), temporal_context_store=self.temporal_context_store)
     def review_assertion(self) -> ReviewAssertion: return ReviewAssertion(self.repository, embedding_indexer=self.embedding_indexer)
     def propose_canon_change(self) -> ProposeCanonChange: return ProposeCanonChange(self.repository)
     def review_canon_change(self) -> ReviewCanonChange: return ReviewCanonChange(self.repository, embedding_indexer=self.embedding_indexer)
     def list_canonical_facts(self) -> ListCanonicalFacts: return ListCanonicalFacts(self.repository)
     def get_canonical_fact_history(self) -> GetCanonicalFactHistory: return GetCanonicalFactHistory(self.repository)
-    def analyze_consistency(self) -> AnalyzeConsistency: return AnalyzeConsistency(self.repository)
+    def analyze_consistency(self) -> AnalyzeConsistency: return AnalyzeConsistency(self.repository, temporal_context_store=self.temporal_context_store)
     def analyze_canon_change(self) -> AnalyzeCanonChange: return AnalyzeCanonChange(self.repository)

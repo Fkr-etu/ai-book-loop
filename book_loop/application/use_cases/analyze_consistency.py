@@ -13,14 +13,23 @@ from book_loop.application.use_cases.timeline_consistency_detector import Timeli
 from book_loop.application.use_cases.world_continuity_detector import WorldContinuityDetector
 from book_loop.domain.consistency import ConsistencyIssue
 from book_loop.domain.protocols import KnowledgeRepository
+from book_loop.domain.temporal import AssertionTemporalContextStore
 
 
 class AnalyzeConsistency:
     """Build an evidence-backed consistency report through the unified engine."""
 
-    def __init__(self, repository: KnowledgeRepository) -> None:
+    def __init__(
+        self,
+        repository: KnowledgeRepository,
+        *,
+        temporal_context_store: AssertionTemporalContextStore | None = None,
+    ) -> None:
         self.repository = repository
-        self._assertion_detector = AssertionConsistencyDetector(repository)
+        self._assertion_detector = AssertionConsistencyDetector(
+            repository,
+            temporal_context_store=temporal_context_store,
+        )
         self._timeline_detector = TimelineConsistencyDetector(repository)
         self._temporal_relation_detector = TemporalRelationConsistencyDetector(repository)
         self._inverse_relation_detector = InverseRelationConsistencyDetector(repository)
