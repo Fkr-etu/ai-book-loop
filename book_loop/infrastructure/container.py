@@ -5,6 +5,7 @@ from book_loop.agents.reviewer import ReviewerAgent
 from book_loop.agents.summarizer import SummarizerAgent
 from book_loop.agents.writer import WriterAgent
 from book_loop.application.services.canon_validation import CanonDiagnosticChecker
+from book_loop.application.services.canonical_fact_embedding_indexer import CanonicalFactEmbeddingIndexer
 from book_loop.application.services.context import ContextBuilder
 from book_loop.application.services.hybrid_retrieval import HybridCanonicalRetriever
 from book_loop.application.services.linguistic_context import GeminiDiagnosticContextualizer
@@ -77,6 +78,11 @@ class Container:
         self.observability = ObservabilityStore(self.settings.database_url)
         self.llm = create_llm(self.settings)
         self.embedding_provider = create_embedding_provider(self.settings)
+        self.embedding_indexer = CanonicalFactEmbeddingIndexer(
+            provider=self.embedding_provider,
+            repository=self.repository,
+            model=self.settings.embedding_model,
+        )
         self.semantic_retriever = EmbeddingCanonicalRetriever(
             self.embedding_provider,
             embedding_store=self.repository,
@@ -142,9 +148,9 @@ class Container:
     def reject_chapter(self) -> RejectChapter: return RejectChapter(self.repository)
     def ingest_document(self) -> IngestDocument: return IngestDocument(repository=self.repository, extractor=LLMAssertionExtractor(self.llm))
     def extract_chapter_assertions(self) -> ExtractChapterAssertions: return ExtractChapterAssertions(book_repository=self.repository, knowledge_repository=self.repository, extractor=LLMAssertionExtractor(self.llm))
-    def review_assertion(self) -> ReviewAssertion: return ReviewAssertion(self.repository)
+    def review_assertion(self) -> ReviewAssertion: return ReviewAssertion(self.repository, embedding_indexer=self.embedding_indexer)
     def propose_canon_change(self) -> ProposeCanonChange: return ProposeCanonChange(self.repository)
-    def review_canon_change(self) -> ReviewCanonChange: return ReviewCanonChange(self.repository)
+    def review_canon_change(self) -> ReviewCanonChange: return ReviewCanonChange(self.repository, embedding_indexer=self.embedding_indexer)
     def list_canonical_facts(self) -> ListCanonicalFacts: return ListCanonicalFacts(self.repository)
     def get_canonical_fact_history(self) -> GetCanonicalFactHistory: return GetCanonicalFactHistory(self.repository)
     def analyze_consistency(self) -> AnalyzeConsistency: return AnalyzeConsistency(self.repository)

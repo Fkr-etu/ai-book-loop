@@ -1,17 +1,26 @@
 from __future__ import annotations
 
+import logging
 from contextlib import nullcontext
 from uuid import uuid4
 
+from book_loop.application.services.canonical_fact_embedding_indexer import CanonicalFactEmbeddingIndexer
 from book_loop.domain.models import AssertionStatus, CanonicalFact, ReviewDecision, ReviewDecisionType
 from book_loop.domain.protocols import KnowledgeRepository
+
+logger = logging.getLogger(__name__)
 
 
 class ReviewAssertion:
     """Apply an explicit review decision; only acceptance can create Canon."""
 
-    def __init__(self, repository: KnowledgeRepository) -> None:
+    def __init__(
+        self,
+        repository: KnowledgeRepository,
+        embedding_indexer: CanonicalFactEmbeddingIndexer | None = None,
+    ) -> None:
         self.repository = repository
+        self.embedding_indexer = embedding_indexer
 
     def execute(
         self,
@@ -28,13 +37,20 @@ class ReviewAssertion:
             lock_assertion = getattr(self.repository, "lock_assertion", None)
             if lock_assertion is not None:
                 lock_assertion(assertion_id)
-            return self._execute_in_transaction(
+            review, fact = self._execute_in_transaction(
                 book_id=book_id,
                 assertion_id=assertion_id,
                 decision=decision,
                 reviewer_id=reviewer_id,
                 rationale=rationale,
             )
+
+        if fact is not None and self.embedding_indexer is not None:
+            try:
+                self.embedding_indexer.index(fact)
+            except Exception:
+                logger.exception("Unable to index canonical fact %s", fact.id)
+        return review
 
     def _execute_in_transaction(
         self,
@@ -44,7 +60,7 @@ class ReviewAssertion:
         decision: ReviewDecisionType,
         reviewer_id: str | None,
         rationale: str,
-    ) -> ReviewDecision:
+    ) -> tuple[ReviewDecision, CanonicalFact | None]:
         assertions = {item.id: item for item in self.repository.list_assertions(book_id=book_id)}
         assertion = assertions.get(assertion_id)
         if assertion is None:
@@ -54,7 +70,7 @@ class ReviewAssertion:
         if existing:
             latest = existing[-1]
             if latest.decision is decision:
-                return latest
+                return latest, None
             if assertion.status in {AssertionStatus.ACCEPTED, AssertionStatus.REJECTED}:
                 raise ValueError(f"Assertion {assertion_id} already has a terminal status")
         elif assertion.status in {AssertionStatus.ACCEPTED, AssertionStatus.REJECTED}:
@@ -71,10 +87,10 @@ class ReviewAssertion:
 
         if decision is ReviewDecisionType.REJECT:
             self.repository.set_assertion_status(assertion_id, AssertionStatus.REJECTED)
-            return review
+            return review, None
         if decision is ReviewDecisionType.DEFER:
             self.repository.set_assertion_status(assertion_id, AssertionStatus.DEFERRED)
-            return review
+            return review, None
 
         self.repository.set_assertion_status(assertion_id, AssertionStatus.ACCEPTED)
         for candidate in assertions.values():
@@ -123,7 +139,7 @@ class ReviewAssertion:
             previous_fact_id=previous_fact.id if previous_fact else None,
         )
         self.repository.save_canonical_fact(fact)
-        return review
+        return review, fact
 
     @staticmethod
     def _conflicts(left, right) -> bool:
