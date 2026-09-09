@@ -25,6 +25,8 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.execute(
-        "DROP INDEX IF EXISTS ix_canonical_fact_embeddings_model;
-        DROP TABLE IF EXISTS canonical_fact_embeddings;"
+        """
+        DROP INDEX IF EXISTS ix_canonical_fact_embeddings_model;
+        DROP TABLE IF EXISTS canonical_fact_embeddings;
+        """
     )
