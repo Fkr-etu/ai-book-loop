@@ -1,5 +1,5 @@
-from pydantic import ValidationError
 import pytest
+from pydantic import ValidationError
 
 from book_loop.domain.models import Character, CharacterRelation, CharacterStatus
 
