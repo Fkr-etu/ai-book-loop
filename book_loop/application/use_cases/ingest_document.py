@@ -3,8 +3,8 @@ from __future__ import annotations
 import hashlib
 from uuid import uuid4
 
+from book_loop.application.ports.knowledge import AssertionExtractor, KnowledgeRepository
 from book_loop.domain.models import Assertion, DocumentChunk, Evidence, IngestionResult, SourceDocument
-from book_loop.domain.protocols import AssertionExtractor, KnowledgeRepository
 
 
 class IngestDocument:
