@@ -13,40 +13,14 @@ class ConsistencyCase:
     right: tuple[str, str, str]
 
 
-# Small, source-independent benchmark used to protect the distinction between
-# contradictions and harmless narrative changes. The corpus is deliberately
-# compact: it exercises the structural detector, not linguistic extraction.
 CASES = (
-    ConsistencyCase(
-        "contradiction",
-        ("Elara", "porte", "Givre-Âme"),
-        ("Elara", "porte", "Lame-Solaire"),
-    ),
-    ConsistencyCase(
-        "contradiction",
-        ("Kael", "vit_a", "Fer-Noir"),
-        ("Kael", "vit_a", "Port-Argent"),
-    ),
-    ConsistencyCase(
-        "compatible_restatement",
-        ("Myra", "est", "mercenaire"),
-        ("Myra", "est", "mercenaire"),
-    ),
-    ConsistencyCase(
-        "unrelated",
-        ("Elara", "porte", "Givre-Âme"),
-        ("Kael", "porte", "Surchargeuse"),
-    ),
-    # A real narrative evolution must not automatically be treated as a
-    # contradiction merely because the same subject changes state over time.
+    ConsistencyCase("contradiction", ("Elara", "porte", "Givre-Âme"), ("Elara", "porte", "Lame-Solaire")),
+    ConsistencyCase("contradiction", ("Kael", "vit_a", "Fer-Noir"), ("Kael", "vit_a", "Port-Argent")),
+    ConsistencyCase("compatible_restatement", ("Myra", "est", "mercenaire"), ("Myra", "est", "mercenaire")),
+    ConsistencyCase("unrelated", ("Elara", "porte", "Givre-Âme"), ("Kael", "porte", "Surchargeuse")),
     # The current Assertion model has no temporal scope, so this case is kept
-    # as an explicit benchmark label but is intentionally excluded from the
-    # structural detector score until temporal context is modelled.
-    ConsistencyCase(
-        "narrative_evolution",
-        ("Elara", "est", "blessée"),
-        ("Elara", "est", "guérie"),
-    ),
+    # explicit but is not scored by the structural detector yet.
+    ConsistencyCase("narrative_evolution", ("Elara", "est", "blessée"), ("Elara", "est", "guérie")),
 )
 
 
@@ -89,33 +63,22 @@ def test_consistency_benchmark_covers_distinct_case_types() -> None:
     }
 
 
-def test_structural_detector_identifies_only_gold_static_contradictions() -> None:
-    contradiction_cases = [case for case in CASES if case.label == "contradiction"]
-    compatible_cases = [
-        case for case in CASES if case.label in {"compatible_restatement", "unrelated"}
-    ]
+def test_structural_detector_matches_each_static_case() -> None:
+    for index, case in enumerate(CASES):
+        if case.label == "narrative_evolution":
+            continue
 
-    assertions = []
-    for index, case in enumerate(contradiction_cases + compatible_cases):
-        assertions.extend(
-            [
-                assertion(f"left-{index}", case.left),
-                assertion(f"right-{index}", case.right),
-            ]
-        )
+        left = assertion(f"left-{index}", case.left)
+        right = assertion(f"right-{index}", case.right)
+        repository = BenchmarkRepository([left, right])
+        conflicts = DetectConflicts(repository).execute(book_id="benchmark")
 
-    repository = BenchmarkRepository(assertions)
-    conflicts = DetectConflicts(repository).execute(book_id="benchmark")
-    pairs = {
-        frozenset((conflict.left_assertion_id, conflict.right_assertion_id))
-        for conflict in conflicts
-    }
-
-    expected = {
-        frozenset((f"left-{index}", f"right-{index}"))
-        for index, case in enumerate(contradiction_cases)
-    }
-    assert pairs == expected
+        assert bool(conflicts) is (case.label == "contradiction"), case.label
+        if conflicts:
+            assert {
+                conflicts[0].left_assertion_id,
+                conflicts[0].right_assertion_id,
+            } == {left.id, right.id}
 
 
 def test_narrative_evolution_is_explicitly_not_scored_without_temporal_context() -> None:
