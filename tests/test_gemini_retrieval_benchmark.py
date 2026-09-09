@@ -12,6 +12,7 @@ from book_loop.application.services.retrieval_evaluation import (
 )
 from book_loop.application.services.semantic_retrieval import EmbeddingCanonicalRetriever
 from book_loop.domain.embedding import CanonicalFactEmbedding
+from book_loop.domain.models import CanonicalFact
 from book_loop.infrastructure.embeddings.gemini import GeminiEmbeddingProvider
 from tests.test_retrieval_benchmark import CORPUS, QUERIES, fact
 
@@ -32,7 +33,7 @@ class GeminiBenchmarkStore:
     ) -> dict[str, CanonicalFactEmbedding]:
         return {fact_id: self.entries[fact_id] for fact_id in fact_ids if fact_id in self.entries}
 
-    def index(self, facts: list) -> None:
+    def index(self, facts: list[CanonicalFact]) -> None:
         for item in facts:
             embedding = self.provider.embed(text=item.statement)
             self.entries[item.id] = CanonicalFactEmbedding(
@@ -45,23 +46,26 @@ class GeminiBenchmarkStore:
 def test_gemini_retrieval_quality_benchmark() -> None:
     """Measure real Gemini semantic quality without making it a CI gate.
 
-    This benchmark intentionally uses the same deterministic corpus and labels as the
-    regression test, but replaces hand-labelled vectors with real Gemini embeddings.
-    Run it manually with GEMINI_API_KEY set. The printed metrics are evidence for a
-    retrieval-quality decision, not a pass/fail product requirement.
+    This benchmark uses the same source-grounded corpus and labels as the
+    deterministic regression test, but replaces hand-labelled vectors with real
+    Gemini embeddings. Run it manually with GEMINI_API_KEY set. The printed metrics
+    are evidence for a retrieval-quality decision, not a pass/fail product requirement.
     """
     model = os.getenv("EMBEDDING_MODEL", "gemini-embedding-001")
     provider = GeminiEmbeddingProvider(
         api_key=os.environ["GEMINI_API_KEY"],
         model=model,
     )
-    facts = [fact(book_id, number, statement) for book_id, number, statement, _ in CORPUS]
+    facts = [
+        fact(chapter, index, statement)
+        for index, (chapter, statement, _) in enumerate(CORPUS)
+    ]
     cases = tuple(
         RetrievalEvaluationCase(
             query=query,
-            relevant_fact_keys=frozenset({(f"{book_id}-{number}", 1)}),
+            relevant_fact_keys=frozenset({(facts[index].id, 1)}),
         )
-        for query, book_id, number, _ in QUERIES
+        for query, index, _ in QUERIES
     )
 
     store = GeminiBenchmarkStore(provider)
