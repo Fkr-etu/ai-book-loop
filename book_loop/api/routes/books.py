@@ -14,8 +14,8 @@ router = APIRouter(prefix="/api/books", tags=["books"])
 
 class CreateBookPayload(BaseModel):
     title: str
-    theme: str
-    author_idea: str
+    theme: str = "Manuscrit importé"
+    author_idea: str = "À préciser à partir du manuscrit importé."
     lore: str = ""
     constraints: list[str] = Field(default_factory=list)
 
