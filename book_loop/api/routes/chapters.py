@@ -7,11 +7,9 @@ from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException, Re
 from pydantic import BaseModel, Field
 
 from book_loop.api.dependencies import get_book, get_container, get_owned_book
-from book_loop.application.services.context import ContextBuilder
 from book_loop.infrastructure.container import Container
 
 router = APIRouter(prefix="/api/books/{book_id}/chapters", tags=["chapters"])
-context_builder = ContextBuilder()
 
 
 class AddChapterPayload(BaseModel):
@@ -121,7 +119,7 @@ def get_canonical_context(book_id: str, chapter_number: int, request: Request, c
     chapter = next((c for c in book.chapters if c.number == chapter_number), None)
     if chapter is None:
         raise HTTPException(status_code=404, detail=f"Chapitre {chapter_number} introuvable.")
-    formatted = context_builder.for_chapter(book, chapter_number)
+    formatted = container.context_builder.for_chapter(book, chapter_number)
     prev_summaries = "\n".join(f"Chapter {c.number} ({c.title}): {c.summary}" for c in book.chapters if c.number < chapter_number and c.summary)
     return {
         "authorIdea": book.author_idea,
