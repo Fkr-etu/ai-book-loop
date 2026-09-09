@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from enum import StrEnum
+from typing import Protocol
 
 from pydantic import BaseModel, Field
 
@@ -22,3 +23,11 @@ class TemporalScope(BaseModel):
         if self.position is None or other.position is None:
             return True
         return self.position == other.position
+
+
+class AssertionTemporalContextStore(Protocol):
+    """Port used by application services to persist and read assertion temporal scope."""
+
+    def get_temporal_scope(self, *, assertion_id: str) -> TemporalScope | None: ...
+
+    def save_temporal_scope(self, *, assertion_id: str, scope: TemporalScope) -> None: ...
