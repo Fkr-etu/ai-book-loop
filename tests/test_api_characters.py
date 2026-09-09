@@ -63,6 +63,7 @@ def test_character_crud_and_relations(client: TestClient):
     assert relations.json()[0]["relation_type"] == "rivalité"
 
     assert client.delete(f"/api/books/{book_id}/characters/relations/{relation_id}").status_code == 204
+    assert client.get(f"/api/books/{book_id}/characters/relations").json() == []
     assert client.delete(f"/api/books/{book_id}/characters/{alice_id}").status_code == 204
     assert client.get(f"/api/books/{book_id}/characters/{alice_id}").status_code == 404
 
