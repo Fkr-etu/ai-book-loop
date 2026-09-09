@@ -8,7 +8,7 @@ import { realApiClient, RealApiError } from "@/services/realApiClient";
 import { getApiErrorMessage } from "@/services/apiErrorMessages";
 import type { BackendBook, BackendUser } from "@/types/api";
 import { track } from "@/lib/analytics";
-import { ArrowRight, BookOpen, CheckCircle2, Feather, Plus, ShieldCheck, Sparkles } from "lucide-react";
+import { ArrowRight, BookOpen, CheckCircle2, Feather, Plus, ShieldCheck, Sparkles, Upload } from "lucide-react";
 
 function errorMessage(error: unknown): string {
   if (error instanceof RealApiError) return getApiErrorMessage(error, error.message);
@@ -81,7 +81,10 @@ export default function DashboardPage() {
             <h1 className="font-playfair text-2xl md:text-3xl font-bold text-[#0b1c30]">Bibliothèque & Tableau de Bord</h1>
             <p className="text-xs text-[#45464d] mt-1">{user?.name ? `Bonjour ${user.name}. ` : ""}Retrouvez vos œuvres et reprenez votre travail.</p>
           </div>
-          <button type="button" onClick={() => { setShowCreate(true); setCreateError(null); }} className="px-5 py-2.5 bg-[#0b1c30] text-[#ffddb8] font-bold text-xs rounded hover:bg-[#131b2e] transition-colors flex items-center justify-center gap-2 shadow-xs shrink-0 w-full sm:w-auto"><Plus className="w-4 h-4" /><span>Nouveau Livre</span></button>
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+            <Link href="/import" className="px-4 py-2.5 border border-[#0b1c30] text-[#0b1c30] font-bold text-xs rounded hover:bg-white transition-colors flex items-center justify-center gap-2 shadow-xs shrink-0"><Upload className="w-4 h-4" /><span>Importer un manuscrit</span></Link>
+            <button type="button" onClick={() => { setShowCreate(true); setCreateError(null); }} className="px-5 py-2.5 bg-[#0b1c30] text-[#ffddb8] font-bold text-xs rounded hover:bg-[#131b2e] transition-colors flex items-center justify-center gap-2 shadow-xs shrink-0"><Plus className="w-4 h-4" /><span>Nouveau Livre</span></button>
+          </div>
         </div>
 
         {showCreate && (
@@ -108,7 +111,7 @@ export default function DashboardPage() {
 
         {loading && <div className="bg-white rounded-xl border border-[#c6c6cd]/40 p-8 text-center text-xs text-[#5f5e5b]">Chargement de votre bibliothèque…</div>}
         {!loading && error && <div className="bg-white rounded-xl border border-red-200 p-6 space-y-3" role="alert"><h2 className="font-playfair text-lg font-bold text-[#0b1c30]">Votre bibliothèque n&apos;est pas disponible</h2><p className="text-xs text-[#5f5e5b]">{error}</p><button type="button" onClick={() => void refresh()} className="px-4 py-2 bg-[#0b1c30] text-white rounded text-xs font-semibold">Réessayer</button></div>}
-        {!loading && !error && books.length === 0 && <div className="bg-white rounded-xl border border-dashed border-[#c6c6cd] p-10 text-center space-y-4"><BookOpen className="w-8 h-8 mx-auto text-[#b87500]" /><div><h2 className="font-playfair text-xl font-bold text-[#0b1c30]">Votre bibliothèque est vide</h2><p className="text-xs text-[#5f5e5b] mt-1">Créez votre premier livre pour commencer à construire son Canon.</p></div><button type="button" onClick={() => setShowCreate(true)} className="inline-flex px-5 py-2.5 bg-[#0b1c30] text-white rounded text-xs font-semibold">Créer mon premier livre</button></div>}
+        {!loading && !error && books.length === 0 && <div className="bg-white rounded-xl border border-dashed border-[#c6c6cd] p-10 text-center space-y-4"><BookOpen className="w-8 h-8 mx-auto text-[#b87500]" /><div><h2 className="font-playfair text-xl font-bold text-[#0b1c30]">Votre bibliothèque est vide</h2><p className="text-xs text-[#5f5e5b] mt-1">Vous pouvez commencer un nouveau livre ou importer un manuscrit existant.</p></div><div className="flex flex-col sm:flex-row justify-center gap-2"><button type="button" onClick={() => setShowCreate(true)} className="inline-flex px-5 py-2.5 bg-[#0b1c30] text-white rounded text-xs font-semibold justify-center">Commencer un livre</button><Link href="/import" className="inline-flex px-5 py-2.5 border border-[#0b1c30] text-[#0b1c30] rounded text-xs font-semibold justify-center">Importer mon manuscrit</Link></div></div>}
         {!loading && !error && books.length > 0 && (
           <section className="space-y-4"><h2 className="text-xs font-mono font-bold text-[#76777d] uppercase tracking-wider">Vos récits ({books.length})</h2><div className="grid grid-cols-1 gap-4">
             {books.map((book) => { const chapters = book.chapters.length; const approved = book.chapters.filter((chapter) => chapter.status === "approved" || chapter.status === "canonical").length; return (
