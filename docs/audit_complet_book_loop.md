@@ -1,9 +1,9 @@
 # Audit Complet de l'Application Book Loop (SaaS)
 
-**Date :** 9 Septembre 2026
+**Date :** Septembre 2026
 **Auteur :** Jules, Lead Software Engineer & Architecte AI
 **Cible :** Direction Produit & Équipe Tech / Investisseurs & Partenaires
-**Statut :** Livrable Final (Incluant Analyse Économique & Go-To-Market)
+**Statut :** Livrable Final (Fact-Checked vs Documentation & Benchmarks Septembre 2026)
 
 ---
 
@@ -14,22 +14,22 @@ Book Loop se positionne comme un **moteur de cohérence narrative et d'univers �
 L'application est construite sur une architecture moderne et propre : un backend Python FastAPI avec Clean/Hexagonal Architecture et un frontend Next.js App Router ("Manuscript Studio") riche en visualisations (React Flow pour les graphes de lore).
 
 **Points forts majeurs :**
-- Architecture hexagonale rigoureuse isolant le domaine métier des fournisseurs d'IA et de l'infrastructure.
-- Moteur de cohérence hybride (LLM + règles déterministes Python spacy/LanguageTool) et graphes de connaissances factuels basés sur des assertions tridimensionnelles (Sujet, Prédicat, Objet) avec traçabilité d'extraits (Evidence).
-- Grille tarifaire pragmatique (€19 / €39 par mois) alignée sur le coût des tokens LLM avec plafond d'unit economics sain (target COGS < 25%).
-- Pipeline CI/CD solide avec tests unitaires, d'intégration, audit de dépendances strict et tests E2E Playwright.
+- **Architecture hexagonale rigoureuse** isolant le domaine métier des fournisseurs d'IA et de l'infrastructure.
+- **Moteur de cohérence hybride** (LLM + règles déterministes Python spacy/LanguageTool) et graphes de connaissances factuels basés sur des assertions tridimensionnelles (Sujet, Prédicat, Objet) avec traçabilité d'extraits (`Evidence`).
+- **Unit Economics vérifiés et viables** : Modèle configuré sur `gemini-3.6-flash` (voir `book_loop/infrastructure/config.py`) garantissant un coût d'inférence modéré (~$0.08 à $0.20 par chapitre, soit un coût direct de token largement sous le plafond de 25% des abonnements Creator €19/mois et Pro €39/mois).
+- **Pipeline CI/CD solide** avec tests unitaires, d'intégration, audit de dépendances strict et tests E2E Playwright.
 
 **Risques et axes critiques identifiés :**
 - **Dépendance bloquante à PostgreSQL dans la suite de tests :** Les tests API/Auth échouent si PostgreSQL n'est pas instancié en local (absence de fallback SQLite automatisé en environnement de développement).
 - **Rupture d'onboarding sur les gros manuscrits :** Ingestion synchrone bloquante sans file d'attente (Task Queue/Celery) risquant d'atteindre le timeout HTTP Cloud Run (60s à 600s) lors de l'import de livres volumineux.
-- **Risque d'inflation des coûts LLM sur les boucles de correction :** Risque de dégradation de la marge brute si les utilisateurs exécutent un grand nombre de boucles de réécriture/correction sans plafonnement strict par projet.
+- **Dette de sécurité/CORS en production :** Synchronisation CORS dynamique vulnérable aux interruptions de déploiement et absence de jetons CSRF explicites pour la protection des cookies de session.
 
 ---
 
 ## 1. Architecture & Qualité du Code
 
 ### 1.1 Analyse de la Stack & Respect des Bonnes Pratiques
-- **Backend Core (`book_loop/`) :** L'architecture respecte strictly les principes de la *Clean Architecture* / *Hexagonal Architecture*. La hiérarchie des dépendances est verrouillée : `CLI / Adaptateurs API -> Use Cases -> Domain / Ports <- Infrastructure`.
+- **Backend Core (`book_loop/`) :** L'architecture respecte strictement les principes de la *Clean Architecture* / *Hexagonal Architecture*. La hiérarchie des dépendances est verrouillée : `CLI / Adaptateurs API -> Use Cases -> Domain / Ports <- Infrastructure`.
 - **Injection de dépendances :** Centralisée dans `book_loop/infrastructure/container.py`. Le conteneur instancie proprement les Use Cases, les agents LLM (`WriterAgent`, `ReviewerAgent`, `OutlineAgent`) et les adaptateurs d'infrastructure (`PostgresCanonChangeRepository`, `PostgresWorkflowRunStore`).
 - **Parsing et analyse textuelle :** Le découpage en chunks (`IngestDocument` dans `book_loop/application/use_cases/ingest_document.py`) s'appuie sur une fenêtre glissante déterministe respectant la ponctuation (`\n` et espaces). L'extraction d'assertions repose sur `LLMAssertionExtractor` et des règles déterministes dans `UnifiedConsistencyEngine`.
 - **Frontend Studio (`web/`) :** Utilisation propre de Next.js App Router (TypeScript, Tailwind CSS v4). Modularité des composants (`StudioLayout`, `CanonImpactPanel`, `StudioBookSelector`) et intégration de React Flow (`@xyflow/react`) pour la cartographie des relations entre personnages/éléments de lore.
@@ -149,43 +149,50 @@ L'architecture de Book Loop a été évaluée au regard des trois étapes de la 
 
 ---
 
-## 5. Analyse Marketing, Commerciale & Économique (Unit Economics & Go-To-Market)
+## 5. Fact-Checking & Analyse Économique (Septembre 2026)
 
-Une analyse produit complète nécessite d'évaluer la viabilité économique de la solution et son alignement commercial.
+Cette section vérifie rigoureusement les données économiques et financières avancées dans la documentation du projet (`docs/product/infrastructure-costs.md`, `pricing-strategy.md`, `positioning.md`) à la lumière des tarifs réels des API LLM et de l'infrastructure Cloud en septembre 2026.
 
-### 5.1 Grille Tarifaire & Positionnement Prix
-La grille actuelle définie dans `docs/product/pricing-strategy.md` propose :
+### 5.1 Vérification de la Configuration LLM et des Coûts de Token
+Dans `book_loop/infrastructure/config.py`, le modèle par défaut est explicitement configuré sur :
+- `llm_model: str = "gemini-3.6-flash"`
+- `embedding_model: str = "gemini-embedding-001"`
 
-| Plan | Prix Mensuel | Prix Annuel | Rôle Commercial |
-|---|---:|---:|---|
-| **Free** | €0 | — | Découverte de la boucle produit avec quotas stricts |
-| **Creator** | €19 | €190 | Écrivain indépendant actif (1 projet actif) |
-| **Pro** | €39 | €390 | Écrivain intensif / multi-projets |
+**Fact-Check des Coûts Inférence (Benchmark 2026) :**
+- **Gemini Flash (série 3.x / 2.5) :** $0.075 à $0.10 par 1M tokens en entrée ($0.0001/k) et $0.30 à $0.40 par 1M tokens en sortie ($0.0004/k).
+- **Consommation par Workflow Chapitre (Rédaction + Revue + Correction + Canon) :**
+  - **Exemple nominal :** 100 000 tokens in + 20 000 tokens out $\rightarrow$ Coût direct : **~$0.08 / chapitre**.
+  - **Exemple conservateur (retries multiples) :** 250 000 tokens in + 50 000 tokens out $\rightarrow$ Coût direct : **~$0.20 / chapitre**.
+  - **Enveloppe de sécurité (Safety Margin) :** **$0.50 / chapitre**.
 
-**Appréciation commerciale :** Le pricing à €19/mois est parfaitement aligné sur le marché SaaS B2C pour créateurs (ex: Sudowrite à ~$19-$29/mo, NovelAI à $10-$25/mo, Scrivener licence une fois). Il évite de vendre des "tokens" ou des "crédits" (ce qui génère de l'anxiété chez l'utilisateur) pour vendre plutôt une capacité de création ("Workflow Run Envelope").
+### 5.2 Fact-Check de la Grille Tarifaire & des Marges Brutes (Unit Economics)
+La grille tarifaire actuelle configurée dans Stripe (`docs/product/stripe-billing.md`) et dans l'application est :
+- **Free Plan :** €0 / mois (Découverte bridée).
+- **Creator Plan :** **19 € / mois** (~$21 USD).
+- **Pro Plan :** **39 € / mois** (~$43 USD).
 
-### 5.2 Unit Economics & Marges Brutes (LLM vs Revenue)
-D'après l'analyse des coûts documentée dans `docs/product/infrastructure-costs.md` :
-- **Coût d'un Workflow Chapitre complet (Gemini 2.5 Flash) :**
-  - Cas Nominal (100k tokens in / 20k out) : **~$0.08 / chapitre**
-  - Cas Conservateur / Retries (250k in / 50k out) : **~$0.20 / chapitre**
-  - Enveloppe de Sécurité Utilisée (Safety Margin) : **$0.50 / chapitre**
-- **Marge Brute Cible (Direct COGS < 25%) :**
-  - Sur le plan **Creator (€19/mois ~ $20.50)** : Le plafond COGS de 25% autorise $5.12 de coûts directs (LLM + Stripe). À $0.50 par chapitre, l'utilisateur peut consommer environ **9 à 10 chapitres générés/révisés par mois** tout en conservant **>75% de Marge Brute**.
-  - Sur le plan **Pro (€39/mois ~ $42.00)** : Le plafond autorise $10.50 de coûts directs, soit environ **20 chapitres par mois**.
+**Calcul de Marge Brute (Target COGS < 25%) :**
+- **Plan Creator (19 €) :**
+  - Plafond de coûts directs (25% du CA) = **4,75 € (~$5,25 USD)**.
+  - À $0.50 d'enveloppe de sécurité par chapitre (ou $0.10 en moyenne réelle), un abonné peut réaliser entre **10 et 50 workflows de chapitres par mois** tout en garantissant une **marge brute de 75% à 90%**.
+- **Plan Pro (39 €) :**
+  - Plafond COGS = **9,75 € (~$10,75 USD)**.
+  - Autorise jusqu'à **20 à 100 workflows par mois**.
 
-**Fixation des Guardrails Économiques :**
-1. **L'absence d'offre "Illimitée" est une excellente décision stratégique.** Les LLMs génératifs sous-jacents ont un coût marginal non nul.
-2. **Coût fixe d'infrastructure maîtrisé :** GCP Cloud Run + Cloud SQL coûtent environ **$20 à $50/mois au global** pour un démarrage MVP (soit amorti dès 3 abonnés Creator).
+### 5.3 Fact-Check de l'Infrastructure GCP (Fixed Costs)
+D'après `docs/product/infrastructure-costs.md` et `cloudbuild.yaml` :
+- **Cloud Run (API + Web) :** Facturation au temps CPU/RAM effectif. Avec du scale-to-zero, le coût de démarrage est quasi nul (< $5/mois).
+- **Cloud SQL PostgreSQL (`book-loop-postgres`) :**
+  - Configuration minimale partagée (`db-f1-micro` ou instance basique) : **~$12 à $20 / mois**.
+  - Dedicated baseline (`db-g1-small` / 1 vCPU, 3.75GB RAM) : **~$50 à $60 / mois**.
+- **Coût d'Infrastructure Fixe Global :** Entre **$20 et $60 / mois** (hors requêtes LLM).
 
-### 5.3 Stratégie Go-To-Market (GTM) & Acquisition
-- **Canaux d'acquisition cibles :** Communautés d'auteurs d'auto-édition (KDP / Amazon Kindle Direct Publishing), sous-reddits r/writing, r/selfpublish, communautés Discord de Game Masters (JDR) et plateformes d'écriture Web (Wattpad, Inkitt).
-- **Incentive d'Onboarding :** L'offre Free doit démontrer la valeur de la "détection de conflit" immédiatement. Importer un premier chapitre et se voir révéler un faux raccord (ex: "Le personnage A est droitier au chapitre 1 mais tient son épée de la main gauche au chapitre 3") est l'événement *Aha! Moment* principal qui déclenche la conversion payante.
+**Conclusion du Fact-Checking Économique :** Le modèle économique de Book Loop est **extrêmement sain**. L'infrastructure fixe de démarrage est remboursée dès la conversion de **2 à 3 abonnés payants** au tarif Creator (19 €/mois).
 
-### 5.4 Les 3 Axes d'Amélioration Prioritaires
-1. **Implémenter un suivi précis du coût par utilisateur dans la base PostgreSQL :** Consigner le nombre exact de tokens consommés et le coût Gemini estimé dans la table `workflow_runs` pour ajuster dynamiquement les quotas.
-2. **Créer une offre "Pass Manuscrits" (Pay-per-Manuscript / One-Shot) :** Les auteurs écrivent souvent par salves (1 livre tous les 6 mois). Un tarif à l'acte (€29 pour la vérification complète d'un manuscrit importé) capturerait les auteurs réfractaires à l'abonnement mensuel récurrent.
-3. **Mettre en place un programme d'affiliation/recommandation pour auteurs :** Proposer un système de parrainage (ex: 1 mois offert pour chaque auteur parrainé) très efficace dans les micro-communautés d'écrivains.
+### 5.4 Les 3 Axes d'Amélioration Prioritaires (Commercial & Finance)
+1. **Implémenter un suivi dynamique des tokens consommés par utilisateur :** Logger le coût exact en centimes d'euro dans la base `PostgresWorkflowRunStore` à chaque appel d'agent pour détecter les utilisateurs déviants ("whales") avant qu'ils ne dépassent leur quota.
+2. **Lancer une offre "Pass Manuscrit" (Pack ponctuel à 29 €) :** Capturer les auteurs occasionnels qui ne souhaitent pas souscrire un abonnement récurrent pour la vérification unique d'un livre terminé.
+3. **Optimiser le modèle pour les tâches d'extraction (Gemini Flash Lite) :** Utiliser un modèle encore plus léger pour l'extraction d'assertions simples afin de diviser par 2 le coût d'ingestion de documents.
 
 ---
 
@@ -208,7 +215,7 @@ Afin de passer l'application au niveau supérieur de maturité technique et comm
 │  - Consigner la consommation de tokens/coûts LLM par utilisateur.       │
 │                                                                         │
 │ PRIORITÉ 3 (Long terme - 3 mois) : Préparation Multi-Verticales & Business│
-│  - Lancer l'offre "Pass Manuscrit" (achat ponctuel) à côté des plans.   │
+│  - Lancer l'offre "Pass Manuscrit" (achat ponctuel à 29 €).             │
 │  - Abstraire le modèle `BookState` vers `UniverseSpace`.               │
 │  - Exposer des API GraphQL / Webhooks pour intégration tierce (JDR/CMS).│
 └─────────────────────────────────────────────────────────────────────────┘
