@@ -10,6 +10,7 @@ export type AnalyticsEvent =
   | "signup_started"
   | "signup_completed"
   | "book_created"
+  | "document_ingested"
   | "canon_configured"
   | "chapter_generation_started"
   | "chapter_generation_completed"
