@@ -1,6 +1,6 @@
 import type { BackendAssertion, BackendBillingState, BackendBook, BackendCanonChangeImpact, BackendCanonChangeProposal, BackendCanonChangeReview, BackendCanonicalFact, BackendConflict, BackendIngestionResult, BackendSceneReview, BackendUser, BackendWorkflowRun } from "@/types/api";
 import { API_BASE_URL } from "@/services/config";
-export interface CreateBookInput { title: string; theme: string; author_idea: string; lore?: string; constraints?: string[]; }
+export interface CreateBookInput { title: string; theme: string; author_idea: string; lore?: string; constraints?: string[]; creative_brief?: { premise: string; audience?: string; tone?: string; themes?: string[]; must_include?: string[]; must_avoid?: string[]; }; }
 export interface GenerateChapterResult { run: BackendWorkflowRun; }
 export interface ReviewChapterResult { book: BackendBook; review: BackendSceneReview; }
 export interface BackendChapterContext { authorIdea: string; theme: string; lore: string; globalOutline: import("@/types/api").BackendOutline | null; constraints: string[]; previousSummaries: string; currentObjective: string; formattedContext: string; }
