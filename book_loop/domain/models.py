@@ -74,6 +74,43 @@ class Chapter(BaseModel):
     summary: str | None = None
 
 
+class CharacterStatus(StrEnum):
+    PROPOSED = "proposed"
+    ACTIVE = "active"
+    ARCHIVED = "archived"
+
+
+class Character(BaseModel):
+    """Persistent narrative identity; factual claims stay in the knowledge model."""
+
+    id: str
+    book_id: str
+    name: str = Field(min_length=1)
+    aliases: list[str] = Field(default_factory=list)
+    summary: str = ""
+    attributes: dict[str, str] = Field(default_factory=dict)
+    status: CharacterStatus = CharacterStatus.PROPOSED
+    assertion_ids: list[str] = Field(default_factory=list)
+
+
+class CharacterRelation(BaseModel):
+    """Typed relation between two characters, with claims traceable to assertions."""
+
+    id: str
+    book_id: str
+    source_character_id: str
+    target_character_id: str
+    relation_type: str = Field(min_length=1)
+    status: CharacterStatus = CharacterStatus.PROPOSED
+    assertion_ids: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def validate_endpoints(self) -> "CharacterRelation":
+        if self.source_character_id == self.target_character_id:
+            raise ValueError("A character relation must connect two distinct characters")
+        return self
+
+
 class BookState(BaseModel):
     id: str
     owner_id: str = ""
