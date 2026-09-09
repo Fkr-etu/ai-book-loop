@@ -1,16 +1,30 @@
 from __future__ import annotations
 
+from typing import Protocol
 from uuid import NAMESPACE_URL, uuid5
 
 from book_loop.domain.models import Assertion, Conflict, ConflictStatus
+from book_loop.domain.temporal import TemporalScope
 from book_loop.domain.protocols import KnowledgeRepository
+
+
+class AssertionTemporalContextStore(Protocol):
+    """Read temporal scopes associated with assertions."""
+
+    def get_temporal_scope(self, *, assertion_id: str) -> TemporalScope | None: ...
 
 
 class DetectConflicts:
     """Detect mutually exclusive assertions without deciding which one is true."""
 
-    def __init__(self, repository: KnowledgeRepository) -> None:
+    def __init__(
+        self,
+        repository: KnowledgeRepository,
+        *,
+        temporal_context_store: AssertionTemporalContextStore | None = None,
+    ) -> None:
         self.repository = repository
+        self.temporal_context_store = temporal_context_store
 
     def execute(self, *, book_id: str) -> list[Conflict]:
         assertions = [
@@ -44,12 +58,19 @@ class DetectConflicts:
                 conflicts.append(conflict)
         return conflicts
 
-    @staticmethod
-    def _conflicts(left: Assertion, right: Assertion) -> bool:
+    def _conflicts(self, left: Assertion, right: Assertion) -> bool:
         if left.id == right.id:
             return False
-        return (
+        if not (
             left.subject.strip().casefold() == right.subject.strip().casefold()
             and left.predicate.strip().casefold() == right.predicate.strip().casefold()
             and left.object.strip().casefold() != right.object.strip().casefold()
-        )
+        ):
+            return False
+        if self.temporal_context_store is None:
+            return True
+        left_scope = self.temporal_context_store.get_temporal_scope(assertion_id=left.id)
+        right_scope = self.temporal_context_store.get_temporal_scope(assertion_id=right.id)
+        if left_scope is None or right_scope is None:
+            return True
+        return left_scope.overlaps(right_scope)
