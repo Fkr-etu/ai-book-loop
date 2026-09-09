@@ -4,6 +4,7 @@ from book_loop.application.use_cases.detect_conflicts import DetectConflicts
 from book_loop.domain.consistency import ConsistencyIssue
 from book_loop.domain.models import Assertion, Conflict, Evidence
 from book_loop.domain.protocols import KnowledgeRepository
+from book_loop.domain.temporal import AssertionTemporalContextStore
 
 
 class AssertionConsistencyDetector:
@@ -11,9 +12,17 @@ class AssertionConsistencyDetector:
 
     rule_id = "ASSERTION_SUBJECT_PREDICATE_CONFLICT"
 
-    def __init__(self, repository: KnowledgeRepository) -> None:
+    def __init__(
+        self,
+        repository: KnowledgeRepository,
+        *,
+        temporal_context_store: AssertionTemporalContextStore | None = None,
+    ) -> None:
         self.repository = repository
-        self._detect_conflicts = DetectConflicts(repository)
+        self._detect_conflicts = DetectConflicts(
+            repository,
+            temporal_context_store=temporal_context_store,
+        )
 
     def detect(self, *, book_id: str) -> list[ConsistencyIssue]:
         self._detect_conflicts.execute(book_id=book_id)
