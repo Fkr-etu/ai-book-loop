@@ -64,12 +64,15 @@ class EmbeddingCanonicalRetriever:
                 vector = tuple(self.embedding_provider.embed(text=text))
 
             self._validate_vector(vector, label=f"fact {fact.id}")
-            try:
+            if self.embedding_store is None:
                 score = self._cosine(query_vector, query_norm, vector)
-            except ValueError as exc:
-                if str(exc) == "embedding dimensions must match":
-                    continue
-                raise
+            else:
+                try:
+                    score = self._cosine(query_vector, query_norm, vector)
+                except ValueError as exc:
+                    if str(exc) == "embedding dimensions must match":
+                        continue
+                    raise
             if score >= self.min_score:
                 ranked.append((score, fact))
 
