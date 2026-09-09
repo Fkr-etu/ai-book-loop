@@ -6,9 +6,12 @@ from book_loop.agents.summarizer import SummarizerAgent
 from book_loop.agents.writer import WriterAgent
 from book_loop.application.services.canon_validation import CanonDiagnosticChecker
 from book_loop.application.services.context import ContextBuilder
+from book_loop.application.services.hybrid_retrieval import HybridCanonicalRetriever
 from book_loop.application.services.linguistic_context import GeminiDiagnosticContextualizer
 from book_loop.application.services.linguistic_validation import LinguisticValidationService
 from book_loop.application.services.linter import ChapterLinter
+from book_loop.application.services.retrieval import CanonicalRetriever
+from book_loop.application.services.semantic_retrieval import EmbeddingCanonicalRetriever
 from book_loop.application.use_cases.add_chapter import AddChapter
 from book_loop.application.use_cases.analyze_canon_change import AnalyzeCanonChange
 from book_loop.application.use_cases.analyze_consistency import AnalyzeConsistency
@@ -46,6 +49,7 @@ from book_loop.infrastructure.auth_rate_limit import AuthRateLimiter
 from book_loop.infrastructure.config import Settings
 from book_loop.infrastructure.database.canon_change_postgres import PostgresCanonChangeRepository
 from book_loop.infrastructure.database.postgres import PostgresWorkflowRunStore
+from book_loop.infrastructure.embeddings.factory import create_embedding_provider
 from book_loop.infrastructure.llm.assertion_extractor import LLMAssertionExtractor
 from book_loop.infrastructure.llm.factory import create_llm
 from book_loop.infrastructure.linguistic.languagetool import LanguageToolChecker
@@ -72,11 +76,24 @@ class Container:
         self.workflow_store = PostgresWorkflowRunStore(self.settings.database_url)
         self.observability = ObservabilityStore(self.settings.database_url)
         self.llm = create_llm(self.settings)
+        self.embedding_provider = create_embedding_provider(self.settings)
+        self.semantic_retriever = EmbeddingCanonicalRetriever(
+            self.embedding_provider,
+            embedding_store=self.repository,
+            embedding_model=self.settings.embedding_model,
+        )
+        self.canonical_retriever = HybridCanonicalRetriever(
+            CanonicalRetriever(),
+            self.semantic_retriever,
+        )
         self.outline_agent = OutlineAgent(self.llm)
         self.writer_agent = WriterAgent(self.llm)
         self.reviewer_agent = ReviewerAgent(self.llm)
         self.summarizer_agent = SummarizerAgent(self.llm)
-        self.context_builder = ContextBuilder(knowledge_repository=self.repository)
+        self.context_builder = ContextBuilder(
+            knowledge_repository=self.repository,
+            retriever=self.canonical_retriever,
+        )
         self.linter = ChapterLinter()
         self.linguistic_contextualizer = GeminiDiagnosticContextualizer(llm=self.llm)
         self.chapter_workflow = ChapterWorkflow(repository=self.repository, writer=self.writer_agent, reviewer=self.reviewer_agent, summarizer=self.summarizer_agent, context_builder=self.context_builder, linter=self.linter, linguistic_validator_factory=self._linguistic_validator, linguistic_contextualizer=self._contextualize_linguistic_diagnostics, linguistic_language=self.settings.linguistic_language, max_retries=self.settings.max_retries, review_threshold=self.settings.review_threshold, workflow_store=self.workflow_store, observability=self.observability)
