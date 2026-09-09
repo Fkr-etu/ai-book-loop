@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import logging
 from contextlib import nullcontext
 from datetime import UTC, datetime
 from uuid import uuid4
 
+from book_loop.application.services.canonical_fact_embedding_indexer import CanonicalFactEmbeddingIndexer
 from book_loop.domain.canon_change import (
     CanonChangeProposalStaleError,
     CanonChangeProposalStatus,
@@ -13,12 +15,19 @@ from book_loop.domain.canon_change import (
 from book_loop.domain.models import CanonicalFact
 from book_loop.domain.protocols import KnowledgeRepository
 
+logger = logging.getLogger(__name__)
+
 
 class ReviewCanonChange:
     """Apply an explicit review decision to an author Canon change proposal."""
 
-    def __init__(self, repository: KnowledgeRepository) -> None:
+    def __init__(
+        self,
+        repository: KnowledgeRepository,
+        embedding_indexer: CanonicalFactEmbeddingIndexer | None = None,
+    ) -> None:
         self.repository = repository
+        self.embedding_indexer = embedding_indexer
 
     def execute(self, *, book_id: str, proposal_id: str, decision: CanonChangeReviewDecisionType, reviewer_id: str | None = None, rationale: str = "") -> CanonChangeReviewDecision:
         transaction = getattr(self.repository, "transaction", None)
@@ -27,9 +36,16 @@ class ReviewCanonChange:
             lock = getattr(self.repository, "lock_canon_change_proposal", None)
             if lock is not None:
                 lock(proposal_id)
-            return self._execute_in_transaction(book_id=book_id, proposal_id=proposal_id, decision=decision, reviewer_id=reviewer_id, rationale=rationale)
+            review, fact = self._execute_in_transaction(book_id=book_id, proposal_id=proposal_id, decision=decision, reviewer_id=reviewer_id, rationale=rationale)
 
-    def _execute_in_transaction(self, *, book_id: str, proposal_id: str, decision: CanonChangeReviewDecisionType, reviewer_id: str | None, rationale: str) -> CanonChangeReviewDecision:
+        if fact is not None and self.embedding_indexer is not None:
+            try:
+                self.embedding_indexer.index(fact)
+            except Exception:
+                logger.exception("Unable to index canonical fact %s", fact.id)
+        return review
+
+    def _execute_in_transaction(self, *, book_id: str, proposal_id: str, decision: CanonChangeReviewDecisionType, reviewer_id: str | None, rationale: str) -> tuple[CanonChangeReviewDecision, CanonicalFact | None]:
         proposal = self.repository.get_canon_change_proposal(proposal_id)
         if proposal.book_id != book_id:
             raise KeyError(f"Unknown Canon change proposal: {proposal_id}")
@@ -57,7 +73,7 @@ class ReviewCanonChange:
 
         if decision is CanonChangeReviewDecisionType.REJECT:
             self.repository.set_canon_change_proposal_status(proposal.id, CanonChangeProposalStatus.REJECTED)
-            return review
+            return review, None
 
         assert current_fact is not None
         self.repository.deactivate_canonical_facts(book_id=book_id, subject=current_fact.subject, predicate=current_fact.predicate)
@@ -70,4 +86,4 @@ class ReviewCanonChange:
         )
         self.repository.save_canonical_fact(next_fact)
         self.repository.set_canon_change_proposal_status(proposal.id, CanonChangeProposalStatus.ACCEPTED)
-        return review
+        return review, next_fact
