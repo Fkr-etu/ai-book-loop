@@ -31,12 +31,7 @@ def create_app(container: Container | None = None) -> FastAPI:
 
     @app.middleware("http")
     async def protect_cookie_authenticated_mutations(request: Request, call_next):
-        """Reject cross-origin state changes when secure browser auth uses a session cookie.
-
-        Local HTTP clients intentionally use ``auth_cookie_secure=False`` and may not send
-        browser Origin headers. Production uses a secure cookie, so browser mutations must
-        carry an Origin from the configured CORS allowlist.
-        """
+        """Reject cross-origin state changes when secure browser auth uses a session cookie."""
         unsafe_method = request.method not in {"GET", "HEAD", "OPTIONS"}
         has_session_cookie = bool(request.cookies.get(COOKIE_NAME))
         csrf_protection_enabled = container.settings.auth_cookie_secure
@@ -79,7 +74,7 @@ def create_app(container: Container | None = None) -> FastAPI:
         allow_origins=container.settings.cors_allowed_origins,
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        allow_headers=["Content-Type", "Authorization", "Stripe-Signature"],
+        allow_headers=["Content-Type", "Authorization", "Stripe-Signature", "Idempotency-Key"],
     )
 
     app.include_router(auth.router)
