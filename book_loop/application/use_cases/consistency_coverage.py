@@ -68,7 +68,7 @@ def classify_pair(
         return PairDisposition.MULTI_VALUED
 
     if temporal_context_store is None:
-        temporal_scope_missing = True
+        temporal_scope_missing = False
     else:
         left_scope = temporal_context_store.get_temporal_scope(assertion_id=left.id)
         right_scope = temporal_context_store.get_temporal_scope(assertion_id=right.id)
