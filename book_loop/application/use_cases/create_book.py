@@ -3,7 +3,7 @@ from __future__ import annotations
 from uuid import uuid4
 
 from book_loop.application.services.plan_limits import limits_for
-from book_loop.domain.models import BookState, CreativeBrief, SubscriptionPlan
+from book_loop.domain.models import BookState, CreativeBrief, GrillPersonality, SubscriptionPlan
 from book_loop.domain.protocols import BookRepository
 
 
@@ -21,6 +21,7 @@ class CreateBook:
         lore: str = "",
         constraints: list[str] | None = None,
         creative_brief: CreativeBrief | None = None,
+        grill_personality: GrillPersonality = GrillPersonality.CHALLENGER,
     ) -> BookState:
         book = BookState(
             id=str(uuid4()),
@@ -31,6 +32,7 @@ class CreateBook:
             creative_brief=creative_brief,
             lore=lore,
             constraints=constraints or [],
+            grill_personality=grill_personality,
         )
         save_with_capacity = getattr(self.repository, "save_new_book_with_capacity", None)
         if save_with_capacity is not None:
