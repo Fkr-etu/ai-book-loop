@@ -1,0 +1,57 @@
+name: Livre I Consistency Audit
+
+on:
+  workflow_dispatch:
+    inputs:
+      llm_model:
+        description: "Gemini model used for assertion extraction"
+        required: false
+        default: "gemini-2.5-flash"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: Live Livre I audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      LLM_MODEL: ${{ inputs.llm_model }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install project
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+
+      - name: Validate Gemini secret
+        shell: bash
+        run: |
+          if [ -z "${GEMINI_API_KEY}" ]; then
+            echo "GEMINI_API_KEY is not configured in repository secrets."
+            exit 1
+          fi
+
+      - name: Run real Livre I audit
+        run: |
+          python scripts/audit_livre1_consistency.py > livre1-consistency-audit.md
+          cat livre1-consistency-audit.md
+
+      - name: Upload audit report
+        uses: actions/upload-artifact@v4
+        with:
+          name: livre1-consistency-audit
+          path: livre1-consistency-audit.md
+          if-no-files-found: error
