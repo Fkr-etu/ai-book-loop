@@ -1,6 +1,12 @@
 from types import SimpleNamespace
 
-from scripts.audit_livre1_consistency import AuditRepository, AuditResult, InMemoryTemporalStore, render_candidate_snapshot
+from scripts.audit_livre1_consistency import (
+    AuditRepository,
+    AuditResult,
+    InMemoryTemporalStore,
+    render_candidate_snapshot,
+)
+from book_loop.application.use_cases.consistency_coverage import measure_coverage
 from book_loop.domain.models import Assertion
 from book_loop.domain.temporal import TemporalScope, TemporalScopeKind
 
@@ -48,7 +54,8 @@ def test_candidate_snapshot_uses_conflict_id_and_preserves_evidence_fields() -> 
         assertion_id="assertion-2",
         scope=TemporalScope(kind=TemporalScopeKind.STORY_POINT, position=2),
     )
-    result = AuditResult(((1, 1, 1), (2, 1, 1)), repository, temporal_store, (conflict,))
+    coverage = measure_coverage(repository.assertions, temporal_context_store=temporal_store)
+    result = AuditResult(((1, 1, 1), (2, 1, 1)), repository, temporal_store, coverage, (conflict,))
 
     snapshot = render_candidate_snapshot(result)
 
