@@ -119,6 +119,8 @@ class PostgresBookRepository(BookRepositoryMixin):
             inserted = self._connection.execute("INSERT INTO workflow_usage_scoped(quota_subject, period_start, idempotency_key) SELECT ?, ?, ? WHERE (SELECT COUNT(*) FROM workflow_usage_scoped WHERE quota_subject = ? AND period_start = ?) < ? ON CONFLICT(quota_subject, period_start, idempotency_key) DO NOTHING RETURNING idempotency_key", (subject, period_start, idempotency_key, subject, period_start, monthly_limit)).fetchone()
             if inserted is not None: return True
             existing = self._connection.execute("SELECT 1 FROM workflow_usage_scoped WHERE quota_subject = ? AND period_start = ? AND idempotency_key = ?", (subject, period_start, idempotency_key)).fetchone(); return existing is not None
+    def save_evidence(self, evidence: Evidence) -> None:
+        self._connection.execute("INSERT INTO evidence(id, assertion_id, source_document_id, chunk_id, start_offset, end_offset, excerpt) VALUES(?, ?, ?, ?, ?, ?, ?)", (evidence.id, evidence.assertion_id, evidence.source_document_id, evidence.chunk_id, evidence.start_offset, evidence.end_offset, evidence.excerpt)); self._connection.commit()
 
 
 class PostgresWorkflowRunStore:
