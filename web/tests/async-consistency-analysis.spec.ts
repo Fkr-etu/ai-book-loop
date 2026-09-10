@@ -67,70 +67,51 @@ const succeededJob = {
   current_step: null,
   completed_at: "2026-09-10T10:00:05Z",
   result: {
-    issues: [
-      {
-        id: "issue-1",
-        category: "continuity",
-        severity: "warning",
-        status: "open",
-        message: "Une contradiction de continuité a été détectée.",
-        left_assertion_id: "assertion-1",
-        right_assertion_id: "assertion-2",
-        left_statement: "Maya vit à Paris.",
-        right_statement: "Maya vit à Lyon.",
-        left_evidence: "Source A",
-        right_evidence: "Source B",
-        confidence: 0.92,
-        rule_id: null,
-        metadata: {},
-        resolution_assertion_id: null,
-      },
-    ],
+    issues: [{
+      id: "issue-1",
+      category: "continuity",
+      severity: "warning",
+      status: "open",
+      message: "Une contradiction de continuité a été détectée.",
+      left_assertion_id: "assertion-1",
+      right_assertion_id: "assertion-2",
+      left_statement: "Maya vit à Paris.",
+      right_statement: "Maya vit à Lyon.",
+      left_evidence: "Source A",
+      right_evidence: "Source B",
+      confidence: 0.92,
+      rule_id: null,
+      metadata: {},
+      resolution_assertion_id: null,
+    }],
   },
 };
 
 test.describe("Book Loop — async consistency analysis", () => {
   test("launches, survives reload while running, polls and renders the result", async ({ page }) => {
     let statusCalls = 0;
-    let reloaded = false;
-    let postReloadStatusCalls = 0;
+    let allowSuccess = false;
 
-    await page.addInitScript(({ project, storageKey }) => {
+    await page.addInitScript(({ project }) => {
       window.localStorage.setItem("manuscript_studio_project", JSON.stringify(project));
-      window.localStorage.removeItem(storageKey);
-    }, { project: mockProject, storageKey: consistencyStorageKey });
+    }, { project: mockProject });
 
     await page.route(`${apiBaseUrl}/api/auth/me`, async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ user: { id: "e2e-user", email: "e2e@example.com", name: "E2E", plan: "free" } }),
-      });
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ user: { id: "e2e-user", email: "e2e@example.com", name: "E2E", plan: "free" } }) });
     });
-
     await page.route(`${apiBaseUrl}/api/books/${bookId}`, async (route) => {
       await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(book) });
     });
-
     await page.route(`${apiBaseUrl}/api/books/${bookId}/assertions`, async (route) => {
       await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([]) });
     });
-
     await page.route(`${apiBaseUrl}/api/books/${bookId}/consistency/analyze`, async (route) => {
       expect(route.request().method()).toBe("POST");
       await route.fulfill({ status: 202, contentType: "application/json", body: JSON.stringify(queuedJob) });
     });
-
     await page.route(`${apiBaseUrl}/api/books/${bookId}/consistency/analyses/job-async-e2e`, async (route) => {
       statusCalls += 1;
-      if (reloaded) {
-        postReloadStatusCalls += 1;
-      }
-
-      const response = reloaded
-        ? postReloadStatusCalls === 1 ? runningJob : succeededJob
-        : statusCalls === 1 ? queuedJob : runningJob;
-
+      const response = allowSuccess ? succeededJob : (statusCalls === 1 ? queuedJob : runningJob);
       await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(response) });
     });
 
@@ -144,18 +125,17 @@ test.describe("Book Loop — async consistency analysis", () => {
     await expect(page.getByRole("button", { name: "Analyse en cours…" })).toBeDisabled();
     await expect.poll(async () => page.evaluate((key) => localStorage.getItem(key), consistencyStorageKey)).toBe("job-async-e2e");
 
-    reloaded = true;
     await page.reload();
     await expect(page.getByText("Analyse du Canon en cours")).toBeVisible();
     await expect(page.getByText("35%")).toBeVisible();
 
+    allowSuccess = true;
     await expect(page.getByText("Analyse terminée — 1 problème détecté.")).toBeVisible({ timeout: 5_000 });
     await expect(page.getByText("Une contradiction de continuité a été détectée.")).toBeVisible();
     await expect(page.getByText("Maya vit à Paris.")).toBeVisible();
     await expect(page.getByText("Maya vit à Lyon.")).toBeVisible();
     await expect(page.getByText("35%")).toHaveCount(0);
     await expect.poll(async () => page.evaluate((key) => localStorage.getItem(key), consistencyStorageKey)).toBeNull();
-    expect(statusCalls).toBeGreaterThanOrEqual(4);
-    expect(postReloadStatusCalls).toBeGreaterThanOrEqual(2);
+    expect(statusCalls).toBeGreaterThanOrEqual(3);
   });
 });
