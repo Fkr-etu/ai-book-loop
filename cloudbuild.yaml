@@ -132,6 +132,8 @@ steps:
       - "--concurrency=1"
       - "--no-cpu-throttling"
       - "--port=8080"
+      - "--startup-probe=initialDelaySeconds=2,timeoutSeconds=2,periodSeconds=5,failureThreshold=12,httpGet.path=/health,httpGet.port=8080"
+      - "--liveness-probe=initialDelaySeconds=10,timeoutSeconds=2,periodSeconds=10,failureThreshold=3,httpGet.path=/health,httpGet.port=8080"
 
   - id: verify-api-public-iam
     name: gcr.io/google.com/cloudsdktool/cloud-sdk
