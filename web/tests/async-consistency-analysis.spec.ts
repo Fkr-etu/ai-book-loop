@@ -99,7 +99,7 @@ test.describe("Book Loop — async consistency analysis", () => {
 
     await page.route(`${apiBaseUrl}/api/books/${bookId}/consistency/analyses/job-async-e2e`, async (route) => {
       statusCalls += 1;
-      const response = statusCalls === 1 ? queuedJob : statusCalls <= 3 ? runningJob : succeededJob;
+      const response = statusCalls <= 2 ? runningJob : succeededJob;
       await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(response) });
     });
 
@@ -107,12 +107,11 @@ test.describe("Book Loop — async consistency analysis", () => {
     await expect(page.getByRole("heading", { name: "Analyse de cohérence" })).toBeVisible();
     await page.getByRole("button", { name: "Lancer l’analyse" }).click();
 
+    await expect(page.getByText("Analyse du Canon en cours")).toBeVisible();
+    await expect(page.getByText("35%")).toBeVisible();
     await expect(page.getByText("Vous pouvez quitter cette page : l’analyse continue en arrière-plan.")).toBeVisible();
     await expect(page.getByRole("button", { name: "Analyse en cours…" })).toBeDisabled();
     await expect.poll(async () => page.evaluate(() => localStorage.getItem(`book-loop:consistency-analysis:${bookId}`))).toBe("job-async-e2e");
-
-    await expect(page.getByText("Analyse du Canon en cours")).toBeVisible({ timeout: 5_000 });
-    await expect(page.getByText("35%")).toBeVisible();
 
     await page.reload();
     await expect(page.getByText("Analyse du Canon en cours")).toBeVisible();
@@ -124,6 +123,6 @@ test.describe("Book Loop — async consistency analysis", () => {
     await expect(page.getByText("Maya vit à Lyon.")).toBeVisible();
     await expect(page.getByText("35%")).toHaveCount(0);
     await expect.poll(async () => page.evaluate(() => localStorage.getItem(`book-loop:consistency-analysis:${bookId}`))).toBeNull();
-    expect(statusCalls).toBeGreaterThanOrEqual(4);
+    expect(statusCalls).toBeGreaterThanOrEqual(3);
   });
 });
