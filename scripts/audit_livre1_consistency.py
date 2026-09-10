@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import urllib.error
 import urllib.request
 from dataclasses import dataclass
 
@@ -77,19 +78,29 @@ class AuditResult:
 
 
 def fetch_chapter(chapter: int) -> str:
+    url = CORPUS_URL.format(chapter=chapter)
     request = urllib.request.Request(
-        CORPUS_URL.format(chapter=chapter),
+        url,
         headers={"User-Agent": "book-loop-consistency-audit/1.0"},
     )
-    with urllib.request.urlopen(request, timeout=30) as response:
-        return response.read().decode("utf-8")
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            return response.read().decode("utf-8")
+    except urllib.error.HTTPError as exc:
+        raise RuntimeError(
+            f"Unable to fetch Livre I chapter {chapter} (HTTP {exc.code}): {url}"
+        ) from exc
+    except urllib.error.URLError as exc:
+        raise RuntimeError(
+            f"Unable to fetch Livre I chapter {chapter}: {url} ({exc.reason})"
+        ) from exc
 
 
 def build_extractor() -> LLMAssertionExtractor:
     api_key = os.environ.get("GEMINI_API_KEY", "").strip()
     if not api_key:
         raise SystemExit("GEMINI_API_KEY is required to run the real-corpus audit")
-    model = os.environ.get("LLM_MODEL", "gemini-2.5-flash")
+    model = os.environ.get("LLM_MODEL", "gemini-3.5-flash")
     provider = GeminiProvider(api_key=api_key, model=model)
     return LLMAssertionExtractor(provider=provider, language="fr")
 
