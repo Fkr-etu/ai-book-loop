@@ -13,7 +13,7 @@ from book_loop.infrastructure.llm.assertion_extractor import LLMAssertionExtract
 from book_loop.infrastructure.llm.gemini import GeminiProvider
 
 
-CORPUS_URL = "https://raw.githubusercontent.com/Fkr-etu/M4ges/main/docs/story/livre_1/chapitre_{chapter:02d}.md"
+CORPUS_URL = "https://github.com/Fkr-etu/M4ges/raw/main/docs/story/livre_1/chapitre_{chapter:02d}.md"
 BOOK_ID = "livre-1"
 CHAPTERS = tuple(range(1, 9))
 
@@ -106,6 +106,7 @@ def build_extractor() -> LLMAssertionExtractor:
 
 
 def run_audit() -> AuditResult:
+    corpus = {chapter: fetch_chapter(chapter) for chapter in CHAPTERS}
     extractor = build_extractor()
     repository = AuditRepository([], [], [], [], [])
     temporal_store = InMemoryTemporalStore()
@@ -122,7 +123,7 @@ def run_audit() -> AuditResult:
             book_id=BOOK_ID,
             name=f"Livre I — chapitre {chapter}",
             source_type="approved_chapter",
-            content=fetch_chapter(chapter),
+            content=corpus[chapter],
             metadata={"chapter_number": str(chapter), "chapter_version": "1"},
         )
         chapter_results.append((chapter, len(result.chunks), len(result.assertions)))
@@ -189,8 +190,12 @@ def render_report(result: AuditResult) -> str:
 
 
 def main() -> None:
-    result = run_audit()
-    print(render_report(result))
+    try:
+        result = run_audit()
+    except RuntimeError as exc:
+        raise SystemExit(str(exc)) from exc
+    report = render_report(result)
+    print(report, end="")
 
 
 if __name__ == "__main__":
