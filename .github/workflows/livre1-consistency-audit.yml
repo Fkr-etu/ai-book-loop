@@ -20,10 +20,20 @@ jobs:
     env:
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       LLM_MODEL: ${{ inputs.llm_model }}
+      M4GES_READ_TOKEN: ${{ secrets.M4GES_READ_TOKEN }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+
+      - name: Validate M4ges access token
+        shell: bash
+        run: |
+          if [ -z "${M4GES_READ_TOKEN}" ]; then
+            echo "M4GES_READ_TOKEN is not configured in repository secrets."
+            echo "Create a fine-grained token with read-only Contents access to Fkr-etu/M4ges."
+            exit 1
+          fi
 
       - name: Checkout pinned Livre I corpus
         uses: actions/checkout@v7
@@ -32,6 +42,7 @@ jobs:
           ref: 4cc388d89dc6dd4750e7a7e4a6576d307de5b7b5
           path: .benchmarks/m4ges
           fetch-depth: 1
+          token: ${{ secrets.M4GES_READ_TOKEN }}
 
       - name: Set up Python
         uses: actions/setup-python@v7
