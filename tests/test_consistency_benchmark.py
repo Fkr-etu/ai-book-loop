@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 from book_loop.application.use_cases.detect_conflicts import DetectConflicts
 from book_loop.domain.models import Assertion, Conflict
+from book_loop.domain.temporal import TemporalScope, TemporalScopeKind
 
 
 @dataclass(frozen=True)
@@ -11,32 +12,116 @@ class ConsistencyCase:
     label: str
     left: tuple[str, str, str]
     right: tuple[str, str, str]
+    left_scope: TemporalScope | None = None
+    right_scope: TemporalScope | None = None
+    expected_conflict: bool = False
 
 
 CASES = (
-    ConsistencyCase("contradiction", ("Elara", "porte", "Givre-Âme"), ("Elara", "porte", "Lame-Solaire")),
-    ConsistencyCase("contradiction", ("Kael", "vit_a", "Fer-Noir"), ("Kael", "vit_a", "Port-Argent")),
-    ConsistencyCase("compatible_restatement", ("Myra", "est", "mercenaire"), ("Myra", "est", "mercenaire")),
-    ConsistencyCase("unrelated", ("Elara", "porte", "Givre-Âme"), ("Kael", "porte", "Surchargeuse")),
-    # The current Assertion model has no temporal scope, so this case is kept
-    # explicit but is not scored by the structural detector yet.
-    ConsistencyCase("narrative_evolution", ("Elara", "est", "blessée"), ("Elara", "est", "guérie")),
+    # True contradictions: the same state is asserted with incompatible values.
+    ConsistencyCase(
+        "contradiction",
+        ("Elara", "porte", "Givre-Âme"),
+        ("Elara", "porte", "Lame-Solaire"),
+        TemporalScope(kind=TemporalScopeKind.STORY_POINT, position=3),
+        TemporalScope(kind=TemporalScopeKind.STORY_POINT, position=3),
+        True,
+    ),
+    ConsistencyCase(
+        "contradiction",
+        ("Kael", "vit_a", "Fer-Noir"),
+        ("Kael", "vit_a", "Port-Argent"),
+        TemporalScope(kind=TemporalScopeKind.STORY_POINT, position=2),
+        TemporalScope(kind=TemporalScopeKind.STORY_POINT, position=2),
+        True,
+    ),
+    ConsistencyCase(
+        "contradiction",
+        ("Myra", "travaille_pour", "Arbitre"),
+        ("Myra", "travaille_pour", "Gardiens"),
+        TemporalScope(kind=TemporalScopeKind.TIMELESS),
+        TemporalScope(kind=TemporalScopeKind.STORY_POINT, position=6),
+        True,
+    ),
+
+    # Legitimate evolution: the state changes between distinct story points.
+    ConsistencyCase(
+        "narrative_evolution",
+        ("Elara", "est", "blessée"),
+        ("Elara", "est", "guérie"),
+        TemporalScope(kind=TemporalScopeKind.STORY_POINT, position=1),
+        TemporalScope(kind=TemporalScopeKind.STORY_POINT, position=4),
+        False,
+    ),
+    ConsistencyCase(
+        "narrative_evolution",
+        ("Kael", "porte", "Cellule-de-Stase"),
+        ("Kael", "porte", "Clé-de-Djinn"),
+        TemporalScope(kind=TemporalScopeKind.STORY_POINT, position=2),
+        TemporalScope(kind=TemporalScopeKind.STORY_POINT, position=8),
+        False,
+    ),
+    ConsistencyCase(
+        "narrative_evolution",
+        ("Elara", "est_a", "Port-Argent"),
+        ("Elara", "est_a", "Palais-de-Verre"),
+        TemporalScope(kind=TemporalScopeKind.STORY_POINT, position=4),
+        TemporalScope(kind=TemporalScopeKind.STORY_POINT, position=7),
+        False,
+    ),
+
+    # Compatible restatements: the same fact is expressed again.
+    ConsistencyCase(
+        "compatible_restatement",
+        ("Myra", "est", "mercenaire"),
+        ("Myra", "est", "mercenaire"),
+        TemporalScope(kind=TemporalScopeKind.STORY_POINT, position=4),
+        TemporalScope(kind=TemporalScopeKind.STORY_POINT, position=7),
+        False,
+    ),
+    ConsistencyCase(
+        "compatible_restatement",
+        ("Kael", "possède", "Cellule-de-Stase"),
+        ("Kael", "possède", "Cellule-de-Stase"),
+        TemporalScope(kind=TemporalScopeKind.STORY_POINT, position=2),
+        TemporalScope(kind=TemporalScopeKind.STORY_POINT, position=5),
+        False,
+    ),
+    ConsistencyCase(
+        "compatible_restatement",
+        ("Elara", "porte", "Givre-Âme"),
+        ("Elara", "porte", "Givre-Âme"),
+        TemporalScope(kind=TemporalScopeKind.TIMELESS),
+        TemporalScope(kind=TemporalScopeKind.STORY_POINT, position=8),
+        False,
+    ),
+
+    # Noise: unrelated assertions must never become conflicts.
+    ConsistencyCase(
+        "unrelated",
+        ("Elara", "porte", "Givre-Âme"),
+        ("Kael", "porte", "Surchargeuse"),
+        TemporalScope(kind=TemporalScopeKind.STORY_POINT, position=3),
+        TemporalScope(kind=TemporalScopeKind.STORY_POINT, position=3),
+        False,
+    ),
+    ConsistencyCase(
+        "unrelated",
+        ("Myra", "est", "mercenaire"),
+        ("Myra", "possède", "Rose-des-Vents"),
+        TemporalScope(kind=TemporalScopeKind.STORY_POINT, position=5),
+        TemporalScope(kind=TemporalScopeKind.STORY_POINT, position=5),
+        False,
+    ),
+    ConsistencyCase(
+        "unrelated",
+        ("Kael", "vit_a", "Fer-Noir"),
+        ("Elara", "vit_a", "Port-Argent"),
+        TemporalScope(kind=TemporalScopeKind.STORY_POINT, position=2),
+        TemporalScope(kind=TemporalScopeKind.STORY_POINT, position=8),
+        False,
+    ),
 )
-
-
-def assertion(case_id: str, claim: tuple[str, str, str]) -> Assertion:
-    subject, predicate, object_ = claim
-    return Assertion(
-        id=case_id,
-        source_document_id=f"source-{case_id}",
-        chunk_id=f"chunk-{case_id}",
-        statement=f"{subject} {predicate} {object_}",
-        subject=subject,
-        predicate=predicate,
-        object=object_,
-        confidence=1.0,
-        evidence_id=f"evidence-{case_id}",
-    )
 
 
 class BenchmarkRepository:
@@ -54,35 +139,103 @@ class BenchmarkRepository:
         self.conflicts.append(conflict)
 
 
-def test_consistency_benchmark_covers_distinct_case_types() -> None:
+class BenchmarkTemporalStore:
+    def __init__(self, scopes: dict[str, TemporalScope]) -> None:
+        self.scopes = scopes
+
+    def get_temporal_scope(self, *, assertion_id: str) -> TemporalScope | None:
+        return self.scopes.get(assertion_id)
+
+    def save_temporal_scope(self, *, assertion_id: str, scope: TemporalScope) -> None:
+        self.scopes[assertion_id] = scope
+
+
+def assertion(case_id: str, claim: tuple[str, str, str]) -> Assertion:
+    subject, predicate, object_ = claim
+    return Assertion(
+        id=case_id,
+        source_document_id=f"source-{case_id}",
+        chunk_id=f"chunk-{case_id}",
+        statement=f"{subject} {predicate} {object_}",
+        subject=subject,
+        predicate=predicate,
+        object=object_,
+        confidence=1.0,
+        evidence_id=f"evidence-{case_id}",
+    )
+
+
+def run_case(index: int, case: ConsistencyCase) -> bool:
+    left = assertion(f"left-{index}", case.left)
+    right = assertion(f"right-{index}", case.right)
+    repository = BenchmarkRepository([left, right])
+    scopes = {
+        assertion_id: scope
+        for assertion_id, scope in (
+            (left.id, case.left_scope),
+            (right.id, case.right_scope),
+        )
+        if scope is not None
+    }
+    temporal_store = BenchmarkTemporalStore(scopes)
+    conflicts = DetectConflicts(
+        repository,
+        temporal_context_store=temporal_store,
+    ).execute(book_id="benchmark")
+    return bool(conflicts)
+
+
+def test_consistency_benchmark_covers_four_distinct_case_types() -> None:
     assert {case.label for case in CASES} == {
         "contradiction",
-        "compatible_restatement",
         "narrative_evolution",
+        "compatible_restatement",
         "unrelated",
     }
+    assert all(sum(case.label == label for case in CASES) >= 3 for label in {
+        "contradiction",
+        "narrative_evolution",
+        "compatible_restatement",
+        "unrelated",
+    })
 
 
-def test_structural_detector_matches_each_static_case() -> None:
+def test_consistency_benchmark_matches_expected_labels() -> None:
+    false_positives = []
+    false_negatives = []
+
     for index, case in enumerate(CASES):
-        if case.label == "narrative_evolution":
-            continue
+        detected = run_case(index, case)
+        if detected and not case.expected_conflict:
+            false_positives.append(case.label)
+        if not detected and case.expected_conflict:
+            false_negatives.append(case.label)
 
-        left = assertion(f"left-{index}", case.left)
-        right = assertion(f"right-{index}", case.right)
-        repository = BenchmarkRepository([left, right])
-        conflicts = DetectConflicts(repository).execute(book_id="benchmark")
-
-        assert bool(conflicts) is (case.label == "contradiction"), case.label
-        if conflicts:
-            assert {
-                conflicts[0].left_assertion_id,
-                conflicts[0].right_assertion_id,
-            } == {left.id, right.id}
+    assert false_positives == []
+    assert false_negatives == []
 
 
-def test_narrative_evolution_is_explicitly_not_scored_without_temporal_context() -> None:
-    evolution = next(case for case in CASES if case.label == "narrative_evolution")
-    assert evolution.left[0] == evolution.right[0]
-    assert evolution.left[1] == evolution.right[1]
-    assert evolution.left[2] != evolution.right[2]
+def test_consistency_benchmark_reports_confusion_matrix() -> None:
+    true_positives = sum(
+        run_case(index, case) and case.expected_conflict
+        for index, case in enumerate(CASES)
+    )
+    true_negatives = sum(
+        not run_case(index, case) and not case.expected_conflict
+        for index, case in enumerate(CASES)
+    )
+    false_positives = sum(
+        run_case(index, case) and not case.expected_conflict
+        for index, case in enumerate(CASES)
+    )
+    false_negatives = sum(
+        not run_case(index, case) and case.expected_conflict
+        for index, case in enumerate(CASES)
+    )
+
+    assert (true_positives, true_negatives, false_positives, false_negatives) == (
+        3,
+        9,
+        0,
+        0,
+    )
