@@ -3,6 +3,11 @@ from __future__ import annotations
 from uuid import NAMESPACE_URL, uuid5
 
 from book_loop.domain.models import Assertion, Conflict, ConflictStatus
+from book_loop.domain.predicate_semantics import (
+    PredicateExclusivity,
+    PredicateKind,
+    PredicateSemanticsRegistry,
+)
 from book_loop.domain.protocols import KnowledgeRepository
 from book_loop.domain.temporal import AssertionTemporalContextStore
 
@@ -15,9 +20,11 @@ class DetectConflicts:
         repository: KnowledgeRepository,
         *,
         temporal_context_store: AssertionTemporalContextStore | None = None,
+        predicate_semantics: PredicateSemanticsRegistry | None = None,
     ) -> None:
         self.repository = repository
         self.temporal_context_store = temporal_context_store
+        self.predicate_semantics = predicate_semantics or PredicateSemanticsRegistry()
 
     def execute(self, *, book_id: str) -> list[Conflict]:
         assertions = [
@@ -60,6 +67,13 @@ class DetectConflicts:
             and left.object.strip().casefold() != right.object.strip().casefold()
         ):
             return False
+
+        semantics = self.predicate_semantics.get(left.predicate)
+        if semantics.kind in {PredicateKind.ACTION, PredicateKind.EVENT}:
+            return False
+        if semantics.exclusivity is PredicateExclusivity.MULTI_VALUED:
+            return False
+
         if self.temporal_context_store is None:
             return True
         left_scope = self.temporal_context_store.get_temporal_scope(assertion_id=left.id)
