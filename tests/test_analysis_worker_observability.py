@@ -1,3 +1,4 @@
+import json
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
@@ -63,7 +64,7 @@ def make_job() -> AnalysisJob:
     )
 
 
-def test_success_emits_correlated_timing_fields(caplog) -> None:
+def test_success_emits_cloud_logging_json(caplog) -> None:
     job = make_job()
     store = FakeStore(job)
     issue = SimpleNamespace(model_dump=lambda mode: {"id": "issue-1"})
@@ -72,17 +73,19 @@ def test_success_emits_correlated_timing_fields(caplog) -> None:
     with caplog.at_level("INFO", logger="book_loop.worker"):
         worker._run_job(job.id)
 
-    record = next(item for item in caplog.records if item.msg == "analysis_job_succeeded")
-    assert record.job_id == "job-1"
-    assert record.book_id == "book-1"
-    assert record.attempt == 1
-    assert record.queue_wait_ms >= 2000
-    assert record.execution_duration_ms >= 0
-    assert record.issue_count == 1
-    assert record.status == "succeeded"
+    record = next(item for item in caplog.records if item.msg.startswith("{"))
+    payload = json.loads(record.msg)
+    assert payload["event"] == "analysis_job_succeeded"
+    assert payload["job_id"] == "job-1"
+    assert payload["book_id"] == "book-1"
+    assert payload["attempt"] == 1
+    assert payload["queue_wait_ms"] >= 2000
+    assert payload["execution_duration_ms"] >= 0
+    assert payload["issue_count"] == 1
+    assert payload["status"] == "succeeded"
 
 
-def test_failure_emits_retry_and_correlation_fields(caplog) -> None:
+def test_failure_emits_cloud_logging_json(caplog) -> None:
     job = make_job()
     store = FakeStore(job)
     worker = make_worker(store, FakeAnalysis(error=RuntimeError("boom")))
@@ -90,10 +93,17 @@ def test_failure_emits_retry_and_correlation_fields(caplog) -> None:
     with caplog.at_level("INFO", logger="book_loop.worker"):
         worker._run_job(job.id)
 
-    record = next(item for item in caplog.records if item.msg == "analysis_job_failure_recorded")
-    assert record.job_id == "job-1"
-    assert record.book_id == "book-1"
-    assert record.attempt == 1
-    assert record.retry_scheduled is True
-    assert record.error_code == "analysis_failed"
-    assert record.execution_duration_ms >= 0
+    record = next(item for item in caplog.records if item.msg.startswith("{"))
+    payload = json.loads(record.msg)
+    assert payload["event"] == "analysis_job_failed"
+    assert payload["job_id"] == "job-1"
+    assert payload["worker_id"] == "test-worker"
+
+    recorded = next(item for item in caplog.records if item.msg.startswith("{") and "failure_recorded" in item.msg)
+    payload = json.loads(recorded.msg)
+    assert payload["event"] == "analysis_job_failure_recorded"
+    assert payload["book_id"] == "book-1"
+    assert payload["attempt"] == 1
+    assert payload["retry_scheduled"] is True
+    assert payload["error_code"] == "analysis_failed"
+    assert payload["execution_duration_ms"] >= 0
