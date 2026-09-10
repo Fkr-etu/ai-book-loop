@@ -108,7 +108,7 @@ steps:
       - "--port=8080"
 
   - id: deploy-analysis-worker
-    name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    name: gcr.io/cloud-builders/gcloud
     entrypoint: gcloud
     waitFor: [execute-migrations, push-api]
     args:
@@ -179,10 +179,10 @@ steps:
       - |
         API_URL="$$(cat /workspace/api-url)"
         test -n "$${API_URL}"
-        echo "Building web against API_URL=$${API_URL}"
+        echo "Building web with server-side API proxy target"
         docker build \
           --cache-from "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_WEB_REPOSITORY}/web:latest" \
-          --build-arg "NEXT_PUBLIC_API_URL=$${API_URL}" \
+          --build-arg "API_INTERNAL_URL=$${API_URL}" \
           --build-arg "NEXT_PUBLIC_USE_REAL_API=${_USE_REAL_API}" \
           --build-arg "NEXT_PUBLIC_GA4_MEASUREMENT_ID=${_GA4_MEASUREMENT_ID}" \
           -t "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_WEB_REPOSITORY}/web:$BUILD_ID" \
