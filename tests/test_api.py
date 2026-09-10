@@ -122,19 +122,18 @@ def test_books_are_isolated_between_users(test_client):
     assert test_client.post(f"/api/books/{book_id}/outline/generate").status_code == 404
 
 
-def test_document_ingestion_and_assertion_review(test_client):
+def test_document_ingestion_enqueues_background_job(test_client):
     book_id = create_book(test_client, "Ingestion Test Book")
     res = test_client.post(f"/api/books/{book_id}/documents/ingest", json={"name": "Manuscrit Source", "sourceType": "markdown", "content": "Valerius est né à Aethelgard en l'an 1042. Il possède la relique d'obsidienne."})
-    assert res.status_code == 200
+    assert res.status_code == 202
     data = res.json()
-    assert data["source_document"]["name"] == "Manuscrit Source"
-    assert "assertions" in data
-    assertions = test_client.get(f"/api/books/{book_id}/assertions").json()["assertions"]
-    assert len(assertions) >= 1
-    assertion_id = assertions[0]["id"]
-    review_res = test_client.post(f"/api/books/{book_id}/assertions/{assertion_id}/review", json={"decision": "accept", "rationale": "Information confirmée"})
-    assert review_res.status_code == 200
-    assert review_res.json()["decision"] == "accept"
+    assert data["book_id"] == book_id
+    assert data["analysis_type"] == "ingestion"
+    assert data["status"] == "queued"
+    assert data["id"]
+    status = test_client.get(f"/api/books/{book_id}/documents/ingest/{data['id']}")
+    assert status.status_code == 200
+    assert status.json()["id"] == data["id"]
 
 
 def test_approving_chapter_syncs_proposed_canon(test_client):
