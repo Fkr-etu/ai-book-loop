@@ -92,6 +92,8 @@ const succeededJob = {
 test.describe("Book Loop — async consistency analysis", () => {
   test("launches, survives reload while running, polls and renders the result", async ({ page }) => {
     let statusCalls = 0;
+    let reloaded = false;
+    let postReloadStatusCalls = 0;
 
     await page.addInitScript(({ project, storageKey }) => {
       window.localStorage.setItem("manuscript_studio_project", JSON.stringify(project));
@@ -121,7 +123,14 @@ test.describe("Book Loop — async consistency analysis", () => {
 
     await page.route(`${apiBaseUrl}/api/books/${bookId}/consistency/analyses/job-async-e2e`, async (route) => {
       statusCalls += 1;
-      const response = statusCalls === 1 ? queuedJob : statusCalls <= 3 ? runningJob : succeededJob;
+      if (reloaded) {
+        postReloadStatusCalls += 1;
+      }
+
+      const response = reloaded
+        ? postReloadStatusCalls === 1 ? runningJob : succeededJob
+        : statusCalls === 1 ? queuedJob : runningJob;
+
       await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(response) });
     });
 
@@ -135,6 +144,7 @@ test.describe("Book Loop — async consistency analysis", () => {
     await expect(page.getByRole("button", { name: "Analyse en cours…" })).toBeDisabled();
     await expect.poll(async () => page.evaluate((key) => localStorage.getItem(key), consistencyStorageKey)).toBe("job-async-e2e");
 
+    reloaded = true;
     await page.reload();
     await expect(page.getByText("Analyse du Canon en cours")).toBeVisible();
     await expect(page.getByText("35%")).toBeVisible();
@@ -146,5 +156,6 @@ test.describe("Book Loop — async consistency analysis", () => {
     await expect(page.getByText("35%")).toHaveCount(0);
     await expect.poll(async () => page.evaluate((key) => localStorage.getItem(key), consistencyStorageKey)).toBeNull();
     expect(statusCalls).toBeGreaterThanOrEqual(4);
+    expect(postReloadStatusCalls).toBeGreaterThanOrEqual(2);
   });
 });
