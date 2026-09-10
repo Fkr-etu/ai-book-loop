@@ -99,7 +99,7 @@ test.describe("Book Loop — async consistency analysis", () => {
 
     await page.route(`${apiBaseUrl}/api/books/${bookId}/consistency/analyses/job-async-e2e`, async (route) => {
       statusCalls += 1;
-      const response = statusCalls <= 2 ? runningJob : succeededJob;
+      const response = statusCalls === 1 ? queuedJob : statusCalls <= 3 ? runningJob : succeededJob;
       await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(response) });
     });
 
@@ -126,6 +126,6 @@ test.describe("Book Loop — async consistency analysis", () => {
     await expect(page.getByText("Maya vit à Lyon.")).toBeVisible();
     await expect(page.getByText("35%")).toHaveCount(0);
     await expect.poll(async () => page.evaluate(() => localStorage.getItem(`book-loop:consistency-analysis:${bookId}`))).toBeNull();
-    expect(statusCalls).toBeGreaterThanOrEqual(3);
+    expect(statusCalls).toBeGreaterThanOrEqual(4);
   });
 });
