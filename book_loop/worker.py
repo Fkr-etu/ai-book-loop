@@ -5,6 +5,7 @@ import os
 import signal
 import threading
 import uuid
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from book_loop.infrastructure.config import Settings
 from book_loop.infrastructure.container import Container
@@ -12,6 +13,21 @@ from book_loop.infrastructure.database.analysis_jobs import PostgresAnalysisJobS
 
 logger = logging.getLogger("book_loop.worker")
 logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
+
+
+class _HealthHandler(BaseHTTPRequestHandler):
+    def do_GET(self) -> None:  # noqa: N802
+        if self.path != "/health":
+            self.send_response(404)
+            self.end_headers()
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.end_headers()
+        self.wfile.write(b'{"status":"ok"}')
+
+    def log_message(self, format: str, *args) -> None:
+        return
 
 
 class AnalysisWorker:
@@ -23,13 +39,17 @@ class AnalysisWorker:
         self._stop = threading.Event()
         self.store = PostgresAnalysisJobStore(self.settings.database_url)
         self.container = Container(self.settings)
+        self.health_server: ThreadingHTTPServer | None = None
 
     def stop(self, *_args) -> None:
         self._stop.set()
+        if self.health_server is not None:
+            self.health_server.shutdown()
 
     def run(self) -> None:
         signal.signal(signal.SIGTERM, self.stop)
         signal.signal(signal.SIGINT, self.stop)
+        self._start_health_server()
         logger.info("analysis worker %s started", self.worker_id)
         try:
             while not self._stop.is_set():
@@ -40,7 +60,15 @@ class AnalysisWorker:
                 self._run_job(job.id)
         finally:
             self.store.close()
+            if self.health_server is not None:
+                self.health_server.server_close()
             logger.info("analysis worker %s stopped", self.worker_id)
+
+    def _start_health_server(self) -> None:
+        port = int(os.getenv("PORT", "8080"))
+        self.health_server = ThreadingHTTPServer(("0.0.0.0", port), _HealthHandler)
+        thread = threading.Thread(target=self.health_server.serve_forever, daemon=True)
+        thread.start()
 
     def _run_job(self, job_id: str) -> None:
         heartbeat_stop = threading.Event()
@@ -77,11 +105,7 @@ class AnalysisWorker:
         try:
             while not stop.wait(interval):
                 try:
-                    heartbeat_store.heartbeat(
-                        job_id=job_id,
-                        worker_id=self.worker_id,
-                        lease_seconds=self.lease_seconds,
-                    )
+                    heartbeat_store.heartbeat(job_id=job_id, worker_id=self.worker_id, lease_seconds=self.lease_seconds)
                 except Exception:
                     logger.exception("heartbeat failed for analysis job %s", job_id)
         finally:
