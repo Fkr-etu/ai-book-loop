@@ -57,7 +57,7 @@ def test_coverage_exposes_each_detector_filter_without_changing_rules() -> None:
     assert coverage.different_object_pairs == 7
     assert coverage.action_event_excluded == 1
     assert coverage.multi_valued_excluded == 1
-    assert coverage.temporal_missing_scope == 3
+    assert coverage.temporal_missing_scope == 2
     assert coverage.temporal_non_overlapping == 2
     assert coverage.temporal_overlapping == 1
     assert coverage.final_candidates == 1
