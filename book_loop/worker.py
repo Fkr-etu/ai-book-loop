@@ -58,7 +58,6 @@ class AnalysisWorker:
                 if job is None:
                     self._stop.wait(self.poll_seconds)
                     continue
-                self._log_job_event("analysis_job_claimed", job)
                 self._run_job(job.id)
         finally:
             self.store.close()
@@ -140,23 +139,6 @@ class AnalysisWorker:
         if start is None or end is None:
             return None
         return max(0, int((end - start).total_seconds() * 1000))
-
-    def _log_job_event(self, event: str, job) -> None:
-        logger.info(
-            event,
-            extra={
-                "event": event,
-                "job_id": job.id,
-                "book_id": job.book_id,
-                "analysis_type": job.analysis_type,
-                "worker_id": self.worker_id,
-                "attempt": job.attempt,
-                "max_attempts": job.max_attempts,
-                "queue_wait_ms": self._elapsed_ms(job.created_at, job.started_at),
-                "lease_recovered": job.attempt > 1,
-                "status": job.status.value,
-            },
-        )
 
     def _heartbeat_loop(self, job_id: str, stop: threading.Event) -> None:
         interval = max(1, self.lease_seconds // 3)
