@@ -1,6 +1,5 @@
 import { test, expect } from "@playwright/test";
 
-const realApiEnabled = process.env.NEXT_PUBLIC_USE_REAL_API === "true";
 const apiBaseUrl = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/+$/, "");
 const bookId = "async-analysis-e2e";
 
@@ -74,8 +73,6 @@ const succeededJob = {
 };
 
 test.describe("Book Loop — async consistency analysis", () => {
-  test.skip(!realApiEnabled, "Requires NEXT_PUBLIC_USE_REAL_API=true");
-
   test("launches, survives reload while running, polls and renders the result", async ({ page }) => {
     let statusCalls = 0;
 
