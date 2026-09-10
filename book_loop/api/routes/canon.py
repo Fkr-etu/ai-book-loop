@@ -11,6 +11,7 @@ from book_loop.domain.analysis_job import AnalysisJobStatus
 from book_loop.domain.canon_change import CanonChangeProposalStaleError, CanonChangeReviewDecisionType
 from book_loop.domain.models import ReviewDecisionType, UserPublic
 from book_loop.infrastructure.container import Container
+from book_loop.infrastructure.structured_logging import log_event
 
 logger = logging.getLogger("book_loop.api.canon")
 router = APIRouter(prefix="/api/books/{book_id}", tags=["canon"])
@@ -90,16 +91,15 @@ def analyze_consistency(
         )
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=f"Livre {book_id} introuvable.") from exc
-    logger.info(
+    log_event(
+        logger,
+        logging.INFO,
         "analysis_job_requested",
-        extra={
-            "event": "analysis_job_requested",
-            "job_id": job.id,
-            "book_id": job.book_id,
-            "analysis_type": job.analysis_type,
-            "status": job.status.value,
-            "attempt": job.attempt,
-        },
+        job_id=job.id,
+        book_id=job.book_id,
+        analysis_type=job.analysis_type,
+        status=job.status.value,
+        attempt=job.attempt,
     )
     return _serialize_job(job)
 
