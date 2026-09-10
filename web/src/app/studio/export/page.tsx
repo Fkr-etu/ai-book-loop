@@ -3,244 +3,121 @@
 import React, { useState } from "react";
 import { StudioLayout } from "@/components/StudioLayout";
 import { useProjectStore } from "@/lib/useProjectStore";
-import {
-  Download,
-  BookOpen,
-  FileText,
-  CheckCircle2,
-  Sparkles,
-  ShieldCheck,
-  Share2,
-  Printer,
-  Sliders,
-  Layers
-} from "lucide-react";
+import { Download, CheckCircle2, BookOpen } from "lucide-react";
+
+type ExportFormat = "markdown" | "epub" | "pdf" | "docx";
+
+const formats: Array<{ id: ExportFormat; label: string; description: string; extension: string }> = [
+  { id: "markdown", label: "Markdown", description: "Disponible maintenant", extension: ".md" },
+  { id: "epub", label: "EPUB", description: "Bientôt disponible", extension: ".epub" },
+  { id: "pdf", label: "PDF", description: "Bientôt disponible", extension: ".pdf" },
+  { id: "docx", label: "Word", description: "Bientôt disponible", extension: ".docx" }
+];
 
 export default function ExportPage() {
   const { project } = useProjectStore();
-
-  const [exportFormat, setExportFormat] = useState<"markdown" | "epub" | "pdf" | "docx">("markdown");
-  const [includeLoreAppendix, setIncludeLoreInclude] = useState(true);
+  const [exportFormat, setExportFormat] = useState<ExportFormat>("markdown");
+  const [includeLoreAppendix, setIncludeLoreAppendix] = useState(false);
   const [includeSummaries, setIncludeSummaries] = useState(false);
   const [downloading, setDownloading] = useState(false);
 
-  const chaptersList = project.chapters || [];
-  const loreList = project.loreItems || [];
+  if (!project.id) {
+    return (
+      <StudioLayout>
+        <main className="min-h-[70vh] flex items-center justify-center px-4 sm:px-6">
+          <section className="max-w-md text-center space-y-4">
+            <BookOpen className="w-10 h-10 mx-auto text-[#b87500]" />
+            <h1 className="font-playfair text-2xl font-bold text-[#0b1c30]">L’exportation viendra avec votre livre</h1>
+            <p className="text-sm leading-relaxed text-[#5f5e5b]">Créez d’abord un livre. Les options d’exportation apparaîtront ici dès que vous aurez un récit à exporter.</p>
+          </section>
+        </main>
+      </StudioLayout>
+    );
+  }
 
-  const totalValidatedScenes = chaptersList.reduce(
-    (acc, chap) => acc + (chap.scenes || []).filter((s) => s.status === "validated").length,
-    0
-  );
+  const chapters = project.chapters || [];
+  const loreItems = project.loreItems || [];
+  const totalScenes = chapters.reduce((total, chapter) => total + (chapter.scenes || []).length, 0);
 
   const handleDownload = () => {
+    if (exportFormat !== "markdown") return;
     setDownloading(true);
 
-    setTimeout(() => {
-      // Create downloadable manuscript blob
-      let compiledText = `# ${project.title}\n## ${project.subtitle || ""}\n\n`;
-      compiledText += `**Genre:** ${project.genre || ""}\n`;
-      compiledText += `**Thème:** ${project.theme}\n\n`;
-      compiledText += `---\n\n`;
+    let compiledText = `# ${project.title}\n\n`;
+    if (project.subtitle) compiledText += `${project.subtitle}\n\n`;
+    if (project.genre) compiledText += `**Genre :** ${project.genre}\n`;
+    if (project.theme) compiledText += `**Thème :** ${project.theme}\n`;
+    compiledText += "\n---\n\n";
 
-      chaptersList.forEach((chap) => {
-        compiledText += `# Chapitre ${chap.number}: ${chap.title}\n\n`;
-        compiledText += `> *${chap.summary || ""}*\n\n`;
-        (chap.scenes || []).forEach((sc) => {
-          compiledText += `### ${sc.title}\n\n`;
-          compiledText += `${sc.content || "(Brouillon non rédigé)"}\n\n`;
-        });
+    chapters.forEach((chapter) => {
+      compiledText += `# Chapitre ${chapter.number} : ${chapter.title}\n\n`;
+      if (includeSummaries && chapter.summary) compiledText += `> ${chapter.summary}\n\n`;
+      (chapter.scenes || []).forEach((scene) => {
+        compiledText += `## ${scene.title}\n\n${scene.content || ""}\n\n`;
       });
+    });
 
-      if (includeLoreAppendix) {
-        compiledText += `\n---\n# Annexe: Bible du Monde & Lore\n\n`;
-        loreList.forEach((item) => {
-          compiledText += `## ${item.title} (${item.category})\n${item.description}\n\n`;
-        });
-      }
+    if (includeLoreAppendix && loreItems.length > 0) {
+      compiledText += "\n---\n\n# Annexe — Univers\n\n";
+      loreItems.forEach((item) => {
+        compiledText += `## ${item.title}\n\n${item.description}\n\n`;
+      });
+    }
 
-      const blob = new Blob([compiledText], { type: "text/markdown;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.setAttribute("download", `${project.title.toLowerCase().replace(/\s+/g, "_")}_manuscript.md`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      setDownloading(false);
-    }, 800);
+    const blob = new Blob([compiledText], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${project.title.toLowerCase().replace(/[^a-z0-9]+/gi, "_")}_manuscrit.md`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    setDownloading(false);
   };
 
   return (
     <StudioLayout>
-      <div className="p-4 sm:p-6 md:p-10 max-w-6xl mx-auto space-y-6 md:space-y-8">
-        {/* Header */}
-        <div className="border-b border-[#c6c6cd]/30 pb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <span className="text-xs font-mono font-bold text-[#b87500] uppercase tracking-wider block mb-1 flex items-center gap-1.5">
-              <Download className="w-4 h-4 text-[#b87500]" /> Finalisation & Publication
-            </span>
-            <h1 className="font-playfair text-2xl sm:text-3xl font-bold text-[#0b1c30]">
-              Studio d'Exportation
-            </h1>
-            <p className="text-xs text-[#45464d] mt-1">
-              Compilez l'intégralité de vos chapitres et scènes validés au format d'édition de votre choix.
-            </p>
-          </div>
+      <main className="p-4 sm:p-6 md:p-10 max-w-5xl mx-auto space-y-8">
+        <header className="border-b border-[#c6c6cd]/30 pb-6">
+          <p className="text-xs font-mono font-bold text-[#b87500] uppercase tracking-wider mb-1">Publication</p>
+          <h1 className="font-playfair text-3xl font-bold text-[#0b1c30]">Exporter votre livre</h1>
+          <p className="text-sm text-[#5f5e5b] mt-2 max-w-2xl">Préparez une version de votre récit à partager ou à retravailler ailleurs. L’export Markdown est disponible aujourd’hui ; les formats éditoriaux suivront.</p>
+        </header>
 
-          <button
-            onClick={handleDownload}
-            disabled={downloading}
-            className="w-full sm:w-auto px-5 py-2.5 bg-[#0b1c30] text-[#ffddb8] font-bold text-xs rounded hover:bg-[#131b2e] flex items-center justify-center gap-2 shadow-xs disabled:opacity-50 shrink-0 cursor-pointer"
-          >
-            <Download className={`w-4 h-4 ${downloading ? "animate-bounce" : ""}`} />
-            <span>{downloading ? "Compilation..." : "Exporter le Manuscrit"}</span>
-          </button>
-        </div>
+        <section className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="p-4 bg-white rounded-xl border border-[#c6c6cd]/40"><div className="text-[10px] font-mono uppercase text-[#76777d]">Chapitres</div><div className="text-xl font-bold text-[#0b1c30] mt-1">{chapters.length}</div></div>
+          <div className="p-4 bg-white rounded-xl border border-[#c6c6cd]/40"><div className="text-[10px] font-mono uppercase text-[#76777d]">Scènes</div><div className="text-xl font-bold text-[#0b1c30] mt-1">{totalScenes}</div></div>
+          <div className="p-4 bg-white rounded-xl border border-[#c6c6cd]/40"><div className="text-[10px] font-mono uppercase text-[#76777d]">Format disponible</div><div className="text-xl font-bold text-[#b87500] mt-1">Markdown</div></div>
+        </section>
 
-        {/* Audit Status Banner */}
-        <div className="p-4 sm:p-5 bg-white rounded-xl border border-[#c6c6cd]/40 shadow-xs grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-center">
-          <div className="p-3 bg-[#f8f5f0] rounded border border-[#c6c6cd]/20">
-            <div className="text-[10px] font-mono text-[#76777d] uppercase">Scènes Validées</div>
-            <div className="text-base sm:text-xl font-bold text-[#0b1c30] font-mono mt-1">
-              {totalValidatedScenes} scènes
+        <section className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+          <div className="lg:col-span-2 bg-white rounded-xl border border-[#c6c6cd]/40 p-5 sm:p-6 space-y-6">
+            <div><h2 className="font-playfair text-lg font-bold text-[#0b1c30]">Format</h2><p className="text-xs text-[#5f5e5b] mt-1">Un seul format est réellement disponible pour le moment.</p></div>
+            <div className="space-y-2">
+              {formats.map((format) => {
+                const available = format.id === "markdown";
+                const selected = exportFormat === format.id;
+                return <button key={format.id} type="button" disabled={!available} onClick={() => setExportFormat(format.id)} className={`w-full text-left p-3 rounded-lg border transition-colors ${selected ? "bg-[#0b1c30] text-white border-[#0b1c30]" : available ? "bg-white border-[#c6c6cd]/40 text-[#0b1c30] hover:bg-[#eff4ff]" : "bg-[#f8f5f0] border-[#c6c6cd]/30 text-[#8a8985] cursor-not-allowed"}`}><div className="flex items-center justify-between gap-3"><span className="text-sm font-semibold">{format.label}</span><span className="text-[10px] font-mono">{format.extension}</span></div><div className={`text-[11px] mt-1 ${selected ? "text-[#d9dfec]" : "text-[#76777d]"}`}>{format.description}</div></button>;
+              })}
             </div>
-          </div>
-          <div className="p-3 bg-[#f8f5f0] rounded border border-[#c6c6cd]/20">
-            <div className="text-[10px] font-mono text-[#76777d] uppercase">Nombre de Mots</div>
-            <div className="text-base sm:text-xl font-bold text-[#0b1c30] font-mono mt-1 truncate">
-              {(project.currentWordCount || 0).toLocaleString()} / {(project.wordCountTarget || 80000).toLocaleString()}
-            </div>
-          </div>
-          <div className="p-3 bg-[#f8f5f0] rounded border border-[#c6c6cd]/20">
-            <div className="text-[10px] font-mono text-[#76777d] uppercase">Statut Canon</div>
-            <div className="text-base sm:text-xl font-bold text-[#b87500] font-mono mt-1 flex items-center justify-center gap-1">
-              <CheckCircle2 className="w-4 h-4" /> Verrouillé
-            </div>
-          </div>
-          <div className="p-3 bg-[#f8f5f0] rounded border border-[#c6c6cd]/20">
-            <div className="text-[10px] font-mono text-[#76777d] uppercase">Fiches Lore Incluses</div>
-            <div className="text-base sm:text-xl font-bold text-[#0b1c30] font-mono mt-1">
-              {loreList.length} entrées
-            </div>
-          </div>
-        </div>
-
-        {/* Options & Preview Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-8">
-          {/* Options Form */}
-          <div className="lg:col-span-5 space-y-6">
-            <div className="bg-white rounded-xl border border-[#c6c6cd]/40 p-4 sm:p-6 shadow-xs space-y-5">
-              <h2 className="text-xs font-mono font-bold text-[#0b1c30] uppercase border-b border-[#c6c6cd]/20 pb-2">
-                1. Format de Fichier
-              </h2>
-
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  { id: "markdown", label: "Markdown Studio", ext: ".md", icon: FileText },
-                  { id: "epub", label: "eBook EPUB 3.0", ext: ".epub", icon: BookOpen },
-                  { id: "pdf", label: "PDF Print Pro", ext: ".pdf", icon: Printer },
-                  { id: "docx", label: "Word DOCX", ext: ".docx", icon: FileText }
-                ].map((fmt) => {
-                  const Icon = fmt.icon;
-                  const isSel = exportFormat === fmt.id;
-                  return (
-                    <button
-                      key={fmt.id}
-                      type="button"
-                      onClick={() => setExportFormat(fmt.id as any)}
-                      className={`p-3 rounded-lg border text-left transition-all cursor-pointer ${
-                        isSel
-                          ? "bg-[#0b1c30] text-white border-[#0b1c30] shadow-xs"
-                          : "bg-white text-[#0b1c30] border-[#c6c6cd]/40 hover:bg-[#eff4ff]"
-                      }`}
-                    >
-                      <Icon className={`w-4 h-4 mb-1 ${isSel ? "text-[#ffddb8]" : "text-[#b87500]"}`} />
-                      <div className="text-xs font-bold">{fmt.label}</div>
-                      <div className={`text-[10px] font-mono ${isSel ? "text-[#7c839b]" : "text-[#76777d]"}`}>
-                        {fmt.ext}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-
-              <h2 className="text-xs font-mono font-bold text-[#0b1c30] uppercase border-b border-[#c6c6cd]/20 pb-2 pt-2">
-                2. Structure de Compilation
-              </h2>
-
-              <div className="space-y-3 text-xs">
-                <label className="flex items-center justify-between p-2.5 bg-[#f8f5f0] rounded border border-[#c6c6cd]/20 cursor-pointer">
-                  <span>Inclure la Bible du Monde en Annexe</span>
-                  <input
-                    type="checkbox"
-                    checked={includeLoreAppendix}
-                    onChange={(e) => setIncludeLoreInclude(e.target.checked)}
-                    className="accent-[#0b1c30]"
-                  />
-                </label>
-
-                <label className="flex items-center justify-between p-2.5 bg-[#f8f5f0] rounded border border-[#c6c6cd]/20 cursor-pointer">
-                  <span>Afficher les résumés canoniques par chapitre</span>
-                  <input
-                    type="checkbox"
-                    checked={includeSummaries}
-                    onChange={(e) => setIncludeSummaries(e.target.checked)}
-                    className="accent-[#0b1c30]"
-                  />
-                </label>
-              </div>
+            <div className="border-t border-[#c6c6cd]/20 pt-5 space-y-3">
+              <h2 className="font-playfair text-lg font-bold text-[#0b1c30]">Contenu</h2>
+              <label className="flex items-center justify-between gap-3 p-3 bg-[#f8f5f0] rounded border border-[#c6c6cd]/20 text-xs cursor-pointer"><span>Ajouter les résumés de chapitres</span><input type="checkbox" checked={includeSummaries} onChange={(event) => setIncludeSummaries(event.target.checked)} /></label>
+              <label className={`flex items-center justify-between gap-3 p-3 bg-[#f8f5f0] rounded border border-[#c6c6cd]/20 text-xs ${loreItems.length ? "cursor-pointer" : "opacity-50 cursor-not-allowed"}`}><span>Ajouter l’univers en annexe</span><input type="checkbox" checked={includeLoreAppendix} disabled={!loreItems.length} onChange={(event) => setIncludeLoreAppendix(event.target.checked)} /></label>
             </div>
           </div>
 
-          {/* Compilation Live Preview */}
-          <div className="lg:col-span-7 space-y-4">
-            <h2 className="text-xs font-mono font-bold text-[#76777d] uppercase tracking-wider">
-              Aperçu du Manuscrit Compilé
-            </h2>
-
-            <div className="bg-[#f8f5f0] border border-[#c6c6cd]/30 rounded-xl p-5 sm:p-8 min-h-[400px] sm:min-h-[500px] font-merriweather shadow-xs text-[#0f172a] space-y-6">
-              <div className="text-center pb-6 border-b border-[#c6c6cd]/30 space-y-2">
-                <h1 className="font-playfair text-2xl sm:text-3xl font-bold text-[#0b1c30]">
-                  {project.title}
-                </h1>
-                <p className="font-courier text-xs text-[#5f5e5b]">
-                  {project.subtitle}
-                </p>
-                <div className="text-[11px] font-mono text-[#b87500] uppercase pt-1">
-                  Édition Complète Canonique
-                </div>
-              </div>
-
-              {/* Table of contents */}
-              <div className="p-4 bg-white/60 rounded border border-[#c6c6cd]/20 font-inter text-xs space-y-2">
-                <span className="font-mono font-bold text-[#0b1c30] uppercase block">
-                  Table des Matières
-                </span>
-                <ol className="list-decimal list-inside space-y-1 text-[#45464d]">
-                  {chaptersList.map((chap) => (
-                    <li key={chap.id} className="truncate">
-                      Chapitre {chap.number}: {chap.title} ({(chap.scenes || []).length} scènes)
-                    </li>
-                  ))}
-                </ol>
-              </div>
-
-              {/* First chapter snippet */}
-              {chaptersList[0] && (
-                <div className="space-y-3">
-                  <h2 className="font-playfair text-lg sm:text-xl font-bold text-[#0b1c30]">
-                    Chapitre {chaptersList[0].number}: {chaptersList[0].title}
-                  </h2>
-                  <p className="text-xs sm:text-sm leading-relaxed font-merriweather text-[#0f172a]">
-                    {(chaptersList[0].scenes || [])[0]?.content || (chaptersList[0].versions || [])[0]?.content || "Extrait de la première scène..."}
-                  </p>
-                </div>
-              )}
+          <div className="lg:col-span-3 bg-[#f8f5f0] rounded-xl border border-[#c6c6cd]/30 p-5 sm:p-8 space-y-6">
+            <div className="flex items-start gap-3"><CheckCircle2 className="w-5 h-5 text-[#b87500] shrink-0 mt-0.5" /><div><h2 className="font-playfair text-xl font-bold text-[#0b1c30]">Votre manuscrit</h2><p className="text-xs text-[#5f5e5b] mt-1">{project.title}</p></div></div>
+            <div className="bg-white rounded-lg border border-[#c6c6cd]/30 p-5 font-merriweather text-sm leading-relaxed text-[#0f172a] max-h-[420px] overflow-auto">
+              {chapters.length === 0 ? <p className="text-[#76777d] italic">Votre livre est encore vide. Le manuscrit apparaîtra ici quand vous aurez commencé à écrire.</p> : chapters.map((chapter) => <section key={chapter.id} className="mb-6 last:mb-0"><h3 className="font-playfair text-lg font-bold mb-2">Chapitre {chapter.number} : {chapter.title}</h3>{includeSummaries && chapter.summary && <p className="text-xs italic text-[#5f5e5b] mb-3">{chapter.summary}</p>}<p className="whitespace-pre-wrap">{(chapter.scenes || [])[0]?.content || "Aucun texte dans ce chapitre pour le moment."}</p></section>)}
             </div>
+            <button type="button" onClick={handleDownload} disabled={downloading || exportFormat !== "markdown"} className="w-full py-3 rounded bg-[#0b1c30] text-[#ffddb8] font-bold text-xs flex items-center justify-center gap-2 disabled:opacity-50"><Download className="w-4 h-4" />{downloading ? "Préparation…" : "Exporter en Markdown"}</button>
+            <p className="text-[11px] text-[#76777d] text-center">EPUB, PDF et Word seront ajoutés une fois leur génération finalisée.</p>
           </div>
-        </div>
-      </div>
+        </section>
+      </main>
     </StudioLayout>
   );
 }
