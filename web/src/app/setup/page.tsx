@@ -7,13 +7,13 @@ import { ArrowLeft, ArrowRight, BookOpen, Check, Feather, Lightbulb, MapPin, Plu
 import { realApiClient, RealApiError } from "@/services/realApiClient";
 import { getApiErrorMessage } from "@/services/apiErrorMessages";
 import { track } from "@/lib/analytics";
+import { AudienceSelector } from "./components/AudienceSelector";
+import { ToneSelector } from "./components/ToneSelector";
 
 type ElementType = "Personnage" | "Lieu" | "Époque / contexte" | "Organisation" | "Objet" | "Règle" | "Événement" | "Autre";
 type SetupElement = { id: number; type: ElementType; name: string; description: string };
 
 const genres = ["Roman", "Policier", "Thriller", "Romance", "Fantasy", "Science-fiction", "Historique", "Littérature générale", "Jeunesse", "Autre"];
-const audiences = ["Adultes", "Adolescents", "Jeunesse", "Grand public", "Je ne sais pas encore"];
-const tones = ["Sombre", "Tendu", "Intime", "Léger", "Drôle", "Contemplatif", "Épique", "Je ne sais pas encore"];
 const elementTypes: { type: ElementType; icon: typeof UserRound }[] = [
   { type: "Personnage", icon: UserRound }, { type: "Lieu", icon: MapPin }, { type: "Époque / contexte", icon: BookOpen },
   { type: "Organisation", icon: Sparkles }, { type: "Objet", icon: BookOpen }, { type: "Règle", icon: Lightbulb }, { type: "Événement", icon: Sparkles }, { type: "Autre", icon: Plus },
@@ -102,8 +102,8 @@ export default function SetupPage() {
             {step === 2 && <div className="space-y-7">
               <Header eyebrow="Votre direction" title="Qu’avez-vous envie de raconter ?" text="Une émotion, une question, une idée ou simplement une envie d’écrire suffit." />
               <Field label="Qu’aimeriez-vous faire ressentir, raconter ou explorer ?"><textarea id="setup-intent" aria-label="Qu'aimeriez-vous faire ressentir, raconter ou explorer ?" value={intent} onChange={(e) => setIntent(e.target.value)} rows={5} className="textarea" placeholder="Créer une enquête où le lecteur doute constamment de la vérité…" /><div className="flex flex-wrap gap-2 mt-2">{["Créer du suspense", "Explorer la culpabilité", "Faire réfléchir", "Faire rire", "Créer de l’émotion"].map((x) => <button key={x} type="button" onClick={() => setIntent((v) => v ? `${v} ${x}.` : `${x}.`)} className="suggestion">{x}</button>)}</div></Field>
-              <ChoiceGroup label="Pour qui écrivez-vous ?" values={audiences} value={audience} onChange={setAudience} />
-              <ChoiceGroup label="Quelle tonalité imaginez-vous ?" values={tones} value={tone} onChange={setTone} />
+              <AudienceSelector value={audience} onChange={setAudience} />
+              <ToneSelector value={tone} onChange={setTone} />
               <div><div className="label mb-1">Y a-t-il des choses que nous devons absolument respecter ?</div><p className="hint mb-3">Rester réaliste, une époque précise, un secret à préserver, une règle de narration…</p><div className="flex gap-2"><input aria-label="Ajouter une contrainte" value={constraintDraft} onChange={(e) => setConstraintDraft(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addConstraint(); } }} className="field flex-1" placeholder="Ajouter une contrainte" /><button type="button" onClick={addConstraint} aria-label="Ajouter une contrainte" className="iconButton"><Plus className="w-4 h-4" /></button></div>{constraints.length > 0 && <div className="flex flex-wrap gap-2 mt-3">{constraints.map((c) => <span key={c} className="constraint">{c}<button type="button" aria-label={`Supprimer ${c}`} onClick={() => setConstraints((items) => items.filter((x) => x !== c))}><Trash2 className="w-3 h-3" /></button></span>)}</div>}</div>
             </div>}
 
@@ -133,9 +133,6 @@ function Header({ eyebrow, title, text }: { eyebrow: string; title: string; text
 }
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return <div><label className="label block mb-1">{label}</label>{hint && <p className="hint mb-2">{hint}</p>}{children}</div>;
-}
-function ChoiceGroup({ label, values, value, onChange }: { label: string; values: string[]; value: string; onChange: (value: string) => void }) {
-  return <div><div className="label mb-2">{label} <span className="optional">Optionnel</span></div><div className="flex flex-wrap gap-2">{values.map((item) => <button key={item} type="button" onClick={() => onChange(item === value ? "" : item)} className={`pill ${chip(item === value)}`}>{item}</button>)}</div></div>;
 }
 function Summary({ title, children, wide = false }: { title: string; children: React.ReactNode; wide?: boolean }) {
   return <div className={`rounded-xl bg-[#faf9f6] border border-[#c6c6cd]/40 p-5 ${wide ? "md:col-span-2" : ""}`}><span className="eyebrow">{title}</span><div className="mt-2">{children}</div></div>;
