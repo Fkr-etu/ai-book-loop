@@ -16,21 +16,11 @@ class AddChapter:
             if any(chapter.number == chapter_number for chapter in book.chapters):
                 raise ValueError(f"Chapter {chapter_number} already exists")
             raise ValueError(f"Chapter {chapter_number} cannot be added; expected chapter {expected_number}")
-
-        outline_chapter = next(
-            (chapter for chapter in book.outline.chapters if chapter.number == chapter_number),
-            None,
-        )
+        outline_chapter = next((chapter for chapter in book.outline.chapters if chapter.number == chapter_number), None)
         if outline_chapter is None:
             raise ValueError(f"Unknown chapter {chapter_number} in outline")
-
-        book.chapters.append(
-            Chapter(
-                id=f"{book.id}:chapter:{chapter_number}",
-                number=chapter_number,
-                title=outline_chapter.title,
-                objective=outline_chapter.objective,
-            )
-        )
+        chapter = Chapter(id=f"{book.id}:chapter:{chapter_number}", number=chapter_number, title=outline_chapter.title, objective=outline_chapter.objective, current_version=1)
+        book.chapters.append(chapter)
         self.repository.save(book)
+        self.repository.save_chapter_version(book.id, chapter_number, 1, "")
         return book
