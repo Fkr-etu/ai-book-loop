@@ -79,6 +79,11 @@ The API also logs the initial `job_id -> book_id -> analysis_type` correlation w
 
 The durable `analysis_jobs` timestamps remain authoritative for deeper diagnosis: `created_at -> started_at` gives queue wait and `started_at -> completed_at/failed_at` gives end-to-end execution timing.
 
+## Validation
+
+- dedicated worker tests cover success, retryable failure and terminal failure at `attempt == max_attempts`;
+- Playwright covers launch (`202`), running progress, reload restoration, polling and successful result rendering at the frontend API boundary.
+
 ## Future extensions
 
 - finer-grained checkpoints for multi-stage book analyses;
