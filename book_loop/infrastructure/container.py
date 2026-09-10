@@ -28,6 +28,7 @@ from book_loop.application.use_cases.delete_character_relation import DeleteChar
 from book_loop.application.use_cases.extract_chapter_assertions import ExtractChapterAssertions
 from book_loop.application.use_cases.generate_chapter import GenerateChapter
 from book_loop.application.use_cases.generate_outline import GenerateOutline
+from book_loop.application.use_cases.get_analysis_job import GetAnalysisJob
 from book_loop.application.use_cases.get_canonical_fact_history import GetCanonicalFactHistory
 from book_loop.application.use_cases.get_character import GetCharacter
 from book_loop.application.use_cases.ingest_document import IngestDocument
@@ -42,12 +43,14 @@ from book_loop.application.use_cases.review_assertion import ReviewAssertion
 from book_loop.application.use_cases.review_canon_change import ReviewCanonChange
 from book_loop.application.use_cases.review_chapter import ReviewChapter
 from book_loop.application.use_cases.set_creative_brief import SetCreativeBrief
+from book_loop.application.use_cases.start_consistency_analysis import StartConsistencyAnalysis
 from book_loop.application.use_cases.update_book import UpdateBook
 from book_loop.application.use_cases.update_character import UpdateCharacter
 from book_loop.application.use_cases.update_outline import UpdateOutline
 from book_loop.infrastructure.auth import Argon2PasswordHasher, DUMMY_PASSWORD_HASH, JwtTokenService
 from book_loop.infrastructure.auth_rate_limit import AuthRateLimiter
 from book_loop.infrastructure.config import Settings
+from book_loop.infrastructure.database.analysis_jobs import PostgresAnalysisJobStore
 from book_loop.infrastructure.database.canon_change_postgres import PostgresCanonChangeRepository
 from book_loop.infrastructure.database.postgres import PostgresWorkflowRunStore
 from book_loop.infrastructure.database.temporal_context import TemporalContextStore
@@ -77,31 +80,18 @@ class Container:
         self.password_hasher = Argon2PasswordHasher()
         self.token_service = JwtTokenService(self.settings.auth_secret_key)
         self.workflow_store = PostgresWorkflowRunStore(self.settings.database_url)
+        self.analysis_job_store = PostgresAnalysisJobStore(self.settings.database_url)
         self.observability = ObservabilityStore(self.settings.database_url)
         self.llm = create_llm(self.settings)
         self.embedding_provider = create_embedding_provider(self.settings)
-        self.embedding_indexer = CanonicalFactEmbeddingIndexer(
-            provider=self.embedding_provider,
-            repository=self.repository,
-            model=self.settings.embedding_model,
-        )
-        self.semantic_retriever = EmbeddingCanonicalRetriever(
-            self.embedding_provider,
-            embedding_store=self.repository,
-            embedding_model=self.settings.embedding_model,
-        )
-        self.canonical_retriever = HybridCanonicalRetriever(
-            CanonicalRetriever(),
-            self.semantic_retriever,
-        )
+        self.embedding_indexer = CanonicalFactEmbeddingIndexer(provider=self.embedding_provider, repository=self.repository, model=self.settings.embedding_model)
+        self.semantic_retriever = EmbeddingCanonicalRetriever(self.embedding_provider, embedding_store=self.repository, embedding_model=self.settings.embedding_model)
+        self.canonical_retriever = HybridCanonicalRetriever(CanonicalRetriever(), self.semantic_retriever)
         self.outline_agent = OutlineAgent(self.llm)
         self.writer_agent = WriterAgent(self.llm)
         self.reviewer_agent = ReviewerAgent(self.llm)
         self.summarizer_agent = SummarizerAgent(self.llm)
-        self.context_builder = ContextBuilder(
-            knowledge_repository=self.repository,
-            retriever=self.canonical_retriever,
-        )
+        self.context_builder = ContextBuilder(knowledge_repository=self.repository, retriever=self.canonical_retriever)
         self.linter = ChapterLinter()
         self.linguistic_contextualizer = GeminiDiagnosticContextualizer(llm=self.llm)
         self.chapter_workflow = ChapterWorkflow(repository=self.repository, writer=self.writer_agent, reviewer=self.reviewer_agent, summarizer=self.summarizer_agent, context_builder=self.context_builder, linter=self.linter, linguistic_validator_factory=self._linguistic_validator, linguistic_contextualizer=self._contextualize_linguistic_diagnostics, linguistic_language=self.settings.linguistic_language, max_retries=self.settings.max_retries, review_threshold=self.settings.review_threshold, workflow_store=self.workflow_store, observability=self.observability)
@@ -156,4 +146,6 @@ class Container:
     def list_canonical_facts(self) -> ListCanonicalFacts: return ListCanonicalFacts(self.repository)
     def get_canonical_fact_history(self) -> GetCanonicalFactHistory: return GetCanonicalFactHistory(self.repository)
     def analyze_consistency(self) -> AnalyzeConsistency: return AnalyzeConsistency(self.repository, temporal_context_store=self.temporal_context_store)
+    def start_consistency_analysis(self) -> StartConsistencyAnalysis: return StartConsistencyAnalysis(self.repository, self.analysis_job_store)
+    def get_analysis_job(self) -> GetAnalysisJob: return GetAnalysisJob(self.repository, self.analysis_job_store)
     def analyze_canon_change(self) -> AnalyzeCanonChange: return AnalyzeCanonChange(self.repository)

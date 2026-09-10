@@ -1,6 +1,7 @@
 substitutions:
   _REGION: europe-west9
   _API_SERVICE: book-loop-api
+  _WORKER_SERVICE: book-loop-analysis-worker
   _WEB_SERVICE: book-loop-web
   _API_REPOSITORY: book-loop-api
   _WEB_REPOSITORY: book-loop-web
@@ -104,6 +105,32 @@ steps:
       - "--cpu=1"
       - "--memory=512Mi"
       - "--concurrency=8"
+      - "--port=8080"
+
+  - id: deploy-analysis-worker
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: gcloud
+    waitFor: [execute-migrations, push-api]
+    args:
+      - "run"
+      - "deploy"
+      - "${_WORKER_SERVICE}"
+      - "--image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_API_REPOSITORY}/api:$BUILD_ID"
+      - "--region=${_REGION}"
+      - "--platform=managed"
+      - "--no-allow-unauthenticated"
+      - "--service-account=${_API_SERVICE_ACCOUNT}"
+      - "--add-cloudsql-instances=$PROJECT_ID:${_REGION}:${_DB_INSTANCE}"
+      - "--set-secrets=DATABASE_URL=DATABASE_URL:latest,GEMINI_API_KEY=GEMINI_API_KEY:1,AUTH_SECRET_KEY=AUTH_SECRET_KEY:latest"
+      - "--set-env-vars=APP_ENVIRONMENT=production,ANALYSIS_JOB_POLL_SECONDS=2,ANALYSIS_JOB_LEASE_SECONDS=900"
+      - "--command=python"
+      - "--args=-m,book_loop.worker"
+      - "--min=1"
+      - "--max=3"
+      - "--cpu=1"
+      - "--memory=512Mi"
+      - "--concurrency=1"
+      - "--no-cpu-throttling"
       - "--port=8080"
 
   - id: verify-api-public-iam
@@ -259,13 +286,11 @@ steps:
         test -n "$${API_URL}"
         echo "Expected WEB_ORIGIN=$${WEB_ORIGIN}"
         echo "Expected API_URL=$${API_URL}"
-
         ACTUAL="$$(gcloud run services describe ${_API_SERVICE} \
           --region=${_REGION} \
           --format='value(spec.template.spec.containers[0].env)' | tr '\n' ' ')"
         echo "API environment after CORS sync: $${ACTUAL}"
         echo "$${ACTUAL}" | grep -F "CORS_ALLOWED_ORIGINS" | grep -F "$${WEB_ORIGIN}"
-
         echo "Running CORS preflight verification"
         RESPONSE_FILE=/tmp/cors-response
         HTTP_CODE="$$(curl -sS -o "$${RESPONSE_FILE}" -w '%{http_code}' \
