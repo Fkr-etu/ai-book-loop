@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 import json
+import logging
 from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
 
 from book_loop.domain.analysis_job import AnalysisJob, AnalysisJobStatus
 from book_loop.infrastructure.database.postgres import _PostgresConnectionAdapter
+from book_loop.infrastructure.structured_logging import log_event
+
+logger = logging.getLogger("book_loop.analysis_jobs")
 
 
 class PostgresAnalysisJobStore:
@@ -71,9 +75,24 @@ class PostgresAnalysisJobStore:
             if row is None:
                 return None
             job = self._job_from_row(row)
+            lease_recovered = job.status == AnalysisJobStatus.RUNNING
             job.claim(worker_id=worker_id, lease_seconds=lease_seconds, now=now)
             self._save_locked(job)
-            return job
+        log_event(
+            logger,
+            logging.INFO,
+            "analysis_job_claimed",
+            job_id=job.id,
+            book_id=job.book_id,
+            analysis_type=job.analysis_type,
+            worker_id=worker_id,
+            attempt=job.attempt,
+            max_attempts=job.max_attempts,
+            queue_wait_ms=max(0, int((now - job.created_at).total_seconds() * 1000)),
+            lease_recovered=lease_recovered,
+            status=job.status.value,
+        )
+        return job
 
     def update_progress(self, *, job_id: str, worker_id: str, progress: int, current_step: str | None) -> AnalysisJob:
         with self._connection.transaction():

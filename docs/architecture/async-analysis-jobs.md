@@ -60,9 +60,29 @@ The worker is a separate process (`python -m book_loop.worker`). It polls Postgr
 
 The same Python image can be used for API and worker workloads; the process command is different. Redis/Celery/RQ/PGMQ are intentionally not required for the MVP.
 
+## Observability
+
+Async analysis execution is observable through structured application logs; PostgreSQL remains the durable source for the job lifecycle itself. No second metrics database or queue is introduced.
+
+The worker emits correlated events carrying `job_id`, `book_id`, `analysis_type`, `worker_id`, `attempt` and `status`. Completion/failure events additionally expose `queue_wait_ms`, `execution_duration_ms`, retry state and, for successful consistency analyses, `issue_count`. Claim events expose `lease_recovered` so expired-worker recovery can be counted independently from ordinary retries.
+
+These fields support Cloud Logging queries and log-based Cloud Monitoring metrics for:
+
+- queue wait latency;
+- analysis execution latency;
+- successful/failed analyses;
+- retry volume;
+- lease recoveries;
+- detected issue volume.
+
+The API also logs the initial `job_id -> book_id -> analysis_type` correlation when a request creates or reuses an analysis job. Logs deliberately exclude prompts, generated text, source content and other potentially sensitive book data.
+
+The durable `analysis_jobs` timestamps remain authoritative for deeper diagnosis: `created_at -> started_at` gives queue wait and `started_at -> completed_at/failed_at` gives end-to-end execution timing.
+
 ## Future extensions
 
 - finer-grained checkpoints for multi-stage book analyses;
 - `LISTEN/NOTIFY` as a wake-up optimization without replacing durable queue state;
 - dedicated result tables if result size or retention requirements justify them;
-- independent worker autoscaling once production volume is known.
+- independent worker autoscaling once production volume is known;
+- OpenTelemetry/traces if cross-service latency becomes difficult to diagnose from structured logs alone.
