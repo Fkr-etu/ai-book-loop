@@ -1,25 +1,33 @@
 import type { NextConfig } from "next";
 
-const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+const apiUrl = process.env.API_INTERNAL_URL || process.env.NEXT_PUBLIC_API_URL;
 let apiOrigin = "";
 
 if (apiUrl) {
   try {
     apiOrigin = new URL(apiUrl).origin;
   } catch {
-    throw new Error(`Invalid NEXT_PUBLIC_API_URL: ${apiUrl}`);
+    throw new Error(`Invalid API_INTERNAL_URL/NEXT_PUBLIC_API_URL: ${apiUrl}`);
   }
 }
 
 const connectSrc = [
   "'self'",
-  apiOrigin,
   "https://www.google-analytics.com",
   "https://analytics.google.com",
 ].filter(Boolean).join(" ");
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  async rewrites() {
+    if (!apiOrigin) return [];
+    return [
+      {
+        source: "/api/:path*",
+        destination: `${apiOrigin}/api/:path*`,
+      },
+    ];
+  },
   async headers() {
     return [
       {
