@@ -3,6 +3,7 @@ from __future__ import annotations
 from uuid import NAMESPACE_URL, uuid5
 
 from book_loop.application.use_cases.consistency_coverage import PairDisposition, classify_pair
+from book_loop.domain.epistemic import AssertionEpistemicStore
 from book_loop.domain.models import Assertion, Conflict, ConflictStatus
 from book_loop.domain.predicate_semantics import PredicateSemanticsRegistry
 from book_loop.domain.protocols import KnowledgeRepository
@@ -18,10 +19,12 @@ class DetectConflicts:
         *,
         temporal_context_store: AssertionTemporalContextStore | None = None,
         predicate_semantics: PredicateSemanticsRegistry | None = None,
+        epistemic_store: AssertionEpistemicStore | None = None,
     ) -> None:
         self.repository = repository
         self.temporal_context_store = temporal_context_store
         self.predicate_semantics = predicate_semantics or PredicateSemanticsRegistry()
+        self.epistemic_store = epistemic_store
 
     def execute(self, *, book_id: str) -> list[Conflict]:
         assertions = [
@@ -61,4 +64,5 @@ class DetectConflicts:
             right,
             temporal_context_store=self.temporal_context_store,
             predicate_semantics=self.predicate_semantics,
+            epistemic_store=self.epistemic_store,
         ) is PairDisposition.CANDIDATE
