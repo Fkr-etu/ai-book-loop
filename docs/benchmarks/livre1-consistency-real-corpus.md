@@ -4,23 +4,32 @@ Le script `scripts/audit_livre1_consistency.py` permet d'exécuter le détecteur
 
 ## Pourquoi cet audit est opt-in
 
-L'audit utilise deux ressources externes :
+L'audit utilise une clé Gemini pour extraire les assertions source-grounded. Le corpus, lui, est figé sur un snapshot précis de `Fkr-etu/M4ges` afin que le résultat soit reproductible et ne dépende pas d'un téléchargement `raw.githubusercontent.com` au moment de l'exécution.
 
-1. les chapitres publics du dépôt `Fkr-etu/M4ges` ;
-2. Gemini pour extraire les assertions source-grounded.
+Le workflow GitHub Actions récupère le commit M4ges `4cc388d89dc6dd4750e7a7e4a6576d307de5b7b5` dans `.benchmarks/m4ges`.
 
-Il ne doit donc pas être exécuté dans la CI standard et ne contient aucun secret ni clé API.
+Il ne doit donc pas être exécuté dans la CI standard et ne contient aucun secret ni clé API dans le dépôt.
 
-## Exécution
+## Exécution locale
+
+Le script attend par défaut le snapshot dans :
+
+```text
+.benchmarks/m4ges/docs/story/livre_1/
+```
+
+On peut utiliser un autre emplacement avec `LIVRE1_CORPUS_ROOT` :
 
 ```bash
-GEMINI_API_KEY="..." python scripts/audit_livre1_consistency.py
+GEMINI_API_KEY="..." \
+LIVRE1_CORPUS_ROOT="/chemin/vers/docs/story/livre_1" \
+python scripts/audit_livre1_consistency.py
 ```
 
 Le modèle LLM peut être changé avec `LLM_MODEL` :
 
 ```bash
-GEMINI_API_KEY="..." LLM_MODEL="gemini-2.5-flash" python scripts/audit_livre1_consistency.py
+GEMINI_API_KEY="..." LLM_MODEL="gemini-3.5-flash" python scripts/audit_livre1_consistency.py
 ```
 
 Le script réutilise le chemin d'ingestion réel (`IngestDocument` + `LLMAssertionExtractor`) puis exécute `DetectConflicts` avec un contexte temporel dérivé du numéro de chapitre.
