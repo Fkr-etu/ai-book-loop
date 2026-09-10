@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from book_loop.application.use_cases.consistency_coverage import measure_coverage
 from book_loop.domain.models import Assertion, AssertionStatus
+from book_loop.domain.predicate_semantics import PredicateExclusivity, PredicateKind, PredicateSemantics, PredicateSemanticsRegistry
 from book_loop.domain.temporal import TemporalScope, TemporalScopeKind
 
 
@@ -11,6 +12,13 @@ class TemporalStore:
 
     def get_temporal_scope(self, *, assertion_id: str) -> TemporalScope | None:
         return self.scopes.get(assertion_id)
+
+
+class TestPredicateSemanticsRegistry(PredicateSemanticsRegistry):
+    _SEMANTICS = {
+        **PredicateSemanticsRegistry._SEMANTICS,
+        "enters": PredicateSemantics(PredicateKind.EVENT, PredicateExclusivity.UNKNOWN),
+    }
 
 
 def assertion(assertion_id: str, subject: str, predicate: str, value: str, *, status: AssertionStatus = AssertionStatus.ACCEPTED) -> Assertion:
@@ -36,7 +44,11 @@ def test_coverage_exposes_each_detector_filter_without_changing_rules() -> None:
         "b": TemporalScope(kind=TemporalScopeKind.STORY_POINT, position=2),
         "j": TemporalScope(kind=TemporalScopeKind.STORY_POINT, position=1),
     }
-    coverage = measure_coverage(assertions[:-1], temporal_context_store=TemporalStore(scopes))
+    coverage = measure_coverage(
+        assertions[:-1],
+        temporal_context_store=TemporalStore(scopes),
+        predicate_semantics=TestPredicateSemanticsRegistry(),
+    )
 
     assert coverage.total_assertions == 10
     assert coverage.total_pairs == 45
@@ -45,7 +57,7 @@ def test_coverage_exposes_each_detector_filter_without_changing_rules() -> None:
     assert coverage.different_object_pairs == 7
     assert coverage.action_event_excluded == 1
     assert coverage.multi_valued_excluded == 1
-    assert coverage.temporal_missing_scope == 2
+    assert coverage.temporal_missing_scope == 3
     assert coverage.temporal_non_overlapping == 2
     assert coverage.temporal_overlapping == 1
     assert coverage.final_candidates == 1
