@@ -19,15 +19,7 @@ class PostgresAnalysisJobStore:
     def _job_from_row(row: dict[str, Any]) -> AnalysisJob:
         return AnalysisJob.model_validate(row)
 
-    def enqueue(
-        self,
-        *,
-        book_id: str,
-        owner_id: str,
-        analysis_type: str,
-        idempotency_key: str,
-        max_attempts: int = 3,
-    ) -> AnalysisJob:
+    def enqueue(self, *, book_id: str, owner_id: str, analysis_type: str, idempotency_key: str, max_attempts: int = 3) -> AnalysisJob:
         job_id = str(uuid4())
         with self._connection.transaction():
             self._connection.execute(
@@ -39,21 +31,10 @@ class PostgresAnalysisJobStore:
                 ) VALUES (?, ?, ?, ?, ?, 0, ?, 0, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
                 ON CONFLICT (book_id, analysis_type, idempotency_key) DO NOTHING
                 """,
-                (
-                    job_id,
-                    book_id,
-                    owner_id,
-                    analysis_type,
-                    AnalysisJobStatus.QUEUED.value,
-                    idempotency_key,
-                    max_attempts,
-                ),
+                (job_id, book_id, owner_id, analysis_type, AnalysisJobStatus.QUEUED.value, idempotency_key, max_attempts),
             )
             row = self._connection.execute(
-                """
-                SELECT * FROM analysis_jobs
-                WHERE book_id = ? AND analysis_type = ? AND idempotency_key = ?
-                """,
+                "SELECT * FROM analysis_jobs WHERE book_id = ? AND analysis_type = ? AND idempotency_key = ?",
                 (book_id, analysis_type, idempotency_key),
             ).fetchone()
         if row is None:
@@ -61,21 +42,14 @@ class PostgresAnalysisJobStore:
         return self._job_from_row(row)
 
     def get(self, job_id: str) -> AnalysisJob:
-        row = self._connection.execute(
-            "SELECT * FROM analysis_jobs WHERE id = ?", (job_id,)
-        ).fetchone()
+        row = self._connection.execute("SELECT * FROM analysis_jobs WHERE id = ?", (job_id,)).fetchone()
         if row is None:
             raise KeyError(job_id)
         return self._job_from_row(row)
 
-    def get_by_idempotency(
-        self, *, book_id: str, analysis_type: str, idempotency_key: str
-    ) -> AnalysisJob | None:
+    def get_by_idempotency(self, *, book_id: str, analysis_type: str, idempotency_key: str) -> AnalysisJob | None:
         row = self._connection.execute(
-            """
-            SELECT * FROM analysis_jobs
-            WHERE book_id = ? AND analysis_type = ? AND idempotency_key = ?
-            """,
+            "SELECT * FROM analysis_jobs WHERE book_id = ? AND analysis_type = ? AND idempotency_key = ?",
             (book_id, analysis_type, idempotency_key),
         ).fetchone()
         return self._job_from_row(row) if row is not None else None
@@ -86,11 +60,8 @@ class PostgresAnalysisJobStore:
             row = self._connection.execute(
                 """
                 SELECT * FROM analysis_jobs
-                WHERE (
-                    status = ? AND available_at <= CURRENT_TIMESTAMP
-                ) OR (
-                    status = ? AND lease_until IS NOT NULL AND lease_until < CURRENT_TIMESTAMP
-                )
+                WHERE (status = ? AND available_at <= CURRENT_TIMESTAMP)
+                   OR (status = ? AND lease_until IS NOT NULL AND lease_until < CURRENT_TIMESTAMP)
                 ORDER BY created_at
                 FOR UPDATE SKIP LOCKED
                 LIMIT 1
@@ -104,42 +75,51 @@ class PostgresAnalysisJobStore:
             self._save_locked(job)
             return job
 
-    def heartbeat(self, *, job_id: str, worker_id: str, lease_seconds: int) -> AnalysisJob:
-        job = self.get(job_id)
-        if job.worker_id != worker_id or job.status != AnalysisJobStatus.RUNNING:
-            raise RuntimeError("Analysis job is not owned by this worker")
-        job.heartbeat(lease_seconds=lease_seconds)
+    def update_progress(self, *, job_id: str, worker_id: str, progress: int, current_step: str | None) -> AnalysisJob:
         with self._connection.transaction():
+            row = self._connection.execute("SELECT * FROM analysis_jobs WHERE id = ? FOR UPDATE", (job_id,)).fetchone()
+            if row is None:
+                raise KeyError(job_id)
+            job = self._job_from_row(row)
+            self._assert_owner(job, worker_id)
+            job.progress = progress
+            job.current_step = current_step
+            job.updated_at = datetime.now(timezone.utc)
             self._save_locked(job)
-        return job
+            return job
+
+    def heartbeat(self, *, job_id: str, worker_id: str, lease_seconds: int) -> AnalysisJob:
+        with self._connection.transaction():
+            row = self._connection.execute("SELECT * FROM analysis_jobs WHERE id = ? FOR UPDATE", (job_id,)).fetchone()
+            if row is None:
+                raise KeyError(job_id)
+            job = self._job_from_row(row)
+            self._assert_owner(job, worker_id)
+            job.heartbeat(lease_seconds=lease_seconds)
+            self._save_locked(job)
+            return job
 
     def complete(self, *, job_id: str, worker_id: str, result: dict) -> AnalysisJob:
-        job = self.get(job_id)
-        self._assert_owner(job, worker_id)
-        job.complete(result)
         with self._connection.transaction():
+            row = self._connection.execute("SELECT * FROM analysis_jobs WHERE id = ? FOR UPDATE", (job_id,)).fetchone()
+            if row is None:
+                raise KeyError(job_id)
+            job = self._job_from_row(row)
+            self._assert_owner(job, worker_id)
+            job.complete(result)
             self._save_locked(job)
-        return job
+            return job
 
-    def fail(
-        self,
-        *,
-        job_id: str,
-        worker_id: str,
-        error_code: str,
-        error_message: str,
-        retry: bool,
-    ) -> AnalysisJob:
-        job = self.get(job_id)
-        self._assert_owner(job, worker_id)
-        job.fail(
-            error_code=error_code,
-            error_message=error_message,
-            retry=retry,
-        )
+    def fail(self, *, job_id: str, worker_id: str, error_code: str, error_message: str, retry: bool) -> AnalysisJob:
         with self._connection.transaction():
+            row = self._connection.execute("SELECT * FROM analysis_jobs WHERE id = ? FOR UPDATE", (job_id,)).fetchone()
+            if row is None:
+                raise KeyError(job_id)
+            job = self._job_from_row(row)
+            self._assert_owner(job, worker_id)
+            job.fail(error_code=error_code, error_message=error_message, retry=retry)
             self._save_locked(job)
-        return job
+            return job
 
     def _assert_owner(self, job: AnalysisJob, worker_id: str) -> None:
         if job.status != AnalysisJobStatus.RUNNING or job.worker_id != worker_id:
