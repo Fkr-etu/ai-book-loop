@@ -85,7 +85,7 @@ export default function PricingPage() {
             const monthlyEquivalent = plan.yearlyPrice > 0 ? Math.round(plan.yearlyPrice / 12) : 0;
             const loading = loadingPlan === plan.id;
             const isCurrent = currentPlan === plan.id;
-            const isUpgrade = currentPlan === "free" && (plan.id === "creator" || plan.id === "pro");
+            const actionLabel = isCurrent ? "Offre actuelle" : plan.id === "free" ? "Commencer gratuitement" : `Passer à ${plan.name}`;
             return (
               <article key={plan.id} className={`rounded-2xl p-6 sm:p-8 flex flex-col justify-between relative ${plan.popular ? "bg-[#0b1c30] text-white shadow-xl ring-2 ring-[#b87500]" : "bg-white text-[#0b1c30] border border-[#c6c6cd]/40 shadow-xs"}`}>
                 {plan.popular && <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#ffddb8] text-[#2a1700] text-[11px] font-mono font-bold px-3 py-1 rounded-full uppercase tracking-wider whitespace-nowrap">Le plus populaire</div>}
@@ -101,7 +101,7 @@ export default function PricingPage() {
                   </ul>
                 </div>
                 <button type="button" onClick={() => void startCheckout(plan.id)} disabled={loading || isCurrent} className={`w-full py-3 rounded text-xs font-bold flex items-center justify-center gap-2 disabled:opacity-60 ${isCurrent ? "bg-[#e8e5df] text-[#5f5e5b] cursor-default" : plan.popular ? "bg-[#ffddb8] text-[#2a1700] hover:bg-[#ffb95e]" : "bg-[#0b1c30] text-white hover:bg-[#131b2e]"}`}>
-                  {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : isCurrent ? "Offre actuelle" : currentPlan && isUpgrade ? "Passer à Creator" : plan.id === "free" ? "Commencer gratuitement" : "Passer à cette offre"}
+                  {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : actionLabel}
                   {!loading && !isCurrent && <ArrowRight className="w-3.5 h-3.5" />}
                 </button>
               </article>
