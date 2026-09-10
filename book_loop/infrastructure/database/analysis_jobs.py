@@ -8,6 +8,7 @@ from uuid import uuid4
 
 from book_loop.domain.analysis_job import AnalysisJob, AnalysisJobStatus
 from book_loop.infrastructure.database.postgres import _PostgresConnectionAdapter
+from book_loop.infrastructure.structured_logging import log_event
 
 logger = logging.getLogger("book_loop.analysis_jobs")
 
@@ -77,20 +78,19 @@ class PostgresAnalysisJobStore:
             lease_recovered = job.status == AnalysisJobStatus.RUNNING
             job.claim(worker_id=worker_id, lease_seconds=lease_seconds, now=now)
             self._save_locked(job)
-        logger.info(
+        log_event(
+            logger,
+            logging.INFO,
             "analysis_job_claimed",
-            extra={
-                "event": "analysis_job_claimed",
-                "job_id": job.id,
-                "book_id": job.book_id,
-                "analysis_type": job.analysis_type,
-                "worker_id": worker_id,
-                "attempt": job.attempt,
-                "max_attempts": job.max_attempts,
-                "queue_wait_ms": max(0, int((now - job.created_at).total_seconds() * 1000)),
-                "lease_recovered": lease_recovered,
-                "status": job.status.value,
-            },
+            job_id=job.id,
+            book_id=job.book_id,
+            analysis_type=job.analysis_type,
+            worker_id=worker_id,
+            attempt=job.attempt,
+            max_attempts=job.max_attempts,
+            queue_wait_ms=max(0, int((now - job.created_at).total_seconds() * 1000)),
+            lease_recovered=lease_recovered,
+            status=job.status.value,
         )
         return job
 
