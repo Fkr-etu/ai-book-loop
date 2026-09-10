@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
@@ -11,6 +12,7 @@ from book_loop.domain.canon_change import CanonChangeProposalStaleError, CanonCh
 from book_loop.domain.models import ReviewDecisionType, UserPublic
 from book_loop.infrastructure.container import Container
 
+logger = logging.getLogger("book_loop.api.canon")
 router = APIRouter(prefix="/api/books/{book_id}", tags=["canon"])
 
 
@@ -87,7 +89,18 @@ def analyze_consistency(
             idempotency_key=idempotency_key,
         )
     except KeyError as exc:
-        raise HTTPException(status_code=404, detail=f"Livre {book_id} introuvable.")
+        raise HTTPException(status_code=404, detail=f"Livre {book_id} introuvable.") from exc
+    logger.info(
+        "analysis_job_requested",
+        extra={
+            "event": "analysis_job_requested",
+            "job_id": job.id,
+            "book_id": job.book_id,
+            "analysis_type": job.analysis_type,
+            "status": job.status.value,
+            "attempt": job.attempt,
+        },
+    )
     return _serialize_job(job)
 
 
@@ -102,8 +115,8 @@ def get_consistency_analysis(
     current_user: UserPublic = get_current_user(request)
     try:
         job = container.get_analysis_job().execute(job_id=job_id, owner_id=current_user.id)
-    except KeyError:
-        raise HTTPException(status_code=404, detail="Analyse introuvable.")
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Analyse introuvable.") from exc
     if job.book_id != book_id:
         raise HTTPException(status_code=404, detail="Analyse introuvable.")
     return _serialize_job(job)
