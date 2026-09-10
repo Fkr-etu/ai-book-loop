@@ -1,0 +1,60 @@
+{
+  "corpus": "Livre I",
+  "candidate_count": 6,
+  "annotations": [
+    {
+      "candidate_id": "d0c5346f-77be-5de7-af87-f37ea4f50b20",
+      "label": "noise",
+      "rationale": "The two treated_as values describe different contextual metaphors for doubt in different places (Fer-Noir and Val-D'Or). They do not assert mutually exclusive world states for the same referent.",
+      "evidence": [
+        "à Fer-Noir, c'est un frottement que l'on élimine pour huiler la machine",
+        "À Val-D'Or, le doute est un péché que l'on lave dans le sang"
+      ]
+    },
+    {
+      "candidate_id": "8713171d-d8f6-5ec3-8980-14130a288b36",
+      "label": "compatible",
+      "rationale": "Possessing an Analyseur de Flux does not exclude possessing a Lentille. The predicate is multi-valued and both assertions occur at the same story point.",
+      "evidence": [
+        "Kael, son Analyseur de Flux frappant le cadre rouge.",
+        "Kael activa sa Lentille au maximum."
+      ]
+    },
+    {
+      "candidate_id": "fb9f6160-34e1-53fb-99b1-65a1f9be7346",
+      "label": "noise",
+      "rationale": "The second assertion identifies a body part, not an alternative possessed item. The extraction conflates a possessive/part-whole expression with inventory possession.",
+      "evidence": [
+        "Elara, sa main serrant la garde de sa lame.",
+        "ignorant la brûlure dans sa jambe de cristal"
+      ]
+    },
+    {
+      "candidate_id": "52a46538-5391-5b91-bea0-105d980c2778",
+      "label": "compatible",
+      "rationale": "Both assertions identify the same occupation, with the noun phrase changing only from 'ingénieur' to 'L'ingénieur'. This is a compatible restatement, not a change of occupation.",
+      "evidence": [
+        "L'ingénieur était marqué par des semaines d'insomnie, sa Cuirasse de Technicien maculée de boue.",
+        "L'ingénieur utilisa ses dernières réserves pour envoyer un carreau surchargé dans le capteur optique d'un automate"
+      ]
+    },
+    {
+      "candidate_id": "aa30cdc2-d158-5bc2-b381-c2ea2d7ca996",
+      "label": "noise",
+      "rationale": "The first evidence says that Kael armed his Surchargeuse; it does not establish a new occupation. The occupation value is therefore an extraction error rather than a contradictory fact.",
+      "evidence": [
+        "Kael arma sa Surchargeuse",
+        "L'ingénieur utilisa ses dernières réserves pour envoyer un carreau surchargé dans le capteur optique d'un automate"
+      ]
+    },
+    {
+      "candidate_id": "fd977281-c359-5659-9390-e2dd100dda75",
+      "label": "compatible",
+      "rationale": "'Ingénieur Kael' and the later definite description 'L'ingénieur' refer to the same occupation and are compatible at the same story point.",
+      "evidence": [
+        "— Ingénieur Kael.",
+        "L'ingénieur utilisa ses dernières réserves pour envoyer un carreau surchargé dans le capteur optique d'un automate"
+      ]
+    }
+  ]
+}
