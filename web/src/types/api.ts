@@ -7,7 +7,10 @@ export interface BackendOutline { chapters: BackendOutlineChapter[]; }
 export interface BackendChapterVersion { id: string; versionNumber: number; content: string; createdAt: string; source: "author" | "ai" | "edited" | "retry"; status: BackendChapterStatus; }
 export interface BackendChapter { id: string; number: number; title: string; objective: string; status: BackendChapterStatus; current_version: number; reviewed_version: number | null; summary: string | null; versions: BackendChapterVersion[]; }
 export interface BackendCreativeBrief { premise: string; audience: string; tone: string; themes: string[]; must_include: string[]; must_avoid: string[]; }
-export interface BackendBook { id: string; owner_id: string; title: string; theme: string; author_idea: string; creative_brief: BackendCreativeBrief | null; lore: string; constraints: string[]; outline: BackendOutline | null; outline_approved: boolean; chapters: BackendChapter[]; }
+export type BackendGrillPersonality = "challenger" | "editor" | "devils_advocate" | "demanding_kind";
+export interface BackendBook { id: string; owner_id: string; title: string; theme: string; author_idea: string; creative_brief: BackendCreativeBrief | null; lore: string; constraints: string[]; grill_personality: BackendGrillPersonality; outline: BackendOutline | null; outline_approved: boolean; chapters: BackendChapter[]; }
+export interface BackendGrillMessage { role: string; content: string; }
+export interface BackendGrillResponse { reply: string; question: string | null; done: boolean; }
 export type BackendSubscriptionPlan = "free" | "creator" | "pro";
 export interface BackendUser { id: string; email: string; name: string; plan: BackendSubscriptionPlan; }
 export interface BackendBillingState { plan: BackendSubscriptionPlan; subscription_status: string; subscription_current_period_end: string | null; subscription_cancel_at_period_end: boolean; }
@@ -23,7 +26,7 @@ export type BackendCanonChangeProposalStatus = "proposed" | "accepted" | "reject
 export interface BackendCanonChangeProposal { id: string; book_id: string; canonical_fact_id: string; statement: string; subject: string; predicate: string; object: string; proposer_id: string | null; rationale: string; status: BackendCanonChangeProposalStatus; created_at: string | null; }
 export type BackendCanonChangeReviewDecision = "accept" | "reject";
 export interface BackendCanonChangeReview { id: string; proposal_id: string; decision: BackendCanonChangeReviewDecision; reviewer_id: string | null; rationale: string; created_at: string | null; }
-export interface BackendIngestionResult { source_document: BackendSourceDocument; assertions: BackendAssertion[]; already_ingested: boolean; }
+export interface BackendIngestionResult { source_document: BackendSourceDocument; assertions: BackendAssertion[]; evidence?: unknown[]; already_ingested: boolean; }
 export type BackendAnalysisJobStatus = "queued" | "running" | "succeeded" | "failed" | "cancelled";
 export interface BackendConsistencyIssue { id: string; category: string; severity: string; status: string; message: string; left_assertion_id: string; right_assertion_id: string; left_statement: string; right_statement: string; left_evidence: string; right_evidence: string; confidence: number; rule_id: string | null; metadata: Record<string, string>; resolution_assertion_id: string | null; }
 export interface BackendConsistencyAnalysisResult { issues: BackendConsistencyIssue[]; }
