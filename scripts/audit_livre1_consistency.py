@@ -5,6 +5,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from book_loop.application.use_cases.consistency_coverage import ConflictCoverage, measure_coverage
 from book_loop.application.use_cases.detect_conflicts import DetectConflicts
 from book_loop.application.use_cases.ingest_document import IngestDocument
 from book_loop.domain.models import Assertion, DocumentChunk, Evidence, SourceDocument
@@ -13,12 +14,7 @@ from book_loop.infrastructure.llm.assertion_extractor import LLMAssertionExtract
 from book_loop.infrastructure.llm.gemini import GeminiProvider
 
 
-CORPUS_ROOT = Path(
-    os.environ.get(
-        "LIVRE1_CORPUS_ROOT",
-        "tests/fixtures/livre1",
-    )
-)
+CORPUS_ROOT = Path(os.environ.get("LIVRE1_CORPUS_ROOT", "tests/fixtures/livre1"))
 BOOK_ID = "livre-1"
 CHAPTERS = tuple(range(1, 9))
 
@@ -72,6 +68,7 @@ class AuditResult:
     chapter_results: tuple[tuple[int, int, int], ...]
     repository: AuditRepository
     temporal_store: InMemoryTemporalStore
+    coverage: ConflictCoverage
     conflicts: tuple[object, ...]
 
 
@@ -110,8 +107,12 @@ def run_audit() -> AuditResult:
         )
         chapter_results.append((chapter, len(result.chunks), len(result.assertions)))
 
+    coverage = measure_coverage(
+        [assertion for assertion in repository.assertions if assertion.status.value != "rejected"],
+        temporal_context_store=temporal_store,
+    )
     conflicts = DetectConflicts(repository, temporal_context_store=temporal_store).execute(book_id=BOOK_ID)
-    return AuditResult(tuple(chapter_results), repository, temporal_store, tuple(conflicts))
+    return AuditResult(tuple(chapter_results), repository, temporal_store, coverage, tuple(conflicts))
 
 
 def _candidate_snapshot(result: AuditResult) -> dict[str, object]:
@@ -155,6 +156,30 @@ def render_candidate_snapshot(result: AuditResult) -> str:
     return json.dumps(_candidate_snapshot(result), ensure_ascii=False, indent=2, sort_keys=True) + "\n"
 
 
+def render_coverage(coverage: ConflictCoverage) -> list[str]:
+    return [
+        "## Couverture du détecteur",
+        "",
+        "Cette section est diagnostique : elle mesure où les paires d'assertions sont éliminées par les mêmes règles que le détecteur, sans modifier sa décision.",
+        "",
+        "| Étape | Paires |",
+        "|---|---:|",
+        f"| Assertions non rejetées | {coverage.total_assertions} |",
+        f"| Paires possibles | {coverage.total_pairs} |",
+        f"| Même sujet | {coverage.same_subject_pairs} |",
+        f"| Même prédicat | {coverage.same_predicate_pairs} |",
+        f"| Objets différents | {coverage.different_object_pairs} |",
+        f"| Exclues : action / événement | {coverage.action_event_excluded} |",
+        f"| Exclues : propriété multi-valuée | {coverage.multi_valued_excluded} |",
+        f"| Contexte temporel manquant (conservées candidates) | {coverage.temporal_missing_scope} |",
+        f"| Exclues : scopes temporels non chevauchants | {coverage.temporal_non_overlapping} |",
+        f"| Candidats finaux | {coverage.final_candidates} |",
+        "",
+        "Les compteurs sont volontairement séparés pour distinguer un corpus pauvre en paires comparables d'un détecteur qui filtre agressivement ses entrées.",
+        "",
+    ]
+
+
 def render_report(result: AuditResult) -> str:
     by_id = {assertion.id: assertion for assertion in result.repository.assertions}
     source_by_id = {source.id: source for source in result.repository.sources}
@@ -171,11 +196,14 @@ def render_report(result: AuditResult) -> str:
         f"- Alertes de contradiction : {len(result.conflicts)}",
         "- Classification humaine : à effectuer sur les alertes ci-dessous",
         "",
+    ]
+    lines.extend(render_coverage(result.coverage))
+    lines.extend([
         "## Extraction par chapitre",
         "",
         "| Chapitre | Chunks | Assertions |",
         "|---:|---:|---:|",
-    ]
+    ])
     lines.extend(f"| {chapter} | {chunks} | {assertions} |" for chapter, chunks, assertions in result.chapter_results)
     lines.extend(["", "## Alertes à examiner", ""])
     if not result.conflicts:
