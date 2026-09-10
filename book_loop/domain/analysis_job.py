@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from enum import StrEnum
 from typing import Any
 from uuid import uuid4
@@ -44,8 +44,7 @@ class AnalysisJob(BaseModel):
         self.status = AnalysisJobStatus.RUNNING
         self.attempt += 1
         self.started_at = self.started_at or now
-        self.lease_until = now.replace(microsecond=0)
-        self.lease_until = self.lease_until.fromtimestamp(self.lease_until.timestamp() + lease_seconds, tz=timezone.utc)
+        self.lease_until = now + timedelta(seconds=lease_seconds)
         self.worker_id = worker_id
         self.updated_at = now
         self.error_code = None
@@ -56,7 +55,7 @@ class AnalysisJob(BaseModel):
         now = now or datetime.now(timezone.utc)
         if self.status != AnalysisJobStatus.RUNNING:
             return self
-        self.lease_until = now.replace(microsecond=0).fromtimestamp(now.timestamp() + lease_seconds, tz=timezone.utc)
+        self.lease_until = now + timedelta(seconds=lease_seconds)
         self.updated_at = now
         return self
 
