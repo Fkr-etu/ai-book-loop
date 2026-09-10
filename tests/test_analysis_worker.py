@@ -1,8 +1,8 @@
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
-from book_loop.domain.analysis_job import AnalysisJob, AnalysisJobStatus
 import book_loop.worker as worker_module
+from book_loop.domain.analysis_job import AnalysisJob, AnalysisJobStatus
 
 
 class FakeIssue:
