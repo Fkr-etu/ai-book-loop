@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Protocol
 
 from book_loop.domain.analysis_job import AnalysisJob
@@ -24,6 +23,15 @@ class AnalysisJobStore(Protocol):
     ) -> AnalysisJob | None: ...
 
     def claim_next(self, *, worker_id: str, lease_seconds: int) -> AnalysisJob | None: ...
+
+    def update_progress(
+        self,
+        *,
+        job_id: str,
+        worker_id: str,
+        progress: int,
+        current_step: str | None,
+    ) -> AnalysisJob: ...
 
     def heartbeat(self, *, job_id: str, worker_id: str, lease_seconds: int) -> AnalysisJob: ...
 
