@@ -107,8 +107,10 @@ test.describe("Book Loop — async consistency analysis", () => {
     await expect(page.getByRole("heading", { name: "Analyse de cohérence" })).toBeVisible();
     await page.getByRole("button", { name: "Lancer l’analyse" }).click();
 
-    await expect(page.getByText("Analyse du Canon en cours")).toBeVisible();
+    // Starting the job returns `queued`; the running state is observed asynchronously.
+    await expect.poll(() => statusCalls, { timeout: 7_000 }).toBeGreaterThan(0);
     await expect(page.getByText("35%")).toBeVisible();
+    await expect(page.getByText("Analyse du Canon en cours")).toBeVisible();
     await expect(page.getByText("Vous pouvez quitter cette page : l’analyse continue en arrière-plan.")).toBeVisible();
     await expect(page.getByRole("button", { name: "Analyse en cours…" })).toBeDisabled();
     await expect.poll(async () => page.evaluate(() => localStorage.getItem(`book-loop:consistency-analysis:${bookId}`))).toBe("job-async-e2e");
