@@ -68,6 +68,7 @@ def make_worker(store: FakeWorkerStore, issues=None):
     worker.worker_id = "worker-test"
     worker.lease_seconds = 900
     worker.store = store
+    worker.settings = SimpleNamespace(database_url="postgresql://test")
     worker.container = SimpleNamespace(
         analyze_consistency=lambda: SimpleNamespace(execute=lambda book_id: issues or [])
     )
