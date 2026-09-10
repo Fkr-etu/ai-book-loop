@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from book_loop.application.use_cases.detect_conflicts import DetectConflicts
 from book_loop.domain.models import Assertion, Conflict
 from book_loop.domain.temporal import TemporalScope, TemporalScopeKind
+from scripts.consistency_benchmark import GoldLabel, evaluate
 
 
 @dataclass(frozen=True)
@@ -121,6 +122,16 @@ CASES = (
         TemporalScope(kind=TemporalScopeKind.STORY_POINT, position=8),
         False,
     ),
+
+    # Semantic predicate typing: possession is intentionally multi-valued.
+    ConsistencyCase(
+        "compatible_restatement",
+        ("Kael", "owns", "Lentille"),
+        ("Kael", "owns", "Analyseur-de-Flux"),
+        TemporalScope(kind=TemporalScopeKind.STORY_POINT, position=5),
+        TemporalScope(kind=TemporalScopeKind.STORY_POINT, position=5),
+        False,
+    ),
 )
 
 
@@ -235,7 +246,30 @@ def test_consistency_benchmark_reports_confusion_matrix() -> None:
 
     assert (true_positives, true_negatives, false_positives, false_negatives) == (
         3,
-        9,
+        10,
         0,
         0,
     )
+
+
+def test_gold_metric_evaluator_matches_expected_classification() -> None:
+    gold = {
+        f"case-{index}": (
+            GoldLabel.CONTRADICTION if case.expected_conflict else GoldLabel.EVOLUTION
+        )
+        for index, case in enumerate(CASES)
+    }
+    predicted = {
+        f"case-{index}"
+        for index, case in enumerate(CASES)
+        if run_case(index, case)
+    }
+
+    metrics = evaluate(gold=gold, predicted_ids=predicted)
+
+    assert metrics.true_positives == 3
+    assert metrics.false_positives == 0
+    assert metrics.false_negatives == 0
+    assert metrics.precision == 1.0
+    assert metrics.recall == 1.0
+    assert metrics.fpr == 0.0
