@@ -4,25 +4,23 @@ Le script `scripts/audit_livre1_consistency.py` permet d'exécuter le détecteur
 
 ## Pourquoi cet audit est opt-in
 
-L'audit utilise une clé Gemini pour extraire les assertions source-grounded. Le corpus, lui, est figé sur un snapshot précis de `Fkr-etu/M4ges` afin que le résultat soit reproductible et ne dépende pas d'un téléchargement `raw.githubusercontent.com` au moment de l'exécution.
+L'audit utilise une clé Gemini pour extraire les assertions source-grounded. Le corpus est désormais versionné directement dans `tests/fixtures/livre1/` afin que l'exécution ne dépende ni du dépôt privé M4ges ni d'un téléchargement externe.
 
-Le workflow GitHub Actions récupère le commit M4ges `4cc388d89dc6dd4750e7a7e4a6576d307de5b7b5` dans `.benchmarks/m4ges`.
-
-Il ne doit donc pas être exécuté dans la CI standard et ne contient aucun secret ni clé API dans le dépôt.
+Il ne doit pas être exécuté dans la CI standard et ne contient aucun secret ni clé API dans le dépôt.
 
 ## Exécution locale
 
-Le script attend par défaut le snapshot dans :
+Le script attend par défaut le corpus versionné dans :
 
 ```text
-.benchmarks/m4ges/docs/story/livre_1/
+tests/fixtures/livre1/
 ```
 
 On peut utiliser un autre emplacement avec `LIVRE1_CORPUS_ROOT` :
 
 ```bash
 GEMINI_API_KEY="..." \
-LIVRE1_CORPUS_ROOT="/chemin/vers/docs/story/livre_1" \
+LIVRE1_CORPUS_ROOT="/chemin/vers/livre1" \
 python scripts/audit_livre1_consistency.py
 ```
 
@@ -34,30 +32,19 @@ GEMINI_API_KEY="..." LLM_MODEL="gemini-3.5-flash" python scripts/audit_livre1_co
 
 Le script réutilise le chemin d'ingestion réel (`IngestDocument` + `LLMAssertionExtractor`) puis exécute `DetectConflicts` avec un contexte temporel dérivé du numéro de chapitre.
 
-## Ce que mesure le rapport
+## Qualification et benchmark
 
-Pour chaque chapitre :
+Le benchmark distingue volontairement quatre situations :
 
-- nombre de chunks ;
-- nombre d'assertions réellement extraites ;
-- nombre d'alertes de contradiction produites sur l'ensemble du corpus.
+- **contradiction** : les deux assertions ne peuvent pas être vraies ensemble dans le même état narratif ;
+- **évolution narrative légitime** : la valeur change avec le temps ;
+- **reformulation compatible** : les deux assertions décrivent le même fait ;
+- **bruit / mauvais rapprochement** : les assertions ne constituent pas une paire pertinente.
 
-Chaque alerte expose :
+Le jeu synthétique de non-régression se trouve dans `tests/test_consistency_benchmark.py`. Il couvre maintenant aussi les prédicats sémantiques introduits par #224, notamment la possession multi-valuée.
 
-- les deux assertions ;
-- leur chapitre / story point ;
-- leur sujet, prédicat et objet ;
-- leur confiance d'extraction.
+Pour le corpus réel, les alertes doivent être annotées avant de modifier davantage le moteur. **Aucune qualification des 13 alertes observées lors du premier audit Gemini n'est inventée dans le dépôt** : les annotations doivent provenir de l'examen des assertions et de leurs preuves.
 
-## Qualification
+Les métriques `precision`, `recall` et `fpr` sont calculées par `scripts/consistency_benchmark.py`. La vérité terrain attendue est une mappe d'identifiants de candidats vers `GoldLabel`; elle doit être dérivée du snapshot d'alertes réellement observé.
 
-Le résultat n'est pas une précision/recall automatique : le Livre I ne fournit pas de jeu de vérité terrain annoté.
-
-Chaque alerte doit être classée manuellement en :
-
-- vraie contradiction ;
-- évolution narrative légitime ;
-- reformulation compatible ;
-- bruit / mauvais rapprochement.
-
-Cette qualification est volontairement séparée de l'extraction. Elle évite d'introduire des attentes artificielles dans le benchmark et permet de décider ensuite si une nouvelle règle de détection est réellement nécessaire.
+Cette séparation permet de mesurer une nouvelle version du détecteur contre le même jeu annoté, plutôt que de juger son amélioration uniquement sur le nombre d'alertes produites.
