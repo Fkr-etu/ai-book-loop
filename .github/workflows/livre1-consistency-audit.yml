@@ -6,7 +6,7 @@ on:
       llm_model:
         description: "Gemini model used for assertion extraction"
         required: false
-        default: "gemini-2.5-flash"
+        default: "gemini-3.5-flash"
         type: string
 
 permissions:
