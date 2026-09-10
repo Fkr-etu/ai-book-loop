@@ -47,6 +47,7 @@ from book_loop.application.use_cases.start_consistency_analysis import StartCons
 from book_loop.application.use_cases.update_book import UpdateBook
 from book_loop.application.use_cases.update_character import UpdateCharacter
 from book_loop.application.use_cases.update_outline import UpdateOutline
+from book_loop.application.use_cases.grill import Grill
 from book_loop.infrastructure.auth import Argon2PasswordHasher, DUMMY_PASSWORD_HASH, JwtTokenService
 from book_loop.infrastructure.auth_rate_limit import AuthRateLimiter
 from book_loop.infrastructure.config import Settings
@@ -83,6 +84,7 @@ class Container:
         self.analysis_job_store = PostgresAnalysisJobStore(self.settings.database_url)
         self.observability = ObservabilityStore(self.settings.database_url)
         self.llm = create_llm(self.settings)
+        self.grill_llm = create_llm(self.settings, model=self.settings.grill_llm_model)
         self.embedding_provider = create_embedding_provider(self.settings)
         self.embedding_indexer = CanonicalFactEmbeddingIndexer(provider=self.embedding_provider, repository=self.repository, model=self.settings.embedding_model)
         self.semantic_retriever = EmbeddingCanonicalRetriever(self.embedding_provider, embedding_store=self.repository, embedding_model=self.settings.embedding_model)
@@ -91,6 +93,7 @@ class Container:
         self.writer_agent = WriterAgent(self.llm)
         self.reviewer_agent = ReviewerAgent(self.llm)
         self.summarizer_agent = SummarizerAgent(self.llm)
+        self.grill_agent = Grill(self.grill_llm)
         self.context_builder = ContextBuilder(knowledge_repository=self.repository, retriever=self.canonical_retriever)
         self.linter = ChapterLinter()
         self.linguistic_contextualizer = GeminiDiagnosticContextualizer(llm=self.llm)
@@ -149,3 +152,4 @@ class Container:
     def start_consistency_analysis(self) -> StartConsistencyAnalysis: return StartConsistencyAnalysis(self.repository, self.analysis_job_store)
     def get_analysis_job(self) -> GetAnalysisJob: return GetAnalysisJob(self.repository, self.analysis_job_store)
     def analyze_canon_change(self) -> AnalyzeCanonChange: return AnalyzeCanonChange(self.repository)
+    def grill(self) -> Grill: return self.grill_agent
