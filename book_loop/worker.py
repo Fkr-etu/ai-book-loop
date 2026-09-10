@@ -79,29 +79,12 @@ class AnalysisWorker:
         execution_started = datetime.now(UTC)
         try:
             job = self.store.get(job_id)
-            if job.analysis_type != "consistency":
+            if job.analysis_type == "consistency":
+                self._run_consistency(job_id=job_id, job=job, execution_started=execution_started)
+            elif job.analysis_type == "ingestion":
+                self._run_ingestion(job_id=job_id, job=job, execution_started=execution_started)
+            else:
                 raise ValueError(f"Unsupported analysis type: {job.analysis_type}")
-            queue_wait_ms = self._elapsed_ms(job.created_at, job.started_at)
-            self.store.update_progress(job_id=job_id, worker_id=self.worker_id, progress=10, current_step="analyzing")
-            issues = self.container.analyze_consistency().execute(book_id=job.book_id)
-            execution_duration_ms = self._elapsed_ms(execution_started, datetime.now(UTC))
-            result = {"issues": [issue.model_dump(mode="json") for issue in issues]}
-            completed = self.store.complete(job_id=job_id, worker_id=self.worker_id, result=result)
-            log_event(
-                logger,
-                logging.INFO,
-                "analysis_job_succeeded",
-                job_id=completed.id,
-                book_id=completed.book_id,
-                analysis_type=completed.analysis_type,
-                worker_id=self.worker_id,
-                attempt=completed.attempt,
-                max_attempts=completed.max_attempts,
-                queue_wait_ms=queue_wait_ms,
-                execution_duration_ms=execution_duration_ms,
-                issue_count=len(issues),
-                status=completed.status.value,
-            )
         except Exception:
             log_event(logger, logging.ERROR, "analysis_job_failed", job_id=job_id, worker_id=self.worker_id)
             try:
@@ -128,16 +111,71 @@ class AnalysisWorker:
                     error_code=failed.error_code,
                 )
             except Exception:
-                log_event(
-                    logger,
-                    logging.ERROR,
-                    "analysis_job_failure_persist_error",
-                    job_id=job_id,
-                    worker_id=self.worker_id,
-                )
+                log_event(logger, logging.ERROR, "analysis_job_failure_persist_error", job_id=job_id, worker_id=self.worker_id)
         finally:
             heartbeat_stop.set()
             heartbeat.join(timeout=1)
+
+    def _run_consistency(self, *, job_id: str, job, execution_started: datetime) -> None:
+        queue_wait_ms = self._elapsed_ms(job.created_at, job.started_at)
+        self.store.update_progress(job_id=job_id, worker_id=self.worker_id, progress=10, current_step="analyzing")
+        issues = self.container.analyze_consistency().execute(book_id=job.book_id)
+        execution_duration_ms = self._elapsed_ms(execution_started, datetime.now(UTC))
+        result = {"issues": [issue.model_dump(mode="json") for issue in issues]}
+        completed = self.store.complete(job_id=job_id, worker_id=self.worker_id, result=result)
+        log_event(
+            logger,
+            logging.INFO,
+            "analysis_job_succeeded",
+            job_id=completed.id,
+            book_id=completed.book_id,
+            analysis_type=completed.analysis_type,
+            worker_id=self.worker_id,
+            attempt=completed.attempt,
+            max_attempts=completed.max_attempts,
+            queue_wait_ms=queue_wait_ms,
+            execution_duration_ms=execution_duration_ms,
+            issue_count=len(issues),
+            status=completed.status.value,
+        )
+
+    def _run_ingestion(self, *, job_id: str, job, execution_started: datetime) -> None:
+        self.store.update_progress(job_id=job_id, worker_id=self.worker_id, progress=5, current_step="preparing")
+
+        def on_chunk_progress(done: int, total: int) -> None:
+            progress = 10 if total == 0 else 10 + int(done / total * 85)
+            self.store.update_progress(job_id=job_id, worker_id=self.worker_id, progress=min(progress, 95), current_step=f"chunk {done}/{total}")
+
+        result = self.container.ingest_document().process_by_hash(
+            book_id=job.book_id,
+            content_hash=job.idempotency_key,
+            on_chunk_progress=on_chunk_progress,
+        )
+        completed = self.store.complete(
+            job_id=job_id,
+            worker_id=self.worker_id,
+            result={
+                "source_document": result.source_document.model_dump(mode="json"),
+                "chunks": len(result.chunks),
+                "assertions": len(result.assertions),
+                "evidence": len(result.evidence),
+            },
+        )
+        log_event(
+            logger,
+            logging.INFO,
+            "analysis_job_succeeded",
+            job_id=completed.id,
+            book_id=completed.book_id,
+            analysis_type=completed.analysis_type,
+            worker_id=self.worker_id,
+            attempt=completed.attempt,
+            max_attempts=completed.max_attempts,
+            execution_duration_ms=self._elapsed_ms(execution_started, datetime.now(UTC)),
+            chunk_count=len(result.chunks),
+            assertion_count=len(result.assertions),
+            status=completed.status.value,
+        )
 
     @staticmethod
     def _elapsed_ms(start: datetime | None, end: datetime | None) -> int | None:
@@ -153,13 +191,7 @@ class AnalysisWorker:
                 try:
                     heartbeat_store.heartbeat(job_id=job_id, worker_id=self.worker_id, lease_seconds=self.lease_seconds)
                 except Exception:
-                    log_event(
-                        logger,
-                        logging.ERROR,
-                        "analysis_job_heartbeat_failed",
-                        job_id=job_id,
-                        worker_id=self.worker_id,
-                    )
+                    log_event(logger, logging.ERROR, "analysis_job_heartbeat_failed", job_id=job_id, worker_id=self.worker_id)
         finally:
             heartbeat_store.close()
 

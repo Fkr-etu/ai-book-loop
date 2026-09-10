@@ -27,8 +27,8 @@ export interface BackendIngestionResult { source_document: BackendSourceDocument
 export type BackendAnalysisJobStatus = "queued" | "running" | "succeeded" | "failed" | "cancelled";
 export interface BackendConsistencyIssue { id: string; category: string; severity: string; status: string; message: string; left_assertion_id: string; right_assertion_id: string; left_statement: string; right_statement: string; left_evidence: string; right_evidence: string; confidence: number; rule_id: string | null; metadata: Record<string, string>; resolution_assertion_id: string | null; }
 export interface BackendConsistencyAnalysisResult { issues: BackendConsistencyIssue[]; }
-export interface BackendAnalysisJob { job_id: string; book_id: string; analysis_type: string; status: BackendAnalysisJobStatus; progress: number; current_step: string | null; attempt: number; created_at: string; started_at: string | null; completed_at: string | null; failed_at: string | null; error_code: string | null; error_message: string | null; result: BackendConsistencyAnalysisResult | null; }
-
+export interface BackendIngestionAnalysisResult { source_document: BackendSourceDocument; chunks: number; assertions: number; evidence: number; }
+export interface BackendAnalysisJob { job_id: string; book_id: string; analysis_type: string; status: BackendAnalysisJobStatus; progress: number; current_step: string | null; attempt: number; created_at: string; started_at: string | null; completed_at: string | null; failed_at: string | null; error_code: string | null; error_message: string | null; result: BackendConsistencyAnalysisResult | BackendIngestionAnalysisResult | null; }
 export type BackendCharacterStatus = "proposed" | "active" | "archived";
 export interface BackendCharacter { id: string; book_id: string; name: string; aliases: string[]; summary: string; attributes: Record<string, string>; status: BackendCharacterStatus; assertion_ids: string[]; }
 export interface BackendCharacterRelation { id: string; book_id: string; source_character_id: string; target_character_id: string; relation_type: string; status: BackendCharacterStatus; assertion_ids: string[]; }
