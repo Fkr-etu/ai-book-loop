@@ -25,14 +25,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Checkout pinned Livre I corpus
-        uses: actions/checkout@v7
-        with:
-          repository: Fkr-etu/M4ges
-          ref: 4cc388d89dc6dd4750e7a7e4a6576d307de5b7b5
-          path: .benchmarks/m4ges
-          fetch-depth: 1
-
       - name: Set up Python
         uses: actions/setup-python@v7
         with:
@@ -44,11 +36,11 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -e .
 
-      - name: Validate corpus snapshot
+      - name: Validate local Livre I corpus
         shell: bash
         run: |
           for chapter in {1..8}; do
-            test -f ".benchmarks/m4ges/docs/story/livre_1/chapitre_$(printf '%02d' "${chapter}").md"
+            test -f "tests/fixtures/livre1/chapitre_$(printf '%02d' "${chapter}").md"
           done
 
       - name: Validate Gemini secret
