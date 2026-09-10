@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from book_loop.application.use_cases.consistency_coverage import measure_coverage
+from book_loop.application.use_cases.consistency_coverage import PairDisposition, classify_pair, measure_coverage
 from book_loop.domain.models import Assertion, AssertionStatus
 from book_loop.domain.predicate_semantics import PredicateExclusivity, PredicateKind, PredicateSemantics, PredicateSemanticsRegistry
 from book_loop.domain.temporal import TemporalScope, TemporalScopeKind
@@ -61,6 +61,29 @@ def test_coverage_exposes_each_detector_filter_without_changing_rules() -> None:
     assert coverage.temporal_non_overlapping == 2
     assert coverage.temporal_overlapping == 1
     assert coverage.final_candidates == 1
+
+
+def test_temporal_relations_drive_conflict_eligibility() -> None:
+    left = assertion("left", "Kael", "age", "20")
+    right = assertion("right", "Kael", "age", "21")
+    semantics = PredicateSemanticsRegistry()
+
+    cases = [
+        (TemporalScope(kind=TemporalScopeKind.STORY_POINT, position=1), TemporalScope(kind=TemporalScopeKind.STORY_POINT, position=2), PairDisposition.TEMPORAL_NON_OVERLAPPING),
+        (TemporalScope(kind=TemporalScopeKind.STORY_POINT, position=1, end_position=4), TemporalScope(kind=TemporalScopeKind.STORY_POINT, position=2, end_position=3), PairDisposition.CANDIDATE),
+        (TemporalScope(kind=TemporalScopeKind.STORY_POINT, position=2, end_position=3), TemporalScope(kind=TemporalScopeKind.STORY_POINT, position=1, end_position=4), PairDisposition.CANDIDATE),
+        (TemporalScope(kind=TemporalScopeKind.STORY_POINT, position=1, end_position=3), TemporalScope(kind=TemporalScopeKind.STORY_POINT, position=2, end_position=4), PairDisposition.CANDIDATE),
+        (TemporalScope(kind=TemporalScopeKind.STORY_POINT, position=2, end_position=4), TemporalScope(kind=TemporalScopeKind.STORY_POINT, position=2, end_position=4), PairDisposition.CANDIDATE),
+    ]
+
+    for left_scope, right_scope, expected in cases:
+        store = TemporalStore({"left": left_scope, "right": right_scope})
+        assert classify_pair(
+            left,
+            right,
+            temporal_context_store=store,
+            predicate_semantics=semantics,
+        ) is expected
 
 
 def test_coverage_accepts_only_the_assertions_given_to_it() -> None:
