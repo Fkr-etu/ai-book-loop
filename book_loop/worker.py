@@ -5,6 +5,7 @@ import os
 import signal
 import threading
 import uuid
+from datetime import UTC, datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from book_loop.infrastructure.config import Settings
@@ -50,19 +51,20 @@ class AnalysisWorker:
         signal.signal(signal.SIGTERM, self.stop)
         signal.signal(signal.SIGINT, self.stop)
         self._start_health_server()
-        logger.info("analysis worker %s started", self.worker_id)
+        logger.info("analysis_worker_started", extra={"event": "analysis_worker_started", "worker_id": self.worker_id})
         try:
             while not self._stop.is_set():
                 job = self.store.claim_next(worker_id=self.worker_id, lease_seconds=self.lease_seconds)
                 if job is None:
                     self._stop.wait(self.poll_seconds)
                     continue
+                self._log_job_event("analysis_job_claimed", job)
                 self._run_job(job.id)
         finally:
             self.store.close()
             if self.health_server is not None:
                 self.health_server.server_close()
-            logger.info("analysis worker %s stopped", self.worker_id)
+            logger.info("analysis_worker_stopped", extra={"event": "analysis_worker_stopped", "worker_id": self.worker_id})
 
     def _start_health_server(self) -> None:
         port = int(os.getenv("PORT", "8080"))
@@ -74,30 +76,87 @@ class AnalysisWorker:
         heartbeat_stop = threading.Event()
         heartbeat = threading.Thread(target=self._heartbeat_loop, args=(job_id, heartbeat_stop), daemon=True)
         heartbeat.start()
+        execution_started = datetime.now(UTC)
         try:
             job = self.store.get(job_id)
             if job.analysis_type != "consistency":
                 raise ValueError(f"Unsupported analysis type: {job.analysis_type}")
+            queue_wait_ms = self._elapsed_ms(job.created_at, job.started_at)
             self.store.update_progress(job_id=job_id, worker_id=self.worker_id, progress=10, current_step="analyzing")
             issues = self.container.analyze_consistency().execute(book_id=job.book_id)
+            execution_duration_ms = self._elapsed_ms(execution_started, datetime.now(UTC))
             result = {"issues": [issue.model_dump(mode="json") for issue in issues]}
-            self.store.complete(job_id=job_id, worker_id=self.worker_id, result=result)
-            logger.info("analysis job %s completed", job_id)
+            completed = self.store.complete(job_id=job_id, worker_id=self.worker_id, result=result)
+            logger.info(
+                "analysis_job_succeeded",
+                extra={
+                    "event": "analysis_job_succeeded",
+                    "job_id": completed.id,
+                    "book_id": completed.book_id,
+                    "analysis_type": completed.analysis_type,
+                    "worker_id": self.worker_id,
+                    "attempt": completed.attempt,
+                    "max_attempts": completed.max_attempts,
+                    "queue_wait_ms": queue_wait_ms,
+                    "execution_duration_ms": execution_duration_ms,
+                    "issue_count": len(issues),
+                    "status": completed.status.value,
+                },
+            )
         except Exception:
-            logger.exception("analysis job %s failed", job_id)
+            logger.exception("analysis_job_failed", extra={"event": "analysis_job_failed", "job_id": job_id, "worker_id": self.worker_id})
             try:
-                self.store.fail(
+                failed = self.store.fail(
                     job_id=job_id,
                     worker_id=self.worker_id,
                     error_code="analysis_failed",
                     error_message="L’analyse n’a pas pu être terminée. Veuillez réessayer.",
                     retry=True,
                 )
+                logger.info(
+                    "analysis_job_failure_recorded",
+                    extra={
+                        "event": "analysis_job_failure_recorded",
+                        "job_id": failed.id,
+                        "book_id": failed.book_id,
+                        "analysis_type": failed.analysis_type,
+                        "worker_id": self.worker_id,
+                        "attempt": failed.attempt,
+                        "max_attempts": failed.max_attempts,
+                        "retry_scheduled": failed.status.value == "queued",
+                        "execution_duration_ms": self._elapsed_ms(execution_started, datetime.now(UTC)),
+                        "status": failed.status.value,
+                        "error_code": failed.error_code,
+                    },
+                )
             except Exception:
-                logger.exception("could not persist failure for analysis job %s", job_id)
+                logger.exception("could_not_persist_analysis_failure", extra={"event": "analysis_job_failure_persist_error", "job_id": job_id, "worker_id": self.worker_id})
         finally:
             heartbeat_stop.set()
             heartbeat.join(timeout=1)
+
+    @staticmethod
+    def _elapsed_ms(start: datetime | None, end: datetime | None) -> int | None:
+        if start is None or end is None:
+            return None
+        return max(0, int((end - start).total_seconds() * 1000))
+
+    def _log_job_event(self, event: str, job) -> None:
+        logger.info(
+            event,
+            extra={
+                "event": event,
+                "job_id": job.id,
+                "book_id": job.book_id,
+                "analysis_type": job.analysis_type,
+                "worker_id": self.worker_id,
+                "attempt": job.attempt,
+                "max_attempts": job.max_attempts,
+                "queue_wait_ms": self._elapsed_ms(job.created_at, job.started_at),
+                "lease_recovered": job.attempt > 1,
+                "status": job.status.value,
+            },
+        )
 
     def _heartbeat_loop(self, job_id: str, stop: threading.Event) -> None:
         interval = max(1, self.lease_seconds // 3)
@@ -107,7 +166,7 @@ class AnalysisWorker:
                 try:
                     heartbeat_store.heartbeat(job_id=job_id, worker_id=self.worker_id, lease_seconds=self.lease_seconds)
                 except Exception:
-                    logger.exception("heartbeat failed for analysis job %s", job_id)
+                    logger.exception("heartbeat_failed", extra={"event": "analysis_job_heartbeat_failed", "job_id": job_id, "worker_id": self.worker_id})
         finally:
             heartbeat_store.close()
 
