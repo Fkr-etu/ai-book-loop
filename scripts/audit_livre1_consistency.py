@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import urllib.error
 import urllib.request
 from dataclasses import dataclass
 
@@ -12,7 +13,7 @@ from book_loop.infrastructure.llm.assertion_extractor import LLMAssertionExtract
 from book_loop.infrastructure.llm.gemini import GeminiProvider
 
 
-CORPUS_URL = "https://raw.githubusercontent.com/Fkr-etu/M4ges/main/docs/story/livre_1/chapitre_{chapter:02d}.md"
+CORPUS_URL = "https://github.com/Fkr-etu/M4ges/raw/main/docs/story/livre_1/chapitre_{chapter:02d}.md"
 BOOK_ID = "livre-1"
 CHAPTERS = tuple(range(1, 9))
 
@@ -77,24 +78,35 @@ class AuditResult:
 
 
 def fetch_chapter(chapter: int) -> str:
+    url = CORPUS_URL.format(chapter=chapter)
     request = urllib.request.Request(
-        CORPUS_URL.format(chapter=chapter),
+        url,
         headers={"User-Agent": "book-loop-consistency-audit/1.0"},
     )
-    with urllib.request.urlopen(request, timeout=30) as response:
-        return response.read().decode("utf-8")
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            return response.read().decode("utf-8")
+    except urllib.error.HTTPError as exc:
+        raise RuntimeError(
+            f"Unable to fetch Livre I chapter {chapter} (HTTP {exc.code}): {url}"
+        ) from exc
+    except urllib.error.URLError as exc:
+        raise RuntimeError(
+            f"Unable to fetch Livre I chapter {chapter}: {url} ({exc.reason})"
+        ) from exc
 
 
 def build_extractor() -> LLMAssertionExtractor:
     api_key = os.environ.get("GEMINI_API_KEY", "").strip()
     if not api_key:
         raise SystemExit("GEMINI_API_KEY is required to run the real-corpus audit")
-    model = os.environ.get("LLM_MODEL", "gemini-2.5-flash")
+    model = os.environ.get("LLM_MODEL", "gemini-3.5-flash")
     provider = GeminiProvider(api_key=api_key, model=model)
     return LLMAssertionExtractor(provider=provider, language="fr")
 
 
 def run_audit() -> AuditResult:
+    corpus = {chapter: fetch_chapter(chapter) for chapter in CHAPTERS}
     extractor = build_extractor()
     repository = AuditRepository([], [], [], [], [])
     temporal_store = InMemoryTemporalStore()
@@ -111,7 +123,7 @@ def run_audit() -> AuditResult:
             book_id=BOOK_ID,
             name=f"Livre I — chapitre {chapter}",
             source_type="approved_chapter",
-            content=fetch_chapter(chapter),
+            content=corpus[chapter],
             metadata={"chapter_number": str(chapter), "chapter_version": "1"},
         )
         chapter_results.append((chapter, len(result.chunks), len(result.assertions)))
@@ -178,8 +190,12 @@ def render_report(result: AuditResult) -> str:
 
 
 def main() -> None:
-    result = run_audit()
-    print(render_report(result))
+    try:
+        result = run_audit()
+    except RuntimeError as exc:
+        raise SystemExit(str(exc)) from exc
+    report = render_report(result)
+    print(report, end="")
 
 
 if __name__ == "__main__":
