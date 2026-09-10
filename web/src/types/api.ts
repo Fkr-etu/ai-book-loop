@@ -26,7 +26,7 @@ export type BackendCanonChangeProposalStatus = "proposed" | "accepted" | "reject
 export interface BackendCanonChangeProposal { id: string; book_id: string; canonical_fact_id: string; statement: string; subject: string; predicate: string; object: string; proposer_id: string | null; rationale: string; status: BackendCanonChangeProposalStatus; created_at: string | null; }
 export type BackendCanonChangeReviewDecision = "accept" | "reject";
 export interface BackendCanonChangeReview { id: string; proposal_id: string; decision: BackendCanonChangeReviewDecision; reviewer_id: string | null; rationale: string; created_at: string | null; }
-export interface BackendIngestionResult { source_document: BackendSourceDocument; assertions: BackendAssertion[]; evidence?: unknown[]; already_ingested: boolean; }
+export interface BackendIngestionResult { source_document: BackendSourceDocument; assertions: BackendAssertion[]; evidence: unknown[]; already_ingested: boolean; }
 export type BackendAnalysisJobStatus = "queued" | "running" | "succeeded" | "failed" | "cancelled";
 export interface BackendConsistencyIssue { id: string; category: string; severity: string; status: string; message: string; left_assertion_id: string; right_assertion_id: string; left_statement: string; right_statement: string; left_evidence: string; right_evidence: string; confidence: number; rule_id: string | null; metadata: Record<string, string>; resolution_assertion_id: string | null; }
 export interface BackendConsistencyAnalysisResult { issues: BackendConsistencyIssue[]; }
