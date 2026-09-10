@@ -24,6 +24,10 @@ export interface BackendCanonChangeProposal { id: string; book_id: string; canon
 export type BackendCanonChangeReviewDecision = "accept" | "reject";
 export interface BackendCanonChangeReview { id: string; proposal_id: string; decision: BackendCanonChangeReviewDecision; reviewer_id: string | null; rationale: string; created_at: string | null; }
 export interface BackendIngestionResult { source_document: BackendSourceDocument; assertions: BackendAssertion[]; already_ingested: boolean; }
+export type BackendAnalysisJobStatus = "queued" | "running" | "succeeded" | "failed" | "cancelled";
+export interface BackendConsistencyIssue { id: string; category: string; severity: string; status: string; message: string; left_assertion_id: string; right_assertion_id: string; left_statement: string; right_statement: string; left_evidence: string; right_evidence: string; confidence: number; rule_id: string | null; metadata: Record<string, string>; resolution_assertion_id: string | null; }
+export interface BackendConsistencyAnalysisResult { issues: BackendConsistencyIssue[]; }
+export interface BackendAnalysisJob { job_id: string; book_id: string; analysis_type: string; status: BackendAnalysisJobStatus; progress: number; current_step: string | null; attempt: number; created_at: string; started_at: string | null; completed_at: string | null; failed_at: string | null; error_code: string | null; error_message: string | null; result: BackendConsistencyAnalysisResult | null; }
 
 export type BackendCharacterStatus = "proposed" | "active" | "archived";
 export interface BackendCharacter { id: string; book_id: string; name: string; aliases: string[]; summary: string; attributes: Record<string, string>; status: BackendCharacterStatus; assertion_ids: string[]; }
