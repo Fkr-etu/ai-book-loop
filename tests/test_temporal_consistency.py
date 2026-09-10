@@ -28,14 +28,14 @@ class TemporalStore:
         return self.scopes.get(assertion_id)
 
 
-def assertion(assertion_id: str, value: str) -> Assertion:
+def assertion(assertion_id: str, value: str, predicate: str = "porte") -> Assertion:
     return Assertion(
         id=assertion_id,
         source_document_id="source",
         chunk_id=f"chunk-{assertion_id}",
-        statement=f"Elara porte {value}",
+        statement=f"Elara {predicate} {value}",
         subject="Elara",
-        predicate="porte",
+        predicate=predicate,
         object=value,
         confidence=1.0,
         status=AssertionStatus.ACCEPTED,
@@ -77,3 +77,11 @@ def test_timeless_claim_still_conflicts_with_a_time_scoped_claim() -> None:
     })
 
     assert len(DetectConflicts(repository, temporal_context_store=store).execute(book_id="book")) == 1
+
+
+def test_multi_valued_predicate_does_not_conflict() -> None:
+    left = assertion("a1", "Lentille", predicate="owns")
+    right = assertion("a2", "Analyseur de Flux", predicate="owns")
+    repository = Repository([left, right])
+
+    assert DetectConflicts(repository).execute(book_id="book") == []

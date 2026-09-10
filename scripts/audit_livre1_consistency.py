@@ -7,7 +7,7 @@ from pathlib import Path
 from book_loop.application.use_cases.detect_conflicts import DetectConflicts
 from book_loop.application.use_cases.ingest_document import IngestDocument
 from book_loop.domain.models import Assertion, DocumentChunk, Evidence, SourceDocument
-from book_loop.domain.temporal import AssertionTemporalContextStore, TemporalScope
+from book_loop.domain.temporal import TemporalScope
 from book_loop.infrastructure.llm.assertion_extractor import LLMAssertionExtractor
 from book_loop.infrastructure.llm.gemini import GeminiProvider
 
@@ -15,7 +15,7 @@ from book_loop.infrastructure.llm.gemini import GeminiProvider
 CORPUS_ROOT = Path(
     os.environ.get(
         "LIVRE1_CORPUS_ROOT",
-        ".benchmarks/m4ges/docs/story/livre_1",
+        "tests/fixtures/livre1",
     )
 )
 BOOK_ID = "livre-1"
@@ -31,14 +31,7 @@ class AuditRepository:
     conflicts: list[object]
 
     def find_source_by_hash(self, *, book_id: str, content_hash: str) -> SourceDocument | None:
-        return next(
-            (
-                source
-                for source in self.sources
-                if source.book_id == book_id and source.content_hash == content_hash
-            ),
-            None,
-        )
+        return next((source for source in self.sources if source.book_id == book_id and source.content_hash == content_hash), None)
 
     def save_source(self, source: SourceDocument) -> None:
         self.sources.append(source)
@@ -86,9 +79,7 @@ def fetch_chapter(chapter: int) -> str:
     try:
         return path.read_text(encoding="utf-8")
     except FileNotFoundError as exc:
-        raise RuntimeError(
-            f"Livre I chapter {chapter} is missing from the pinned corpus snapshot: {path}"
-        ) from exc
+        raise RuntimeError(f"Livre I chapter {chapter} is missing from the local corpus: {path}") from exc
 
 
 def build_extractor() -> LLMAssertionExtractor:
@@ -105,12 +96,7 @@ def run_audit() -> AuditResult:
     extractor = build_extractor()
     repository = AuditRepository([], [], [], [], [])
     temporal_store = InMemoryTemporalStore()
-    ingestion = IngestDocument(
-        repository=repository,
-        extractor=extractor,
-        chunk_size=1800,
-        temporal_context_store=temporal_store,
-    )
+    ingestion = IngestDocument(repository=repository, extractor=extractor, chunk_size=1800, temporal_context_store=temporal_store)
 
     chapter_results: list[tuple[int, int, int]] = []
     for chapter in CHAPTERS:
@@ -123,16 +109,8 @@ def run_audit() -> AuditResult:
         )
         chapter_results.append((chapter, len(result.chunks), len(result.assertions)))
 
-    conflicts = DetectConflicts(
-        repository,
-        temporal_context_store=temporal_store,
-    ).execute(book_id=BOOK_ID)
-    return AuditResult(
-        chapter_results=tuple(chapter_results),
-        repository=repository,
-        temporal_store=temporal_store,
-        conflicts=tuple(conflicts),
-    )
+    conflicts = DetectConflicts(repository, temporal_context_store=temporal_store).execute(book_id=BOOK_ID)
+    return AuditResult(tuple(chapter_results), repository, temporal_store, tuple(conflicts))
 
 
 def render_report(result: AuditResult) -> str:
@@ -142,7 +120,7 @@ def render_report(result: AuditResult) -> str:
         "# Audit de cohérence — Livre I (corpus réel)",
         "",
         "Audit diagnostique produit à partir des assertions réellement extraites par `LLMAssertionExtractor`.",
-        "Le corpus est un snapshot M4ges épinglé dans le workflow, afin de rendre l'audit reproductible sans dépendre de `raw.githubusercontent.com`.",
+        "Le corpus est versionné dans ce dépôt pour rendre l'audit reproductible sans dépendance d'exécution à M4ges.",
         "",
         "## Synthèse",
         "",
@@ -158,11 +136,9 @@ def render_report(result: AuditResult) -> str:
     ]
     lines.extend(f"| {chapter} | {chunks} | {assertions} |" for chapter, chunks, assertions in result.chapter_results)
     lines.extend(["", "## Alertes à examiner", ""])
-
     if not result.conflicts:
         lines.append("Aucune alerte produite par le détecteur.")
         return "\n".join(lines) + "\n"
-
     for index, conflict in enumerate(result.conflicts, start=1):
         left = by_id[conflict.left_assertion_id]
         right = by_id[conflict.right_assertion_id]
@@ -170,17 +146,15 @@ def render_report(result: AuditResult) -> str:
         right_scope = result.temporal_store.get_temporal_scope(assertion_id=right.id)
         left_chapter = source_by_id[left.source_document_id].metadata.get("chapter_number", "?")
         right_chapter = source_by_id[right.source_document_id].metadata.get("chapter_number", "?")
-        lines.extend(
-            [
-                f"### {index}. `{left.subject} / {left.predicate}`",
-                "",
-                f"- A — chapitre {left_chapter}, story point {left_scope.position if left_scope else '?'} : `{left.statement}` → `{left.object}`",
-                f"- B — chapitre {right_chapter}, story point {right_scope.position if right_scope else '?'} : `{right.statement}` → `{right.object}`",
-                f"- Confiance : {left.confidence:.2f} / {right.confidence:.2f}",
-                "- Qualification humaine : **à classer** — vraie contradiction / évolution narrative légitime / reformulation compatible / bruit",
-                "",
-            ]
-        )
+        lines.extend([
+            f"### {index}. `{left.subject} / {left.predicate}`",
+            "",
+            f"- A — chapitre {left_chapter}, story point {left_scope.position if left_scope else '?'} : `{left.statement}` → `{left.object}`",
+            f"- B — chapitre {right_chapter}, story point {right_scope.position if right_scope else '?'} : `{right.statement}` → `{right.object}`",
+            f"- Confiance : {left.confidence:.2f} / {right.confidence:.2f}",
+            "- Qualification humaine : **à classer** — vraie contradiction / évolution narrative légitime / reformulation compatible / bruit",
+            "",
+        ])
     return "\n".join(lines) + "\n"
 
 
@@ -189,8 +163,7 @@ def main() -> None:
         result = run_audit()
     except RuntimeError as exc:
         raise SystemExit(str(exc)) from exc
-    report = render_report(result)
-    print(report, end="")
+    print(render_report(result), end="")
 
 
 if __name__ == "__main__":
