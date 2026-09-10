@@ -15,6 +15,8 @@ Pour les raisons et compromis de cette architecture, voir [`gcp-architecture.md`
 - **CI/CD** : GitHub Actions pour la validation, Cloud Build pour la production.
 - **Région** : `europe-west9` (Paris).
 
+En production, le navigateur utilise le frontend comme origine unique. Les appels `/api/*` sont relayés par Next.js vers l'API Cloud Run. Le navigateur ne dépend donc pas d'un appel cross-origin direct à l'API pour transporter la session.
+
 ## 2. Pré-requis GCP
 
 Créer ou sélectionner un projet GCP puis activer au minimum :
@@ -65,8 +67,9 @@ Cloud Build :
 3. pousse les images dans Artifact Registry ;
 4. exécute le job Alembic ;
 5. déploie le service Cloud Run API ;
-6. déploie le service Cloud Run frontend ;
-7. effectue les vérifications de santé nécessaires.
+6. résout son URL comme cible serveur du proxy Next.js ;
+7. déploie le service Cloud Run frontend ;
+8. effectue les vérifications de santé nécessaires.
 
 Les Pull Requests et branches de travail exécutent uniquement le CI. Elles ne déclenchent pas le déploiement de production.
 
@@ -74,15 +77,15 @@ Les Pull Requests et branches de travail exécutent uniquement le CI. Elles ne d
 
 Le backend utilise PostgreSQL via `DATABASE_URL`.
 
-Le frontend utilise l'URL publique de l'API via `NEXT_PUBLIC_API_URL`.
+Le frontend n'expose plus l'URL de l'API au navigateur. `API_INTERNAL_URL` est utilisé uniquement lors du build Next.js pour configurer le proxy `/api/*`. Le client appelle toujours des chemins relatifs (`/api/...`) sur l'origine du frontend.
 
-Comme frontend et backend sont tous deux sous GCP, la configuration n'a pas besoin de reproduire l'architecture cross-domain Vercel/Cloud Run historique. Les règles CORS et cookies restent toutefois explicites et doivent être configurées selon les domaines publics retenus.
+Cette architecture permet de conserver les cookies de session `HttpOnly`, `Secure` et `SameSite=Lax`, sans rendre `SameSite=None` nécessaire au fonctionnement normal du frontend. CORS reste configuré côté API pour les clients cross-origin autorisés et les environnements de développement, mais le parcours web de production n'en dépend plus.
 
 ## 7. Vérifications post-déploiement
 
 1. Vérifier `GET /health` sur l'API Cloud Run.
 2. Vérifier `/docs` sur l'API.
-3. Tester register → login → `/api/auth/me` depuis le frontend.
+3. Tester register → login → `/api/auth/me` depuis le frontend, via l'origine du frontend.
 4. Vérifier la persistance PostgreSQL.
 5. Vérifier qu'une génération de chapitre peut être reprise après redémarrage du service.
 6. Vérifier les logs Cloud Run et l'exécution du job de migration.

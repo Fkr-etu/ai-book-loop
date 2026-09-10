@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 
-const apiBaseUrl = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/+$/, "");
+const apiBasePath = "/api";
 const bookId = "async-analysis-e2e";
 const consistencyStorageKey = `book-loop:consistency-analysis:${bookId}`;
 
@@ -96,20 +96,20 @@ test.describe("Book Loop — async consistency analysis", () => {
       window.localStorage.setItem("manuscript_studio_project", JSON.stringify(project));
     }, { project: mockProject });
 
-    await page.route(`${apiBaseUrl}/api/auth/me`, async (route) => {
+    await page.route(`${apiBasePath}/auth/me`, async (route) => {
       await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ user: { id: "e2e-user", email: "e2e@example.com", name: "E2E", plan: "free" } }) });
     });
-    await page.route(`${apiBaseUrl}/api/books/${bookId}`, async (route) => {
+    await page.route(`${apiBasePath}/books/${bookId}`, async (route) => {
       await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(book) });
     });
-    await page.route(`${apiBaseUrl}/api/books/${bookId}/assertions`, async (route) => {
+    await page.route(`${apiBasePath}/books/${bookId}/assertions`, async (route) => {
       await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([]) });
     });
-    await page.route(`${apiBaseUrl}/api/books/${bookId}/consistency/analyze`, async (route) => {
+    await page.route(`${apiBasePath}/books/${bookId}/consistency/analyze`, async (route) => {
       expect(route.request().method()).toBe("POST");
       await route.fulfill({ status: 202, contentType: "application/json", body: JSON.stringify(queuedJob) });
     });
-    await page.route(`${apiBaseUrl}/api/books/${bookId}/consistency/analyses/job-async-e2e`, async (route) => {
+    await page.route(`${apiBasePath}/books/${bookId}/consistency/analyses/job-async-e2e`, async (route) => {
       statusCalls += 1;
       const response = allowSuccess ? succeededJob : (statusCalls === 1 ? queuedJob : runningJob);
       await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(response) });
