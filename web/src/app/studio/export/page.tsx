@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { StudioLayout } from "@/components/StudioLayout";
 import { useProjectStore } from "@/lib/useProjectStore";
-import { Download, FileText, CheckCircle2, BookOpen, Printer } from "lucide-react";
+import { Download, CheckCircle2, BookOpen } from "lucide-react";
 
 type ExportFormat = "markdown" | "epub" | "pdf" | "docx";
 
@@ -93,23 +93,14 @@ export default function ExportPage() {
 
         <section className="grid grid-cols-1 lg:grid-cols-5 gap-6">
           <div className="lg:col-span-2 bg-white rounded-xl border border-[#c6c6cd]/40 p-5 sm:p-6 space-y-6">
-            <div>
-              <h2 className="font-playfair text-lg font-bold text-[#0b1c30]">Format</h2>
-              <p className="text-xs text-[#5f5e5b] mt-1">Un seul format est réellement disponible pour le moment.</p>
-            </div>
+            <div><h2 className="font-playfair text-lg font-bold text-[#0b1c30]">Format</h2><p className="text-xs text-[#5f5e5b] mt-1">Un seul format est réellement disponible pour le moment.</p></div>
             <div className="space-y-2">
               {formats.map((format) => {
                 const available = format.id === "markdown";
                 const selected = exportFormat === format.id;
-                return (
-                  <button key={format.id} type="button" disabled={!available} onClick={() => setExportFormat(format.id)} className={`w-full text-left p-3 rounded-lg border transition-colors ${selected ? "bg-[#0b1c30] text-white border-[#0b1c30]" : available ? "bg-white border-[#c6c6cd]/40 text-[#0b1c30] hover:bg-[#eff4ff]" : "bg-[#f8f5f0] border-[#c6c6cd]/30 text-[#8a8985] cursor-not-allowed"}`}>
-                    <div className="flex items-center justify-between gap-3"><span className="text-sm font-semibold">{format.label}</span><span className="text-[10px] font-mono">{format.extension}</span></div>
-                    <div className={`text-[11px] mt-1 ${selected ? "text-[#d9dfec]" : "text-[#76777d]"}`}>{format.description}</div>
-                  </button>
-                );
+                return <button key={format.id} type="button" disabled={!available} onClick={() => setExportFormat(format.id)} className={`w-full text-left p-3 rounded-lg border transition-colors ${selected ? "bg-[#0b1c30] text-white border-[#0b1c30]" : available ? "bg-white border-[#c6c6cd]/40 text-[#0b1c30] hover:bg-[#eff4ff]" : "bg-[#f8f5f0] border-[#c6c6cd]/30 text-[#8a8985] cursor-not-allowed"}`}><div className="flex items-center justify-between gap-3"><span className="text-sm font-semibold">{format.label}</span><span className="text-[10px] font-mono">{format.extension}</span></div><div className={`text-[11px] mt-1 ${selected ? "text-[#d9dfec]" : "text-[#76777d]"}`}>{format.description}</div></button>;
               })}
             </div>
-
             <div className="border-t border-[#c6c6cd]/20 pt-5 space-y-3">
               <h2 className="font-playfair text-lg font-bold text-[#0b1c30]">Contenu</h2>
               <label className="flex items-center justify-between gap-3 p-3 bg-[#f8f5f0] rounded border border-[#c6c6cd]/20 text-xs cursor-pointer"><span>Ajouter les résumés de chapitres</span><input type="checkbox" checked={includeSummaries} onChange={(event) => setIncludeSummaries(event.target.checked)} /></label>
