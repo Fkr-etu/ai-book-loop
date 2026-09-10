@@ -8,7 +8,7 @@ function normalizeBaseUrl(value: string): string {
 // cross-origin delivery. Server-side callers can still use the direct API URL.
 export const API_BASE_URL =
   typeof window === "undefined"
-    ? normalizeBaseUrl(process.env.NEXT_PUBLIC_API_URL || DEFAULT_API_URL)
+    ? normalizeBaseUrl(process.env.API_INTERNAL_URL || process.env.NEXT_PUBLIC_API_URL || DEFAULT_API_URL)
     : "";
 
 // Real API is the safe default. CI explicitly opts into the deterministic mock API.
