@@ -13,7 +13,7 @@ export default function DashboardPage() {
   const refresh = async () => { setLoading(true); setError(null); try { const currentUser = await realApiClient.getCurrentUser(); if (!currentUser) { router.replace("/login"); return; } setUser(currentUser); setBooks(await realApiClient.listBooks()); } catch (err) { setError(errorMessage(err)); } finally { setLoading(false); } };
   useEffect(() => { void refresh(); }, []);
   const totalChapters = useMemo(() => books.reduce((total, book) => total + book.chapters.length, 0), [books]);
-  const closeDelete = () => { if (deleting) return; setBookToDelete(null); setConfirmation(""); setDeleteError(null); };
+  const closeDelete = () => { setBookToDelete(null); setConfirmation(""); setDeleteError(null); };
   const confirmDelete = async () => { if (!bookToDelete || confirmation !== bookToDelete.title) return; setDeleting(true); setDeleteError(null); try { await realApiClient.deleteBook(bookToDelete.id, confirmation); setBooks((items) => items.filter((book) => book.id !== bookToDelete.id)); closeDelete(); } catch (err) { setDeleteError(err instanceof Error ? err.message : "Impossible de supprimer ce livre."); } finally { setDeleting(false); } };
   return <div className="min-h-screen bg-[#f8f5f0] text-[#0f172a] font-inter">
     <Navbar /><main className="max-w-6xl mx-auto px-4 sm:px-6 py-6 md:py-10 space-y-8">
