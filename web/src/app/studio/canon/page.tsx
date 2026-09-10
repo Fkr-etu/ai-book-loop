@@ -5,6 +5,7 @@ import { AlertTriangle, Check, FileText, RefreshCw, Sparkles, X } from "lucide-r
 import { StudioLayout } from "@/components/StudioLayout";
 import { CanonImpactPanel } from "@/components/CanonImpactPanel";
 import { CanonChangeProposalPanel } from "@/components/CanonChangeProposalPanel";
+import { ConsistencyAnalysisPanel } from "@/components/ConsistencyAnalysisPanel";
 import { useProjectStore } from "@/lib/useProjectStore";
 import type { Assertion } from "@/types";
 
@@ -64,6 +65,7 @@ export default function CanonPage() {
           <p className="text-xs text-[#45464d] mt-2 max-w-2xl">L'IA extrait des propositions à partir des sources. Vous décidez ce qui devient une vérité du livre.</p>
         </header>
 
+        <ConsistencyAnalysisPanel bookId={store.project.id} />
         <CanonImpactPanel />
         <CanonChangeProposalPanel />
 

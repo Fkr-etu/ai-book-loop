@@ -1,4 +1,4 @@
-import type { BackendAssertion, BackendBillingState, BackendBook, BackendCanonChangeImpact, BackendCanonChangeProposal, BackendCanonChangeReview, BackendCanonicalFact, BackendCharacter, BackendCharacterRelation, BackendConflict, BackendIngestionResult, BackendSceneReview, BackendUser, BackendWorkflowRun } from "@/types/api";
+import type { BackendAnalysisJob, BackendAssertion, BackendBillingState, BackendBook, BackendCanonChangeImpact, BackendCanonChangeProposal, BackendCanonChangeReview, BackendCanonicalFact, BackendCharacter, BackendCharacterRelation, BackendConflict, BackendIngestionResult, BackendSceneReview, BackendUser, BackendWorkflowRun } from "@/types/api";
 import { API_BASE_URL } from "@/services/config";
 export interface CreateBookInput { title: string; theme: string; author_idea: string; lore?: string; constraints?: string[]; creative_brief?: { premise: string; audience?: string; tone?: string; themes?: string[]; must_include?: string[]; must_avoid?: string[]; }; }
 export interface GenerateChapterResult { run: BackendWorkflowRun; }
@@ -34,6 +34,8 @@ export class RealApiClient {
   async listAssertions(id: string): Promise<BackendAssertion[]> { return (await this.request<{ assertions: BackendAssertion[] }>(`/api/books/${encodeURIComponent(id)}/assertions`)).assertions; }
   async listConflicts(id: string): Promise<BackendConflict[]> { return (await this.request<{ conflicts: BackendConflict[] }>(`/api/books/${encodeURIComponent(id)}/conflicts`)).conflicts; }
   async listCanonicalFacts(id: string): Promise<BackendCanonicalFact[]> { return (await this.request<{ facts: BackendCanonicalFact[] }>(`/api/books/${encodeURIComponent(id)}/canonical-facts`)).facts; }
+  async startConsistencyAnalysis(id: string, idempotencyKey?: string): Promise<BackendAnalysisJob> { return this.request(`/api/books/${encodeURIComponent(id)}/consistency/analyze`, { method: "POST", headers: { "Idempotency-Key": idempotencyKey ?? crypto.randomUUID() } }); }
+  async getConsistencyAnalysis(id: string, jobId: string): Promise<BackendAnalysisJob> { return this.request(`/api/books/${encodeURIComponent(id)}/consistency/analyses/${encodeURIComponent(jobId)}`); }
   async listCharacters(id: string): Promise<BackendCharacter[]> { return this.request(`/api/books/${encodeURIComponent(id)}/characters`); }
   async createCharacter(id: string, input: Omit<BackendCharacter, "id" | "book_id" | "status">): Promise<BackendCharacter> { return this.request(`/api/books/${encodeURIComponent(id)}/characters`, { method: "POST", body: JSON.stringify(input) }); }
   async updateCharacter(id: string, characterId: string, updates: Partial<Pick<BackendCharacter, "name" | "aliases" | "summary" | "attributes" | "status" | "assertion_ids">>): Promise<BackendCharacter> { return this.request(`/api/books/${encodeURIComponent(id)}/characters/${encodeURIComponent(characterId)}`, { method: "PUT", body: JSON.stringify(updates) }); }
