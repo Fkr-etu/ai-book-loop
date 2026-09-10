@@ -11,6 +11,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from book_loop.infrastructure.config import Settings
 from book_loop.infrastructure.container import Container
 from book_loop.infrastructure.database.analysis_jobs import PostgresAnalysisJobStore
+from book_loop.infrastructure.structured_logging import log_event
 
 logger = logging.getLogger("book_loop.worker")
 logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
@@ -51,7 +52,7 @@ class AnalysisWorker:
         signal.signal(signal.SIGTERM, self.stop)
         signal.signal(signal.SIGINT, self.stop)
         self._start_health_server()
-        logger.info("analysis_worker_started", extra={"event": "analysis_worker_started", "worker_id": self.worker_id})
+        log_event(logger, logging.INFO, "analysis_worker_started", worker_id=self.worker_id)
         try:
             while not self._stop.is_set():
                 job = self.store.claim_next(worker_id=self.worker_id, lease_seconds=self.lease_seconds)
@@ -63,7 +64,7 @@ class AnalysisWorker:
             self.store.close()
             if self.health_server is not None:
                 self.health_server.server_close()
-            logger.info("analysis_worker_stopped", extra={"event": "analysis_worker_stopped", "worker_id": self.worker_id})
+            log_event(logger, logging.INFO, "analysis_worker_stopped", worker_id=self.worker_id)
 
     def _start_health_server(self) -> None:
         port = int(os.getenv("PORT", "8080"))
@@ -86,24 +87,23 @@ class AnalysisWorker:
             execution_duration_ms = self._elapsed_ms(execution_started, datetime.now(UTC))
             result = {"issues": [issue.model_dump(mode="json") for issue in issues]}
             completed = self.store.complete(job_id=job_id, worker_id=self.worker_id, result=result)
-            logger.info(
+            log_event(
+                logger,
+                logging.INFO,
                 "analysis_job_succeeded",
-                extra={
-                    "event": "analysis_job_succeeded",
-                    "job_id": completed.id,
-                    "book_id": completed.book_id,
-                    "analysis_type": completed.analysis_type,
-                    "worker_id": self.worker_id,
-                    "attempt": completed.attempt,
-                    "max_attempts": completed.max_attempts,
-                    "queue_wait_ms": queue_wait_ms,
-                    "execution_duration_ms": execution_duration_ms,
-                    "issue_count": len(issues),
-                    "status": completed.status.value,
-                },
+                job_id=completed.id,
+                book_id=completed.book_id,
+                analysis_type=completed.analysis_type,
+                worker_id=self.worker_id,
+                attempt=completed.attempt,
+                max_attempts=completed.max_attempts,
+                queue_wait_ms=queue_wait_ms,
+                execution_duration_ms=execution_duration_ms,
+                issue_count=len(issues),
+                status=completed.status.value,
             )
         except Exception:
-            logger.exception("analysis_job_failed", extra={"event": "analysis_job_failed", "job_id": job_id, "worker_id": self.worker_id})
+            log_event(logger, logging.ERROR, "analysis_job_failed", job_id=job_id, worker_id=self.worker_id)
             try:
                 failed = self.store.fail(
                     job_id=job_id,
@@ -112,24 +112,29 @@ class AnalysisWorker:
                     error_message="L’analyse n’a pas pu être terminée. Veuillez réessayer.",
                     retry=True,
                 )
-                logger.info(
+                log_event(
+                    logger,
+                    logging.INFO,
                     "analysis_job_failure_recorded",
-                    extra={
-                        "event": "analysis_job_failure_recorded",
-                        "job_id": failed.id,
-                        "book_id": failed.book_id,
-                        "analysis_type": failed.analysis_type,
-                        "worker_id": self.worker_id,
-                        "attempt": failed.attempt,
-                        "max_attempts": failed.max_attempts,
-                        "retry_scheduled": failed.status.value == "queued",
-                        "execution_duration_ms": self._elapsed_ms(execution_started, datetime.now(UTC)),
-                        "status": failed.status.value,
-                        "error_code": failed.error_code,
-                    },
+                    job_id=failed.id,
+                    book_id=failed.book_id,
+                    analysis_type=failed.analysis_type,
+                    worker_id=self.worker_id,
+                    attempt=failed.attempt,
+                    max_attempts=failed.max_attempts,
+                    retry_scheduled=failed.status.value == "queued",
+                    execution_duration_ms=self._elapsed_ms(execution_started, datetime.now(UTC)),
+                    status=failed.status.value,
+                    error_code=failed.error_code,
                 )
             except Exception:
-                logger.exception("could_not_persist_analysis_failure", extra={"event": "analysis_job_failure_persist_error", "job_id": job_id, "worker_id": self.worker_id})
+                log_event(
+                    logger,
+                    logging.ERROR,
+                    "analysis_job_failure_persist_error",
+                    job_id=job_id,
+                    worker_id=self.worker_id,
+                )
         finally:
             heartbeat_stop.set()
             heartbeat.join(timeout=1)
@@ -148,7 +153,13 @@ class AnalysisWorker:
                 try:
                     heartbeat_store.heartbeat(job_id=job_id, worker_id=self.worker_id, lease_seconds=self.lease_seconds)
                 except Exception:
-                    logger.exception("heartbeat_failed", extra={"event": "analysis_job_heartbeat_failed", "job_id": job_id, "worker_id": self.worker_id})
+                    log_event(
+                        logger,
+                        logging.ERROR,
+                        "analysis_job_heartbeat_failed",
+                        job_id=job_id,
+                        worker_id=self.worker_id,
+                    )
         finally:
             heartbeat_store.close()
 
