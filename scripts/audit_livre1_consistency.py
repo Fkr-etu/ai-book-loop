@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 import os
-import urllib.error
-import urllib.request
 from dataclasses import dataclass
+from pathlib import Path
 
 from book_loop.application.use_cases.detect_conflicts import DetectConflicts
 from book_loop.application.use_cases.ingest_document import IngestDocument
@@ -13,7 +12,12 @@ from book_loop.infrastructure.llm.assertion_extractor import LLMAssertionExtract
 from book_loop.infrastructure.llm.gemini import GeminiProvider
 
 
-CORPUS_URL = "https://github.com/Fkr-etu/M4ges/raw/main/docs/story/livre_1/chapitre_{chapter:02d}.md"
+CORPUS_ROOT = Path(
+    os.environ.get(
+        "LIVRE1_CORPUS_ROOT",
+        ".benchmarks/m4ges/docs/story/livre_1",
+    )
+)
 BOOK_ID = "livre-1"
 CHAPTERS = tuple(range(1, 9))
 
@@ -78,21 +82,12 @@ class AuditResult:
 
 
 def fetch_chapter(chapter: int) -> str:
-    url = CORPUS_URL.format(chapter=chapter)
-    request = urllib.request.Request(
-        url,
-        headers={"User-Agent": "book-loop-consistency-audit/1.0"},
-    )
+    path = CORPUS_ROOT / f"chapitre_{chapter:02d}.md"
     try:
-        with urllib.request.urlopen(request, timeout=30) as response:
-            return response.read().decode("utf-8")
-    except urllib.error.HTTPError as exc:
+        return path.read_text(encoding="utf-8")
+    except FileNotFoundError as exc:
         raise RuntimeError(
-            f"Unable to fetch Livre I chapter {chapter} (HTTP {exc.code}): {url}"
-        ) from exc
-    except urllib.error.URLError as exc:
-        raise RuntimeError(
-            f"Unable to fetch Livre I chapter {chapter}: {url} ({exc.reason})"
+            f"Livre I chapter {chapter} is missing from the pinned corpus snapshot: {path}"
         ) from exc
 
 
@@ -147,7 +142,7 @@ def render_report(result: AuditResult) -> str:
         "# Audit de cohérence — Livre I (corpus réel)",
         "",
         "Audit diagnostique produit à partir des assertions réellement extraites par `LLMAssertionExtractor`.",
-        "Les chapitres sont récupérés depuis le dépôt public M4ges au moment de l'exécution.",
+        "Le corpus est un snapshot M4ges épinglé dans le workflow, afin de rendre l'audit reproductible sans dépendre de `raw.githubusercontent.com`.",
         "",
         "## Synthèse",
         "",
