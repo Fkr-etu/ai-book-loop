@@ -4,7 +4,6 @@ import logging
 import os
 import signal
 import threading
-import time
 import uuid
 
 from book_loop.infrastructure.config import Settings
@@ -34,10 +33,7 @@ class AnalysisWorker:
         logger.info("analysis worker %s started", self.worker_id)
         try:
             while not self._stop.is_set():
-                job = self.store.claim_next(
-                    worker_id=self.worker_id,
-                    lease_seconds=self.lease_seconds,
-                )
+                job = self.store.claim_next(worker_id=self.worker_id, lease_seconds=self.lease_seconds)
                 if job is None:
                     self._stop.wait(self.poll_seconds)
                     continue
@@ -48,19 +44,13 @@ class AnalysisWorker:
 
     def _run_job(self, job_id: str) -> None:
         heartbeat_stop = threading.Event()
-        heartbeat = threading.Thread(
-            target=self._heartbeat_loop,
-            args=(job_id, heartbeat_stop),
-            daemon=True,
-        )
+        heartbeat = threading.Thread(target=self._heartbeat_loop, args=(job_id, heartbeat_stop), daemon=True)
         heartbeat.start()
         try:
             job = self.store.get(job_id)
             if job.analysis_type != "consistency":
                 raise ValueError(f"Unsupported analysis type: {job.analysis_type}")
-            job.progress = 10
-            job.current_step = "analyzing"
-            self._save_progress(job_id, job.progress, job.current_step)
+            self.store.update_progress(job_id=job_id, worker_id=self.worker_id, progress=10, current_step="analyzing")
             issues = self.container.analyze_consistency().execute(book_id=job.book_id)
             result = {"issues": [issue.model_dump(mode="json") for issue in issues]}
             self.store.complete(job_id=job_id, worker_id=self.worker_id, result=result)
@@ -81,27 +71,21 @@ class AnalysisWorker:
             heartbeat_stop.set()
             heartbeat.join(timeout=1)
 
-    def _save_progress(self, job_id: str, progress: int, current_step: str) -> None:
-        job = self.store.get(job_id)
-        if job.worker_id != self.worker_id:
-            raise RuntimeError("Analysis job ownership was lost")
-        job.progress = progress
-        job.current_step = current_step
-        job.updated_at = job.updated_at
-        with self.store._connection.transaction():
-            self.store._save_locked(job)
-
     def _heartbeat_loop(self, job_id: str, stop: threading.Event) -> None:
         interval = max(1, self.lease_seconds // 3)
-        while not stop.wait(interval):
-            try:
-                self.store.heartbeat(
-                    job_id=job_id,
-                    worker_id=self.worker_id,
-                    lease_seconds=self.lease_seconds,
-                )
-            except Exception:
-                logger.exception("heartbeat failed for analysis job %s", job_id)
+        heartbeat_store = PostgresAnalysisJobStore(self.settings.database_url)
+        try:
+            while not stop.wait(interval):
+                try:
+                    heartbeat_store.heartbeat(
+                        job_id=job_id,
+                        worker_id=self.worker_id,
+                        lease_seconds=self.lease_seconds,
+                    )
+                except Exception:
+                    logger.exception("heartbeat failed for analysis job %s", job_id)
+        finally:
+            heartbeat_store.close()
 
 
 if __name__ == "__main__":
