@@ -20,7 +20,7 @@ jobs:
     env:
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       LLM_MODEL: ${{ inputs.llm_model }}
-      M4GES_READ_TOKEN: ${{ secrets.M4GES_READ_TOKEN }}
+      CONSISTENCY_CANDIDATE_SNAPSHOT: livre1-consistency-candidates.json
 
     steps:
       - name: Checkout
@@ -57,9 +57,11 @@ jobs:
           python scripts/audit_livre1_consistency.py > livre1-consistency-audit.md
           cat livre1-consistency-audit.md
 
-      - name: Upload audit report
+      - name: Upload audit report and candidate snapshot
         uses: actions/upload-artifact@v4
         with:
           name: livre1-consistency-audit
-          path: livre1-consistency-audit.md
+          path: |
+            livre1-consistency-audit.md
+            livre1-consistency-candidates.json
           if-no-files-found: error
