@@ -30,7 +30,11 @@ export class RealBookApi implements BookApi {
   async createLoreItem(_id: string, _item: Omit<LoreItem, "id">): Promise<BookState> { return unsupported("La gestion du lore"); }
   async updateLoreItem(_id: string, _loreId: string, _updates: Partial<LoreItem>): Promise<BookState> { return unsupported("La gestion du lore"); }
   async deleteLoreItem(_id: string, _loreId: string): Promise<BookState> { return unsupported("La gestion du lore"); }
-  async ingestDocument(id: string, name: string, content: string, sourceType?: string): Promise<IngestionResult> { return realApiClient.ingestDocument(id, name, content, sourceType); }
+  async ingestDocument(id: string, name: string, content: string, sourceType?: string): Promise<IngestionResult> {
+    const job = await realApiClient.ingestDocument(id, name, content, sourceType);
+    // Keep the legacy BookApi contract for studio pages while the real import is now asynchronous.
+    return { source_document: { id: job.id, book_id: id, name, source_type: sourceType || "markdown", content, content_hash: "", version: 1 }, assertions: [], already_ingested: false };
+  }
   async listAssertions(id: string): Promise<Assertion[]> { return realApiClient.listAssertions(id) as Promise<Assertion[]>; }
   async reviewAssertion(id: string, assertionId: string, decision: "accept" | "reject" | "defer", rationale?: string): Promise<void> { return realApiClient.reviewAssertion(id, assertionId, decision, rationale); }
   async loginUser(email: string, password: string): Promise<UserProfile> { return realApiClient.login(email, password) as Promise<UserProfile>; }
