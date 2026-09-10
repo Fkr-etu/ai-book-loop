@@ -2,12 +2,9 @@ from __future__ import annotations
 
 from uuid import NAMESPACE_URL, uuid5
 
+from book_loop.application.use_cases.consistency_coverage import PairDisposition, classify_pair
 from book_loop.domain.models import Assertion, Conflict, ConflictStatus
-from book_loop.domain.predicate_semantics import (
-    PredicateExclusivity,
-    PredicateKind,
-    PredicateSemanticsRegistry,
-)
+from book_loop.domain.predicate_semantics import PredicateSemanticsRegistry
 from book_loop.domain.protocols import KnowledgeRepository
 from book_loop.domain.temporal import AssertionTemporalContextStore
 
@@ -59,25 +56,9 @@ class DetectConflicts:
         return conflicts
 
     def _conflicts(self, left: Assertion, right: Assertion) -> bool:
-        if left.id == right.id:
-            return False
-        if not (
-            left.subject.strip().casefold() == right.subject.strip().casefold()
-            and left.predicate.strip().casefold() == right.predicate.strip().casefold()
-            and left.object.strip().casefold() != right.object.strip().casefold()
-        ):
-            return False
-
-        semantics = self.predicate_semantics.get(left.predicate)
-        if semantics.kind in {PredicateKind.ACTION, PredicateKind.EVENT}:
-            return False
-        if semantics.exclusivity is PredicateExclusivity.MULTI_VALUED:
-            return False
-
-        if self.temporal_context_store is None:
-            return True
-        left_scope = self.temporal_context_store.get_temporal_scope(assertion_id=left.id)
-        right_scope = self.temporal_context_store.get_temporal_scope(assertion_id=right.id)
-        if left_scope is None or right_scope is None:
-            return True
-        return left_scope.overlaps(right_scope)
+        return classify_pair(
+            left,
+            right,
+            temporal_context_store=self.temporal_context_store,
+            predicate_semantics=self.predicate_semantics,
+        ) is PairDisposition.CANDIDATE
