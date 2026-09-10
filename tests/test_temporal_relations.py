@@ -18,7 +18,6 @@ def scope(start: int, end: int | None = None) -> TemporalScope:
     ("left", "right", "expected"),
     [
         (scope(1), scope(2), TemporalRelation.BEFORE),
-        (scope(1, 2), scope(2, 4), TemporalRelation.MEETS),
         (scope(1, 3), scope(2, 4), TemporalRelation.OVERLAPS),
         (scope(2), scope(1, 4), TemporalRelation.DURING),
         (scope(1, 4), scope(2), TemporalRelation.CONTAINS),
@@ -37,6 +36,15 @@ def test_temporal_relation_is_deterministic(
 def test_relation_is_directional() -> None:
     assert scope(1).relation_to(scope(2)) is TemporalRelation.BEFORE
     assert scope(2).relation_to(scope(1)) is TemporalRelation.AFTER
+
+
+def test_touching_inclusive_intervals_overlap() -> None:
+    assert scope(1, 2).relation_to(scope(2, 4)) is TemporalRelation.OVERLAPS
+    assert scope(1, 2).overlaps(scope(2, 4)) is True
+
+
+def test_disjoint_intervals_do_not_overlap() -> None:
+    assert scope(1, 2).overlaps(scope(3, 4)) is False
 
 
 def test_timeless_scope_has_no_ordered_relation() -> None:
