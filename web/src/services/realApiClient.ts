@@ -19,16 +19,21 @@ export class RealApiClient {
   async logout(): Promise<void> { await this.request("/api/auth/logout", { method: "POST" }); }
   async createCheckout(plan: "creator" | "pro", billingCycle: "monthly" | "yearly"): Promise<CheckoutResult> { return this.request("/api/billing/checkout", { method: "POST", body: JSON.stringify({ plan, billing_cycle: billingCycle }) }); }
   async createBillingPortal(): Promise<CheckoutResult> { return this.request("/api/billing/portal", { method: "POST" }); }
-  listBooks(): Promise<BackendBook[]> { return this.request("/api/books"); } getBook(id: string): Promise<BackendBook> { return this.request(`/api/books/${encodeURIComponent(id)}`); }
+  listBooks(): Promise<BackendBook[]> { return this.request("/api/books"); }
+  getBook(id: string): Promise<BackendBook> { return this.request(`/api/books/${encodeURIComponent(id)}`); }
   createBook(input: CreateBookInput): Promise<BackendBook> { return this.request("/api/books", { method: "POST", body: JSON.stringify(input) }); }
   updateBook(id: string, updates: Record<string, unknown>): Promise<BackendBook> { return this.request(`/api/books/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify(updates) }); }
-  generateOutline(id: string): Promise<BackendBook> { return this.request(`/api/books/${encodeURIComponent(id)}/outline/generate`, { method: "POST" }); } approveOutline(id: string): Promise<BackendBook> { return this.request(`/api/books/${encodeURIComponent(id)}/outline/approve`, { method: "POST" }); }
+  async deleteBook(id: string, title: string): Promise<void> { await this.request(`/api/books/${encodeURIComponent(id)}`, { method: "DELETE", body: JSON.stringify({ title }) }); }
+  generateOutline(id: string): Promise<BackendBook> { return this.request(`/api/books/${encodeURIComponent(id)}/outline/generate`, { method: "POST" }); }
+  approveOutline(id: string): Promise<BackendBook> { return this.request(`/api/books/${encodeURIComponent(id)}/outline/approve`, { method: "POST" }); }
   addChapter(id: string, n: number): Promise<BackendBook> { return this.request(`/api/books/${encodeURIComponent(id)}/chapters`, { method: "POST", body: JSON.stringify({ chapter_number: n }) }); }
   generateChapter(id: string, n: number): Promise<GenerateChapterResult> { return this.request(`/api/books/${encodeURIComponent(id)}/chapters/${n}/generate`, { method: "POST" }); }
   getChapterWorkflowRun(id: string, n: number, runId: string): Promise<BackendWorkflowRun> { return this.request<{ run: BackendWorkflowRun }>(`/api/books/${encodeURIComponent(id)}/chapters/${n}/workflow-runs/${encodeURIComponent(runId)}`).then((r) => r.run); }
   getLatestChapterWorkflowRun(id: string, n: number): Promise<BackendWorkflowRun | null> { return this.request<{ run: BackendWorkflowRun | null }>(`/api/books/${encodeURIComponent(id)}/chapters/${n}/workflow-runs/latest`).then((r) => r.run); }
   reviewChapter(id: string, n: number, v?: number, draft?: string): Promise<ReviewChapterResult> { return this.request(`/api/books/${encodeURIComponent(id)}/chapters/${n}/review`, { method: "POST", body: JSON.stringify({ versionNumber: v, draftText: draft }) }); }
-  approveChapter(id: string, n: number, v?: number): Promise<BackendBook> { return this.request(`/api/books/${encodeURIComponent(id)}/chapters/${n}/approve`, { method: "POST", body: JSON.stringify({ versionNumber: v }) }); } rejectChapter(id: string, n: number): Promise<BackendBook> { return this.request(`/api/books/${encodeURIComponent(id)}/chapters/${n}/reject`, { method: "POST" }); }
+  approveChapter(id: string, n: number, v?: number): Promise<BackendBook> { return this.request(`/api/books/${encodeURIComponent(id)}/chapters/${n}/approve`, { method: "POST", body: JSON.stringify({ versionNumber: v }) }); }
+  rejectChapter(id: string, n: number): Promise<BackendBook> { return this.request(`/api/books/${encodeURIComponent(id)}/chapters/${n}/reject`, { method: "POST" }); }
+  saveChapterDraft(id: string, n: number, draft: string): Promise<BackendBook> { return this.request(`/api/books/${encodeURIComponent(id)}/chapters/${n}/versions`, { method: "POST", body: JSON.stringify({ draft }) }); }
   getChapterContext(id: string, n: number): Promise<BackendChapterContext> { return this.request(`/api/books/${encodeURIComponent(id)}/chapters/${n}/context`); }
   ingestDocument(id: string, name: string, content: string, sourceType = "markdown"): Promise<BackendAnalysisJob> { return this.request(`/api/books/${encodeURIComponent(id)}/documents/ingest`, { method: "POST", body: JSON.stringify({ name, content, sourceType }) }); }
   getIngestionJob(id: string, jobId: string): Promise<BackendAnalysisJob> { return this.request(`/api/books/${encodeURIComponent(id)}/documents/ingest/${encodeURIComponent(jobId)}`); }
