@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 
 const apiBaseUrl = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/+$/, "");
 const bookId = "async-analysis-e2e";
+const consistencyStorageKey = `book-loop:consistency-analysis:${bookId}`;
 
 const book = {
   id: bookId,
@@ -15,6 +16,22 @@ const book = {
   outline: null,
   outline_approved: false,
   chapters: [],
+};
+
+const mockProject = {
+  id: bookId,
+  title: book.title,
+  theme: book.theme,
+  authorIdea: book.author_idea,
+  lore: book.lore,
+  constraints: [],
+  creativeConstraints: [],
+  outline: "",
+  outlineApproved: false,
+  chapters: [],
+  characters: [],
+  loreItems: [],
+  reviews: [],
 };
 
 const queuedJob = {
@@ -76,6 +93,11 @@ test.describe("Book Loop — async consistency analysis", () => {
   test("launches, survives reload while running, polls and renders the result", async ({ page }) => {
     let statusCalls = 0;
 
+    await page.addInitScript(({ project, storageKey }) => {
+      window.localStorage.setItem("manuscript_studio_project", JSON.stringify(project));
+      window.localStorage.removeItem(storageKey);
+    }, { project: mockProject, storageKey: consistencyStorageKey });
+
     await page.route(`${apiBaseUrl}/api/auth/me`, async (route) => {
       await route.fulfill({
         status: 200,
@@ -111,7 +133,7 @@ test.describe("Book Loop — async consistency analysis", () => {
     await expect(page.getByText("Analyse du Canon en cours")).toBeVisible({ timeout: 5_000 });
     await expect(page.getByText("35%")).toBeVisible();
     await expect(page.getByRole("button", { name: "Analyse en cours…" })).toBeDisabled();
-    await expect.poll(async () => page.evaluate(() => localStorage.getItem(`book-loop:consistency-analysis:${bookId}`))).toBe("job-async-e2e");
+    await expect.poll(async () => page.evaluate((key) => localStorage.getItem(key), consistencyStorageKey)).toBe("job-async-e2e");
 
     await page.reload();
     await expect(page.getByText("Analyse du Canon en cours")).toBeVisible();
@@ -122,7 +144,7 @@ test.describe("Book Loop — async consistency analysis", () => {
     await expect(page.getByText("Maya vit à Paris.")).toBeVisible();
     await expect(page.getByText("Maya vit à Lyon.")).toBeVisible();
     await expect(page.getByText("35%")).toHaveCount(0);
-    await expect.poll(async () => page.evaluate(() => localStorage.getItem(`book-loop:consistency-analysis:${bookId}`))).toBeNull();
+    await expect.poll(async () => page.evaluate((key) => localStorage.getItem(key), consistencyStorageKey)).toBeNull();
     expect(statusCalls).toBeGreaterThanOrEqual(4);
   });
 });
