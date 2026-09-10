@@ -5,7 +5,6 @@ from pydantic import BaseModel, Field
 
 from book_loop.api.dependencies import get_container, get_owned_book
 from book_loop.application.use_cases.grill import GrillMessage, GrillResponse
-from book_loop.domain.models import UserPublic
 from book_loop.infrastructure.container import Container
 
 router = APIRouter(prefix="/api/books/{book_id}/grill", tags=["grill"])
