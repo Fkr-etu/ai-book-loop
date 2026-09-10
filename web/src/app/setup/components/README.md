@@ -1,1 +1,0 @@
-Dedicated setup selectors keep audience and tone choices explicit rather than sharing a generic choice-group abstraction.
