@@ -9,7 +9,7 @@ from book_loop.domain.predicate_semantics import (
     PredicateKind,
     PredicateSemanticsRegistry,
 )
-from book_loop.domain.temporal import AssertionTemporalContextStore
+from book_loop.domain.temporal import AssertionTemporalContextStore, TemporalRelation
 
 
 class PairDisposition(StrEnum):
@@ -69,7 +69,12 @@ def classify_pair(
     right_scope = temporal_context_store.get_temporal_scope(assertion_id=right.id)
     if left_scope is None or right_scope is None:
         return PairDisposition.TEMPORAL_MISSING_SCOPE
-    if not left_scope.overlaps(right_scope):
+
+    # The finer temporal model is now the source of truth for ordered scopes.
+    # Only BEFORE/AFTER are ineligible; all other ordered relations remain
+    # eligible for the semantic conflict detector.
+    relation = left_scope.relation_to(right_scope)
+    if relation in {TemporalRelation.BEFORE, TemporalRelation.AFTER}:
         return PairDisposition.TEMPORAL_NON_OVERLAPPING
     return PairDisposition.CANDIDATE
 
