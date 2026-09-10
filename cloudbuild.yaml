@@ -108,7 +108,7 @@ steps:
       - "--port=8080"
 
   - id: deploy-analysis-worker
-    name: gcr.io/cloud-builders/gcloud
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk
     entrypoint: gcloud
     waitFor: [execute-migrations, push-api]
     args:
