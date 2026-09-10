@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 
+from book_loop.domain.epistemic import AssertionEpistemicStore, should_defer_conflict
 from book_loop.domain.models import Assertion
 from book_loop.domain.predicate_semantics import (
     PredicateExclusivity,
@@ -20,6 +21,7 @@ class PairDisposition(StrEnum):
     MULTI_VALUED = "multi_valued"
     TEMPORAL_MISSING_SCOPE = "temporal_missing_scope"
     TEMPORAL_NON_OVERLAPPING = "temporal_non_overlapping"
+    EPISTEMIC_DEFERRED = "epistemic_deferred"
     CANDIDATE = "candidate"
 
 
@@ -38,6 +40,7 @@ class ConflictCoverage:
     temporal_missing_scope: int
     temporal_non_overlapping: int
     temporal_overlapping: int
+    epistemic_deferred: int
     final_candidates: int
 
 
@@ -47,6 +50,7 @@ def classify_pair(
     *,
     temporal_context_store: AssertionTemporalContextStore | None,
     predicate_semantics: PredicateSemanticsRegistry,
+    epistemic_store: AssertionEpistemicStore | None = None,
 ) -> PairDisposition:
     if left.id == right.id:
         return PairDisposition.SUBJECT_MISMATCH
@@ -64,18 +68,35 @@ def classify_pair(
         return PairDisposition.MULTI_VALUED
 
     if temporal_context_store is None:
-        return PairDisposition.CANDIDATE
-    left_scope = temporal_context_store.get_temporal_scope(assertion_id=left.id)
-    right_scope = temporal_context_store.get_temporal_scope(assertion_id=right.id)
-    if left_scope is None or right_scope is None:
+        temporal_scope_missing = True
+    else:
+        left_scope = temporal_context_store.get_temporal_scope(assertion_id=left.id)
+        right_scope = temporal_context_store.get_temporal_scope(assertion_id=right.id)
+        temporal_scope_missing = left_scope is None or right_scope is None
+        if not temporal_scope_missing:
+            # The finer temporal model is the source of truth for ordered scopes.
+            # Only BEFORE/AFTER are ineligible; all other ordered relations remain
+            # eligible for the semantic conflict detector.
+            relation = left_scope.relation_to(right_scope)
+            if relation in {TemporalRelation.BEFORE, TemporalRelation.AFTER}:
+                return PairDisposition.TEMPORAL_NON_OVERLAPPING
+
+    if temporal_scope_missing:
+        if epistemic_store is not None:
+            left_epistemic = epistemic_store.get_epistemic(assertion_id=left.id)
+            right_epistemic = epistemic_store.get_epistemic(assertion_id=right.id)
+            if left_epistemic is not None and right_epistemic is not None:
+                if should_defer_conflict(left_epistemic, right_epistemic):
+                    return PairDisposition.EPISTEMIC_DEFERRED
         return PairDisposition.TEMPORAL_MISSING_SCOPE
 
-    # The finer temporal model is now the source of truth for ordered scopes.
-    # Only BEFORE/AFTER are ineligible; all other ordered relations remain
-    # eligible for the semantic conflict detector.
-    relation = left_scope.relation_to(right_scope)
-    if relation in {TemporalRelation.BEFORE, TemporalRelation.AFTER}:
-        return PairDisposition.TEMPORAL_NON_OVERLAPPING
+    if epistemic_store is not None:
+        left_epistemic = epistemic_store.get_epistemic(assertion_id=left.id)
+        right_epistemic = epistemic_store.get_epistemic(assertion_id=right.id)
+        if left_epistemic is not None and right_epistemic is not None:
+            if should_defer_conflict(left_epistemic, right_epistemic):
+                return PairDisposition.EPISTEMIC_DEFERRED
+
     return PairDisposition.CANDIDATE
 
 
@@ -84,6 +105,7 @@ def measure_coverage(
     *,
     temporal_context_store: AssertionTemporalContextStore | None,
     predicate_semantics: PredicateSemanticsRegistry | None = None,
+    epistemic_store: AssertionEpistemicStore | None = None,
 ) -> ConflictCoverage:
     registry = predicate_semantics or PredicateSemanticsRegistry()
     counts = {disposition: 0 for disposition in PairDisposition}
@@ -92,12 +114,15 @@ def measure_coverage(
     for index, left in enumerate(assertions):
         for right in assertions[index + 1 :]:
             total_pairs += 1
-            counts[classify_pair(
-                left,
-                right,
-                temporal_context_store=temporal_context_store,
-                predicate_semantics=registry,
-            )] += 1
+            counts[
+                classify_pair(
+                    left,
+                    right,
+                    temporal_context_store=temporal_context_store,
+                    predicate_semantics=registry,
+                    epistemic_store=epistemic_store,
+                )
+            ] += 1
 
     same_subject = total_pairs - counts[PairDisposition.SUBJECT_MISMATCH]
     same_predicate = same_subject - counts[PairDisposition.PREDICATE_MISMATCH]
@@ -117,5 +142,6 @@ def measure_coverage(
         temporal_missing_scope=counts[PairDisposition.TEMPORAL_MISSING_SCOPE],
         temporal_non_overlapping=counts[PairDisposition.TEMPORAL_NON_OVERLAPPING],
         temporal_overlapping=counts[PairDisposition.CANDIDATE],
+        epistemic_deferred=counts[PairDisposition.EPISTEMIC_DEFERRED],
         final_candidates=counts[PairDisposition.CANDIDATE],
     )
