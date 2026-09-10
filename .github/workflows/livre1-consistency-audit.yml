@@ -20,6 +20,7 @@ jobs:
     env:
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       LLM_MODEL: ${{ inputs.llm_model }}
+      M4GES_READ_TOKEN: ${{ secrets.M4GES_READ_TOKEN }}
 
     steps:
       - name: Checkout
