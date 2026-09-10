@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -113,6 +114,47 @@ def run_audit() -> AuditResult:
     return AuditResult(tuple(chapter_results), repository, temporal_store, tuple(conflicts))
 
 
+def _candidate_snapshot(result: AuditResult) -> dict[str, object]:
+    by_id = {assertion.id: assertion for assertion in result.repository.assertions}
+    source_by_id = {source.id: source for source in result.repository.sources}
+    candidates: list[dict[str, object]] = []
+    for conflict in result.conflicts:
+        left = by_id[conflict.left_assertion_id]
+        right = by_id[conflict.right_assertion_id]
+        left_scope = result.temporal_store.get_temporal_scope(assertion_id=left.id)
+        right_scope = result.temporal_store.get_temporal_scope(assertion_id=right.id)
+        candidates.append(
+            {
+                "candidate_id": conflict.id,
+                "left": {
+                    "assertion_id": left.id,
+                    "chapter": source_by_id[left.source_document_id].metadata.get("chapter_number", "?"),
+                    "story_point": left_scope.position if left_scope else None,
+                    "subject": left.subject,
+                    "predicate": left.predicate,
+                    "object": left.object,
+                    "statement": left.statement,
+                    "confidence": left.confidence,
+                },
+                "right": {
+                    "assertion_id": right.id,
+                    "chapter": source_by_id[right.source_document_id].metadata.get("chapter_number", "?"),
+                    "story_point": right_scope.position if right_scope else None,
+                    "subject": right.subject,
+                    "predicate": right.predicate,
+                    "object": right.object,
+                    "statement": right.statement,
+                    "confidence": right.confidence,
+                },
+            }
+        )
+    return {"schema_version": 1, "book_id": BOOK_ID, "candidates": candidates}
+
+
+def render_candidate_snapshot(result: AuditResult) -> str:
+    return json.dumps(_candidate_snapshot(result), ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+
+
 def render_report(result: AuditResult) -> str:
     by_id = {assertion.id: assertion for assertion in result.repository.assertions}
     source_by_id = {source.id: source for source in result.repository.sources}
@@ -149,6 +191,7 @@ def render_report(result: AuditResult) -> str:
         lines.extend([
             f"### {index}. `{left.subject} / {left.predicate}`",
             "",
+            f"- Candidate ID : `{conflict.id}`",
             f"- A — chapitre {left_chapter}, story point {left_scope.position if left_scope else '?'} : `{left.statement}` → `{left.object}`",
             f"- B — chapitre {right_chapter}, story point {right_scope.position if right_scope else '?'} : `{right.statement}` → `{right.object}`",
             f"- Confiance : {left.confidence:.2f} / {right.confidence:.2f}",
@@ -164,6 +207,9 @@ def main() -> None:
     except RuntimeError as exc:
         raise SystemExit(str(exc)) from exc
     print(render_report(result), end="")
+    snapshot_path = os.environ.get("CONSISTENCY_CANDIDATE_SNAPSHOT", "").strip()
+    if snapshot_path:
+        Path(snapshot_path).write_text(render_candidate_snapshot(result), encoding="utf-8")
 
 
 if __name__ == "__main__":
