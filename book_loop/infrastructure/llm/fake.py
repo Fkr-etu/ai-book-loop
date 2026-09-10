@@ -16,6 +16,12 @@ class FakeLLMProvider(LLMProvider):
 
     def generate(self, *, system_prompt: str, user_prompt: str) -> str:
         sys_lower = system_prompt.lower()
+        if "grill" in sys_lower or "œil critique" in sys_lower:
+            return json.dumps({
+                "reply": "Je vois un point qui mérite d'être mis à l'épreuve.",
+                "question": "Qu'est-ce qui rend ce choix indispensable à ton histoire ?",
+                "done": False,
+            })
         if "assertion" in sys_lower or "extract" in sys_lower:
             source = user_prompt.split("SOURCE CHUNK:\n", 1)[-1].strip()
             statement = re.split(r"(?<=[.!?])(?:\s+|$)", source, maxsplit=1)[0].strip()
