@@ -2,10 +2,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import BaseModel
 
 from book_loop.api.dependencies import get_container, get_current_user, get_owned_book
+from book_loop.domain.analysis_job import AnalysisJobStatus
 from book_loop.domain.canon_change import CanonChangeProposalStaleError, CanonChangeReviewDecisionType
 from book_loop.domain.models import ReviewDecisionType, UserPublic
 from book_loop.infrastructure.container import Container
@@ -30,6 +31,25 @@ class ReviewCanonChangePayload(BaseModel):
     rationale: str = ""
 
 
+def _serialize_job(job) -> dict[str, Any]:
+    return {
+        "job_id": job.id,
+        "book_id": job.book_id,
+        "analysis_type": job.analysis_type,
+        "status": job.status.value,
+        "progress": job.progress,
+        "current_step": job.current_step,
+        "attempt": job.attempt,
+        "created_at": job.created_at,
+        "started_at": job.started_at,
+        "completed_at": job.completed_at,
+        "failed_at": job.failed_at,
+        "error_code": job.error_code,
+        "error_message": job.error_message,
+        "result": job.result if job.status == AnalysisJobStatus.SUCCEEDED else None,
+    }
+
+
 @router.get("/assertions")
 def list_assertions(book_id: str, request: Request, container: Container = Depends(get_container)) -> dict[str, Any]:
     get_owned_book(book_id, request, container)
@@ -51,11 +71,42 @@ def list_consistency_issues(book_id: str, request: Request, container: Container
     return {"issues": [issue.model_dump(mode="json") for issue in issues]}
 
 
-@router.post("/consistency/analyze")
-def analyze_consistency(book_id: str, request: Request, container: Container = Depends(get_container)) -> dict[str, Any]:
+@router.post("/consistency/analyze", status_code=202)
+def analyze_consistency(
+    book_id: str,
+    request: Request,
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+    container: Container = Depends(get_container),
+) -> dict[str, Any]:
     get_owned_book(book_id, request, container)
-    issues = container.analyze_consistency().execute(book_id=book_id)
-    return {"issues": [issue.model_dump(mode="json") for issue in issues]}
+    current_user: UserPublic = get_current_user(request)
+    try:
+        job = container.start_consistency_analysis().execute(
+            book_id=book_id,
+            owner_id=current_user.id,
+            idempotency_key=idempotency_key,
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=f"Livre {book_id} introuvable.")
+    return _serialize_job(job)
+
+
+@router.get("/consistency/analyses/{job_id}")
+def get_consistency_analysis(
+    book_id: str,
+    job_id: str,
+    request: Request,
+    container: Container = Depends(get_container),
+) -> dict[str, Any]:
+    get_owned_book(book_id, request, container)
+    current_user: UserPublic = get_current_user(request)
+    try:
+        job = container.get_analysis_job().execute(job_id=job_id, owner_id=current_user.id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Analyse introuvable.")
+    if job.book_id != book_id:
+        raise HTTPException(status_code=404, detail="Analyse introuvable.")
+    return _serialize_job(job)
 
 
 @router.get("/canonical-facts")
