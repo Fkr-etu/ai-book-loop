@@ -11,12 +11,28 @@ from book_loop.domain.models import BookState, Outline
 class Repository:
     def __init__(self):
         self.books = {}
+        self.versions = {}
 
     def save(self, book):
         self.books[book.id] = book
 
     def get(self, book_id):
         return self.books[book_id]
+
+    def save_chapter_version(self, book_id, chapter_number, version, draft):
+        key = (book_id, chapter_number, version)
+        if key in self.versions:
+            raise ValueError("duplicate chapter version")
+        self.versions[key] = draft
+
+    def get_chapter_version(self, book_id, chapter_number, version):
+        key = (book_id, chapter_number, version)
+        if key not in self.versions:
+            raise KeyError(key)
+        return self.versions[key]
+
+
+author_id = "usr-test"
 
 
 class OutlineAgent:
@@ -30,7 +46,7 @@ class OutlineAgent:
 
 
 def make_book(repository):
-    return CreateBook(repository).execute(owner_id="usr-test", title="Book", theme="Fantasy", author_idea="Idea")
+    return CreateBook(repository).execute(owner_id=author_id, title="Book", theme="Fantasy", author_idea="Idea")
 
 
 def test_use_cases_compose_without_services():
@@ -44,6 +60,8 @@ def test_use_cases_compose_without_services():
     assert book.chapters[0].number == 1
     assert book.chapters[0].title == "The beginning"
     assert book.chapters[0].objective == "Start the conflict"
+    assert book.chapters[0].current_version == 1
+    assert repository.get_chapter_version(book.id, 1, 1) == ""
 
 
 def test_structured_outline_round_trips_through_repository():
