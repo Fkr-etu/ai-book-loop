@@ -12,10 +12,9 @@ class TemporalScopeKind(StrEnum):
 
 
 class TemporalRelation(StrEnum):
-    """Deterministic relation between two ordered narrative intervals."""
+    """Deterministic relation between two ordered narrative scopes."""
 
     BEFORE = "before"
-    MEETS = "meets"
     OVERLAPS = "overlaps"
     DURING = "during"
     CONTAINS = "contains"
@@ -66,8 +65,6 @@ class TemporalScope(BaseModel):
 
         if self.end < other.start:
             return TemporalRelation.BEFORE
-        if self.end == other.start and self.end != self.start:
-            return TemporalRelation.MEETS
         if other.end < self.start:
             return TemporalRelation.AFTER
         if self.start == other.start and self.end == other.end:
@@ -84,7 +81,6 @@ class TemporalScope(BaseModel):
         if relation is None:
             return True
         return relation in {
-            TemporalRelation.MEETS,
             TemporalRelation.OVERLAPS,
             TemporalRelation.DURING,
             TemporalRelation.CONTAINS,
