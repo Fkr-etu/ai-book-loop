@@ -4,7 +4,7 @@ from typing import Any
 from fastapi import APIRouter, Body, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 from book_loop.api.dependencies import get_container, get_owned_book
-from book_loop.domain.models import CreativeBrief, UserPublic
+from book_loop.domain.models import CreativeBrief, GrillPersonality, UserPublic
 from book_loop.infrastructure.container import Container
 
 router = APIRouter(prefix="/api/books", tags=["books"])
@@ -16,6 +16,7 @@ class CreateBookPayload(BaseModel):
     lore: str = ""
     constraints: list[str] = Field(default_factory=list)
     creative_brief: CreativeBrief | None = None
+    grill_personality: GrillPersonality = GrillPersonality.CHALLENGER
 
 class DeleteBookPayload(BaseModel):
     title: str = Field(min_length=1)
@@ -40,7 +41,7 @@ def read_book(book_id: str, request: Request, container: Container = Depends(get
 def create_book(payload: CreateBookPayload, request: Request, container: Container = Depends(get_container)) -> dict[str, Any]:
     current_user: UserPublic = request.state.user
     try:
-        book = container.create_book().execute(owner_id=current_user.id, title=payload.title, theme=payload.theme, author_idea=payload.author_idea, lore=payload.lore, constraints=payload.constraints, creative_brief=payload.creative_brief)
+        book = container.create_book().execute(owner_id=current_user.id, title=payload.title, theme=payload.theme, author_idea=payload.author_idea, lore=payload.lore, constraints=payload.constraints, creative_brief=payload.creative_brief, grill_personality=payload.grill_personality)
     except PermissionError as exc:
         raise HTTPException(status_code=429, detail=str(exc)) from exc
     return _serialize_book(book, container)
