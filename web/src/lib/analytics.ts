@@ -10,8 +10,15 @@ export type AnalyticsEvent =
   | "signup_started"
   | "signup_completed"
   | "book_created"
+  | "manuscript_import_started"
   | "document_ingested"
   | "canon_configured"
+  | "analysis_started"
+  | "analysis_completed"
+  | "analysis_result_viewed"
+  | "critical_eye_opened"
+  | "critical_eye_message_sent"
+  | "critical_eye_completed"
   | "chapter_generation_started"
   | "chapter_generation_completed"
   | "chapter_reviewed"
@@ -25,6 +32,7 @@ type EventProperties = {
   plan?: AnalyticsPlan;
   chapter_number?: number;
   generation_status?: "success" | "failure";
+  issue_count?: number;
 };
 
 const GA4_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA4_MEASUREMENT_ID;
