@@ -1,4 +1,4 @@
-from __future__
+from __future__ import annotations
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -35,7 +35,13 @@ def create_app(container: Container | None = None) -> FastAPI:
         unsafe_method = request.method not in {"GET", "HEAD", "OPTIONS"}
         has_session_cookie = bool(request.cookies.get(COOKIE_NAME))
         csrf_protection_enabled = container.settings.auth_cookie_secure
-        if unsafe_method and has_session_cookie and csrf_protection_enabled and not _origin_is_allowed(request, container) and not request.url.path == "/api/billing/webhook":
+        if (
+            unsafe_method
+            and has_session_cookie
+            and csrf_protection_enabled
+            and not _origin_is_allowed(request, container)
+            and not request.url.path == "/api/billing/webhook"
+        ):
             return JSONResponse(status_code=403, content={"detail": "Requête d'origine non autorisée."})
         return await call_next(request)
 
@@ -45,10 +51,12 @@ def create_app(container: Container | None = None) -> FastAPI:
             return await call_next(request)
         if request.method == "OPTIONS":
             return await call_next(request)
+
         try:
             current_user = get_current_user(request)
         except HTTPException as exc:
             return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+
         request.state.user = current_user
         parts = [part for part in request.url.path.split("/") if part]
         if len(parts) >= 3:
