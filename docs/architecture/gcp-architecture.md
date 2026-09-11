@@ -15,7 +15,7 @@ GitHub
         │     └── book-loop-web
         │
         ├── Cloud Run — API FastAPI
-        │
+        ├── Cloud Run — Analysis Worker
         ├── Cloud Run — Frontend Next.js
         │
         └── Cloud Run Job — migrations Alembic
@@ -31,16 +31,7 @@ Cette décision remplace la cible historique **Vercel + Cloud Run + Supabase**. 
 
 ## 2. Pourquoi GCP uniquement ?
 
-Le choix est principalement pragmatique :
-
-- réduire le nombre de plateformes à administrer ;
-- conserver backend, frontend, base de données, secrets, images et déploiement dans un même environnement ;
-- éviter les problèmes opérationnels liés aux domaines et cookies cross-origin entre Vercel et Cloud Run ;
-- simplifier le diagnostic, les logs et la gestion des permissions ;
-- disposer d'une trajectoire de montée en charge sans devoir réarchitecturer l'application ;
-- garder une configuration reproductible via Cloud Build et Alembic.
-
-Le choix n'est **pas** motivé par un besoin de services GCP avancés. L'objectif initial est au contraire de rester minimal.
+Le choix est principalement pragmatique : réduire le nombre de plateformes à administrer, conserver backend, frontend, base de données, secrets, images et déploiement dans un même environnement, simplifier l'authentification et le diagnostic, et disposer d'une trajectoire de montée en charge sans réarchitecturer l'application.
 
 ## 3. Composants retenus
 
@@ -50,182 +41,106 @@ FastAPI est déployé comme un service Cloud Run stateless.
 
 Principes :
 
-- scale-to-zero (`min instances = 0`) pour éviter un coût fixe lorsque le produit n'est pas utilisé ;
-- nombre maximal d'instances limité au démarrage ;
+- scale-to-zero (`min instances = 0`) pour limiter le coût fixe ;
 - aucune donnée durable dans le filesystem du conteneur ;
 - endpoint `/health` indépendant de Gemini et d'une session utilisateur ;
 - secrets injectés depuis Secret Manager ;
-- PostgreSQL comme seule persistance applicative.
+- PostgreSQL comme persistance applicative.
 
-Cloud Run est adapté au workflow durable car l'état métier et les checkpoints sont stockés dans PostgreSQL, et non dans la mémoire du conteneur.
+### 3.2 Cloud Run — Analysis Worker
 
-### 3.2 Cloud Run — Frontend
+Les analyses longues ne s'exécutent pas dans le cycle de vie d'une requête HTTP. L'API crée une entrée durable dans PostgreSQL et retourne `202 Accepted`. Un service Cloud Run séparé exécute `python -m book_loop.worker` et consomme la queue `analysis_jobs`.
 
-Le frontend Next.js est également conteneurisé et déployé sur Cloud Run.
+Le worker est configuré avec une concurrence de `1` afin qu'une instance traite un job à la fois. Les jobs sont revendiqués transactionnellement avec `FOR UPDATE SKIP LOCKED`, protégés par un lease renouvelé par heartbeat, puis récupérables après expiration du lease.
 
-Ce choix évite de maintenir une plateforme frontend distincte et permet de faire évoluer ultérieurement la stratégie de rendu sans changer de fournisseur.
+Le worker n'est pas une seconde source de vérité : il orchestre l'exécution de jobs durables en utilisant les mêmes use cases et adaptateurs que l'API.
 
-Le frontend reçoit l'URL publique de l'API via `NEXT_PUBLIC_API_URL` au build/déploiement selon la configuration retenue.
+Voir [`async-analysis-jobs.md`](./async-analysis-jobs.md) et l'ADR 0009 pour les invariants de la queue.
 
-### 3.3 Cloud SQL — PostgreSQL
+### 3.3 Cloud Run — Frontend
 
-Cloud SQL PostgreSQL est la base de production.
+Le frontend Next.js est conteneurisé et déployé sur Cloud Run.
 
-Configuration initiale volontairement frugale :
+En production, le navigateur appelle des chemins relatifs `/api/*` sur l'origine frontend. Next.js relaie ces requêtes vers `API_INTERNAL_URL`, ce qui évite de faire dépendre la session web d'un appel cross-origin direct à l'API.
 
-- instance partagée de petite taille (`db-f1-micro`) ;
-- une seule zone ;
-- pas de haute disponibilité au démarrage ;
-- stockage SSD minimal ;
-- sauvegardes/configuration adaptées au stade MVP.
+### 3.4 Cloud SQL — PostgreSQL
 
-Le coût fixe de PostgreSQL est accepté car la base doit rester persistante alors que Cloud Run peut être arrêté lorsqu'il n'y a aucune requête.
+Cloud SQL PostgreSQL est la base de production et le stockage durable des workflows, des jobs d'analyse et des données métier.
 
-Cette configuration est un **point de départ**, pas une cible de charge. Si l'usage augmente, la capacité, les sauvegardes et la disponibilité pourront être renforcées sans modifier le modèle applicatif.
+Configuration initiale volontairement frugale : petite instance partagée, une seule zone, pas de haute disponibilité au démarrage et stockage SSD minimal. Cette configuration est un point de départ, pas une cible de charge.
 
-### 3.4 Artifact Registry
+### 3.5 Artifact Registry
 
-Deux images sont conservées dans Artifact Registry :
+Deux images sont conservées dans Artifact Registry : `book-loop-api` et `book-loop-web`. Le worker utilise l'image API avec une commande d'entrée différente ; il n'a donc pas besoin d'une troisième image applicative.
 
-- `book-loop-api` ;
-- `book-loop-web`.
+### 3.6 Secret Manager
 
-Le registre est placé dans la même région que les workloads afin de limiter les transferts inutiles.
+Les secrets applicatifs ne sont pas stockés dans Git. Les valeurs sensibles typiques sont `DATABASE_URL`, `GEMINI_API_KEY` et `AUTH_SECRET_KEY`.
 
-### 3.5 Secret Manager
+### 3.7 Alembic / migrations
 
-Les secrets applicatifs ne sont pas stockés dans Git ni dans les manifests en clair.
-
-Les valeurs sensibles typiques sont :
-
-- `DATABASE_URL` ;
-- `GEMINI_API_KEY` ;
-- `AUTH_SECRET_KEY`.
-
-Cloud Run et le job de migration reçoivent ces secrets via les mécanismes natifs GCP.
-
-### 3.6 Alembic / migrations
-
-Les changements de schéma PostgreSQL sont gérés par Alembic.
-
-Les migrations sont exécutées comme une étape explicite du déploiement, idéalement via un **Cloud Run Job**, avant de rendre la nouvelle version applicative active.
-
-Elles ne doivent pas être exécutées automatiquement à chaque démarrage d'un conteneur Cloud Run : plusieurs instances pourraient sinon tenter de migrer simultanément et le démarrage deviendrait dépendant de l'état de la base.
+Les changements de schéma PostgreSQL sont gérés par Alembic. Les migrations sont exécutées comme une étape explicite du déploiement via un Cloud Run Job avant le déploiement des services applicatifs.
 
 ## 4. Stratégie de déploiement
 
-La production est déclenchée par une release explicite.
+La production est déclenchée par une release explicite. Cloud Build construit et pousse l'image API, exécute les migrations, déploie l'API et le worker, construit et déploie le frontend, puis vérifie les IAM publics et le CORS attendu.
 
 ```text
-feature branch ──► CI
-       │
-       └──► Pull Request ──► CI
-                              │
-main ─────────────────────────┤
-                              ▼
-                         release tag/event
-                              │
-                              ▼
-                         Cloud Build
-                              │
-                 ┌────────────┴────────────┐
-                 ▼                         ▼
-          build API/web              migrations
-                 │                         │
-                 ▼                         ▼
-        Artifact Registry             Cloud SQL
-                 │
-                 ▼
-            Cloud Run
+release
+  │
+  ▼
+Cloud Build
+  ├── build/push API image
+  ├── migrate PostgreSQL
+  ├── deploy API
+  ├── deploy analysis worker
+  ├── resolve API URL
+  ├── build/deploy web with API_INTERNAL_URL
+  └── verify IAM / CORS
 ```
 
-Le CI GitHub reste une barrière de sécurité et de validation. Il ne devient pas le système de déploiement de production.
+Le CI GitHub reste une barrière de validation. Il ne remplace pas le pipeline Cloud Build de production.
 
 ## 5. Région
 
-La région de référence est **`europe-west9` (Paris)**.
-
-Tous les composants principaux sont regroupés dans cette région autant que possible :
-
-- Cloud Run API ;
-- Cloud Run frontend ;
-- Cloud SQL ;
-- Artifact Registry ;
-- jobs de migration.
-
-Cette co-localisation réduit la complexité réseau et les coûts de transfert.
+La région de référence est **`europe-west9` (Paris)**. Les principaux workloads sont co-localisés dans cette région autant que possible.
 
 ## 6. Réseau et exposition
 
-Le MVP n'introduit volontairement pas :
+Le MVP n'introduit volontairement pas GKE, Load Balancer dédié, VPC complexe, Cloud NAT, Redis/Memorystore ou architecture multi-région. L'API et le frontend sont publics ; le worker n'est pas publiquement invokable.
 
-- Google Kubernetes Engine ;
-- Load Balancer dédié ;
-- VPC complexe ;
-- Cloud NAT ;
-- Redis / Memorystore ;
-- architecture multi-région.
-
-Cloud Run fournit les endpoints HTTPS publics nécessaires. La sécurité applicative reste portée par FastAPI, l'authentification, les secrets et les règles CORS.
-
-Une architecture réseau plus complexe pourra être ajoutée lorsque les contraintes réelles du produit la justifieront.
+La sécurité applicative reste portée par FastAPI, l'authentification, les comptes de service, Secret Manager et les règles CORS.
 
 ## 7. Observabilité
 
-Les logs applicatifs et événements d'observabilité utilisent les services GCP adaptés, notamment Cloud Logging et Cloud Monitoring.
-
-L'application conserve également son modèle d'observabilité métier afin de pouvoir suivre les exécutions de workflow, les erreurs et les opérations importantes indépendamment du fournisseur.
+Les logs et métriques d'infrastructure utilisent Cloud Logging et Cloud Monitoring. L'application conserve également son observabilité métier afin de suivre les exécutions de workflow, les jobs, les erreurs et les opérations importantes indépendamment du fournisseur.
 
 ## 8. Sécurité
 
-Principes :
-
-1. aucun secret dans le repository ;
-2. comptes de service dédiés avec privilèges minimaux ;
-3. accès Cloud SQL limité aux workloads nécessaires ;
-4. HTTPS partout ;
-5. conteneurs non-root ;
-6. migrations contrôlées et versionnées ;
-7. CI obligatoire avant release.
+Principes : aucun secret dans le repository ; comptes de service dédiés avec privilèges minimaux ; accès Cloud SQL limité aux workloads nécessaires ; HTTPS partout ; conteneurs non-root ; migrations contrôlées et versionnées ; CI obligatoire avant release ; worker non exposé publiquement.
 
 ## 9. Coût et philosophie d'exploitation
 
-Le projet étant encore au stade MVP, l'infrastructure doit rester proportionnée à son usage réel.
+Le compromis MVP est : Cloud Run scale-to-zero pour l'API et le frontend, worker avec une capacité minimale pour traiter les analyses, petite instance Cloud SQL, une seule région et absence de composants toujours actifs supplémentaires. La montée en gamme est déclenchée par l'usage réel.
 
-Le compromis retenu est donc :
-
-- **Cloud Run** : scale-to-zero ;
-- **Cloud SQL** : petite instance persistante ;
-- pas de HA initiale ;
-- pas de composants toujours actifs supplémentaires ;
-- montée en gamme uniquement lorsque l'usage le justifie.
-
-Le coût de Gemini est traité séparément car il dépend directement de la consommation du workflow d'écriture et ne constitue pas un coût d'infrastructure fixe.
+Le coût Gemini est traité séparément car il dépend directement de la consommation des workflows et analyses.
 
 ## 10. Alternatives écartées
 
 ### Vercel + Cloud Run + Supabase
 
-Architecture techniquement valide, mais trois plateformes augmentent le nombre de points de configuration et de diagnostic. Elle imposait également une gestion cross-domain plus délicate pour l'authentification.
+Architecture techniquement valide, mais trois plateformes augmentent le nombre de points de configuration et de diagnostic et compliquent l'authentification cross-domain.
 
 ### VPS + Docker Compose
 
-Moins cher à très petite échelle et simple conceptuellement, mais apporte davantage de responsabilités opérationnelles : mises à jour système, disponibilité, sauvegardes, supervision et montée en charge.
+Moins cher à très petite échelle, mais davantage de responsabilités opérationnelles et une moins bonne trajectoire de montée en charge.
 
 ### Kubernetes / GKE
 
-Surdimensionné pour le stade actuel. Il serait justifié par une complexité opérationnelle ou une charge que le produit n'a pas encore.
+Surdimensionné pour le stade actuel. La queue PostgreSQL + worker Cloud Run couvre les besoins actuels sans introduire d'orchestrateur supplémentaire.
 
 ## 11. Évolution prévue
 
-Cette décision ne modifie pas la roadmap fonctionnelle.
-
-La prochaine évolution d'infrastructure sera déclenchée par les besoins réels :
-
-1. augmenter les ressources Cloud SQL ;
-2. renforcer sauvegardes et disponibilité ;
-3. augmenter les limites Cloud Run ;
-4. ajouter des composants réseau uniquement si nécessaire ;
-5. envisager une architecture plus distribuée uniquement lorsque les contraintes de charge ou de fiabilité l'imposent.
+L'évolution d'infrastructure doit rester pilotée par les contraintes réelles : augmenter les ressources Cloud SQL, renforcer sauvegardes et disponibilité, ajuster les limites Cloud Run/worker, puis ajouter des composants réseau ou de queue spécialisés uniquement si PostgreSQL ne suffit plus.
 
 **Principe directeur : ne pas payer ni opérer une complexité dont le produit n'a pas encore besoin.**
