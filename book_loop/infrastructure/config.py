@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     app_environment: str = "local"
     llm_provider: str = "gemini"
     llm_model: str = "gemini-3.6-flash"
+    grill_llm_model: str = "gemini-3.6-flash"
     embedding_provider: str = "gemini"
     embedding_model: str = "gemini-embedding-001"
     gemini_api_key: str = ""
