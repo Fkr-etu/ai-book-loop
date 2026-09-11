@@ -1,6 +1,6 @@
-import type { BackendAnalysisJob, BackendAssertion, BackendBillingState, BackendBook, BackendCanonChangeImpact, BackendCanonChangeProposal, BackendCanonChangeReview, BackendCanonicalFact, BackendCharacter, BackendCharacterRelation, BackendConflict, BackendIngestionResult, BackendSceneReview, BackendUser, BackendWorkflowRun } from "@/types/api";
+import type { BackendAnalysisJob, BackendAssertion, BackendBillingState, BackendBook, BackendCanonChangeImpact, BackendCanonChangeProposal, BackendCanonChangeReview, BackendCanonicalFact, BackendCharacter, BackendCharacterRelation, BackendConflict, BackendGrillMessage, BackendGrillResponse, BackendIngestionResult, BackendSceneReview, BackendUser, BackendWorkflowRun } from "@/types/api";
 import { API_BASE_URL } from "@/services/config";
-export interface CreateBookInput { title: string; theme: string; author_idea: string; lore?: string; constraints?: string[]; creative_brief?: { premise: string; audience?: string; tone?: string; themes?: string[]; must_include?: string[]; must_avoid?: string[]; }; }
+export interface CreateBookInput { title: string; theme: string; author_idea: string; lore?: string; constraints?: string[]; creative_brief?: { premise: string; audience?: string; tone?: string; themes?: string[]; must_include?: string[]; must_avoid?: string[]; }; grill_personality?: "challenger" | "editor" | "devils_advocate" | "demanding_kind"; }
 export interface GenerateChapterResult { run: BackendWorkflowRun; }
 export interface ReviewChapterResult { book: BackendBook; review: BackendSceneReview; }
 export interface BackendChapterContext { authorIdea: string; theme: string; lore: string; globalOutline: import("@/types/api").BackendOutline | null; constraints: string[]; previousSummaries: string; currentObjective: string; formattedContext: string; }
@@ -24,6 +24,7 @@ export class RealApiClient {
   createBook(input: CreateBookInput): Promise<BackendBook> { return this.request("/api/books", { method: "POST", body: JSON.stringify(input) }); }
   updateBook(id: string, updates: Record<string, unknown>): Promise<BackendBook> { return this.request(`/api/books/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify(updates) }); }
   async deleteBook(id: string, title: string): Promise<void> { await this.request(`/api/books/${encodeURIComponent(id)}`, { method: "DELETE", body: JSON.stringify({ title }) }); }
+  grill(id: string, messages: BackendGrillMessage[], turn: number): Promise<BackendGrillResponse> { return this.request(`/api/books/${encodeURIComponent(id)}/grill`, { method: "POST", body: JSON.stringify({ messages, turn }) }); }
   generateOutline(id: string): Promise<BackendBook> { return this.request(`/api/books/${encodeURIComponent(id)}/outline/generate`, { method: "POST" }); }
   approveOutline(id: string): Promise<BackendBook> { return this.request(`/api/books/${encodeURIComponent(id)}/outline/approve`, { method: "POST" }); }
   addChapter(id: string, n: number): Promise<BackendBook> { return this.request(`/api/books/${encodeURIComponent(id)}/chapters`, { method: "POST", body: JSON.stringify({ chapter_number: n }) }); }
