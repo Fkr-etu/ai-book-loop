@@ -1,4 +1,4 @@
-from __future__
+from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
@@ -71,32 +71,15 @@ Retourne uniquement le JSON correspondant au schéma demandé.
         if turn < 1:
             raise ValueError("Grill turn must be at least 1")
         if turn > MAX_TURNS:
-            return GrillResponse(
-                reply="Nous avons assez creusé pour cette session. Reviens à ton histoire avec ces questions en tête.",
-                question=None,
-                done=True,
-            )
+            return GrillResponse(reply="Nous avons assez creusé pour cette session. Reviens à ton histoire avec ces questions en tête.", question=None, done=True)
         user_prompt = self._build_user_prompt(book=book, messages=messages)
         personality = PERSONALITY_PROMPTS[book.grill_personality]
-        return self.llm.generate_structured(
-            system_prompt=f"{self.SYSTEM_PROMPT}\n\nStyle de confrontation : {personality}",
-            user_prompt=user_prompt,
-            schema=GrillResponse,
-            thinking_level="low",
-            max_output_tokens=500,
-        )
+        return self.llm.generate_structured(system_prompt=f"{self.SYSTEM_PROMPT}\n\nStyle de confrontation : {personality}", user_prompt=user_prompt, schema=GrillResponse, thinking_level="low", max_output_tokens=500)
 
     @staticmethod
     def _build_user_prompt(*, book: BookState, messages: list[GrillMessage]) -> str:
         brief = book.creative_brief.model_dump(mode="json") if book.creative_brief else {}
-        context = (
-            f"TITRE: {book.title}\n"
-            f"GENRE / THEME: {book.theme}\n"
-            f"IDEE DE L'AUTEUR: {book.author_idea}\n"
-            f"BRIEF: {brief}\n"
-            f"UNIVERS / ELEMENTS: {book.lore}\n"
-            f"CONTRAINTES: {book.constraints}"
-        )[:MAX_CONTEXT_CHARS]
+        context = (f"TITRE: {book.title}\n" f"GENRE / THEME: {book.theme}\n" f"IDEE DE L'AUTEUR: {book.author_idea}\n" f"BRIEF: {brief}\n" f"UNIVERS / ELEMENTS: {book.lore}\n" f"CONTRAINTES: {book.constraints}")[:MAX_CONTEXT_CHARS]
         history = messages[-MAX_HISTORY_MESSAGES:]
         rendered = "\n".join(f"{message.role.upper()}: {message.content[:MAX_MESSAGE_CHARS]}" for message in history)
         return f"CONTEXTE DU LIVRE:\n{context}\n\nCONVERSATION RECENTE:\n{rendered}"
