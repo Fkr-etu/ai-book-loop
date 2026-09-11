@@ -7,7 +7,10 @@ export interface BackendOutline { chapters: BackendOutlineChapter[]; }
 export interface BackendChapterVersion { id: string; versionNumber: number; content: string; createdAt: string; source: "author" | "ai" | "edited" | "retry"; status: BackendChapterStatus; }
 export interface BackendChapter { id: string; number: number; title: string; objective: string; status: BackendChapterStatus; current_version: number; reviewed_version: number | null; summary: string | null; versions: BackendChapterVersion[]; }
 export interface BackendCreativeBrief { premise: string; audience: string; tone: string; themes: string[]; must_include: string[]; must_avoid: string[]; }
-export interface BackendBook { id: string; owner_id: string; title: string; theme: string; author_idea: string; creative_brief: BackendCreativeBrief | null; lore: string; constraints: string[]; outline: BackendOutline | null; outline_approved: boolean; chapters: BackendChapter[]; }
+export type BackendGrillPersonality = "challenger" | "editor" | "devils_advocate" | "demanding_kind";
+export interface BackendGrillMessage { role: string; content: string; }
+export interface BackendGrillResponse { reply: string; question: string | null; done: boolean; }
+export interface BackendBook { id: string; owner_id: string; title: string; theme: string; author_idea: string; creative_brief: BackendCreativeBrief | null; lore: string; constraints: string[]; grill_personality: BackendGrillPersonality; outline: BackendOutline | null; outline_approved: boolean; chapters: BackendChapter[]; }
 export type BackendSubscriptionPlan = "free" | "creator" | "pro";
 export interface BackendUser { id: string; email: string; name: string; plan: BackendSubscriptionPlan; }
 export interface BackendBillingState { plan: BackendSubscriptionPlan; subscription_status: string; subscription_current_period_end: string | null; subscription_cancel_at_period_end: boolean; }

@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from book_loop.api.dependencies import get_current_user
-from book_loop.api.routes import auth, billing, books, canon, chapters, characters, documents, outline
+from book_loop.api.routes import auth, billing, books, canon, chapters, characters, documents, grill, outline
 from book_loop.infrastructure.auth import COOKIE_NAME
 from book_loop.infrastructure.container import Container
 
@@ -85,6 +85,7 @@ def create_app(container: Container | None = None) -> FastAPI:
     app.include_router(canon.router)
     app.include_router(characters.router)
     app.include_router(documents.router)
+    app.include_router(grill.router)
 
     return app
 
