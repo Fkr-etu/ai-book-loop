@@ -1,41 +1,4 @@
 import type { BackendBook, BackendChapter } from "@/types/api";
 import type { BookState, Chapter } from "@/types";
-
-function adaptChapter(chapter: BackendChapter): Chapter {
-  return {
-    id: chapter.id,
-    number: chapter.number,
-    title: chapter.title,
-    objective: chapter.objective,
-    status: chapter.status,
-    currentVersion: chapter.current_version,
-    reviewedVersion: chapter.reviewed_version ?? undefined,
-    summary: chapter.summary ?? undefined,
-    versions: chapter.versions.map((version) => ({
-      id: version.id,
-      versionNumber: version.versionNumber,
-      content: version.content,
-      createdAt: version.createdAt,
-      source: version.source,
-      status: version.status,
-    })),
-  };
-}
-
-export function adaptBackendBook(book: BackendBook): BookState {
-  return {
-    id: book.id,
-    title: book.title,
-    theme: book.theme,
-    authorIdea: book.author_idea,
-    lore: book.lore,
-    constraints: book.constraints,
-    outline: book.outline
-      ? book.outline.chapters
-          .map((chapter) => `## Chapitre ${chapter.number}: ${chapter.title}\nObjectif: ${chapter.objective}\n${chapter.synopsis}`)
-          .join("\n\n")
-      : undefined,
-    outlineApproved: book.outline_approved,
-    chapters: book.chapters.map(adaptChapter),
-  };
-}
+function adaptChapter(chapter: BackendChapter): Chapter { return { id: chapter.id, number: chapter.number, title: chapter.title, objective: chapter.objective, status: chapter.status, currentVersion: chapter.current_version, reviewedVersion: chapter.reviewed_version ?? undefined, summary: chapter.summary ?? undefined, versions: chapter.versions.map((version) => ({ id: version.id, versionNumber: version.versionNumber, content: version.content, createdAt: version.createdAt, source: version.source, status: version.status })) }; }
+export function adaptBackendBook(book: BackendBook): BookState { return { id: book.id, title: book.title, theme: book.theme, authorIdea: book.author_idea, lore: book.lore, constraints: book.constraints, grillPersonality: book.grill_personality, outline: book.outline ? book.outline.chapters.map((chapter) => `## Chapitre ${chapter.number}: ${chapter.title}\nObjectif: ${chapter.objective}\n${chapter.synopsis}`).join("\n\n") : undefined, outlineApproved: book.outline_approved, chapters: book.chapters.map(adaptChapter) }; }
