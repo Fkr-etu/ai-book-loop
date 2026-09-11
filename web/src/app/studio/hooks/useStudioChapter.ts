@@ -1,8 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useProjectStore } from "@/lib/useProjectStore";
+import { realApiClient } from "@/services/realApiClient";
 import { CanonicalContextResponse, ChapterVersion } from "@/types";
+import type { BackendGrillMessage, BackendGrillResponse } from "@/types/api";
+
+export const GRILL_IDLE_DELAY_MS = 8000;
 
 export function useStudioChapter() {
   const store = useProjectStore();
@@ -16,6 +20,15 @@ export function useStudioChapter() {
   const [contextError, setContextError] = useState<string | null>(null);
   const [editorContent, setEditorContent] = useState("");
   const [isWorking, setIsWorking] = useState(false);
+  const [editorEngaged, setEditorEngaged] = useState(false);
+  const [grillMessages, setGrillMessages] = useState<BackendGrillMessage[]>([]);
+  const [grillResponse, setGrillResponse] = useState<BackendGrillResponse | null>(null);
+  const [grillOpen, setGrillOpen] = useState(false);
+  const [grillLoading, setGrillLoading] = useState(false);
+  const [grillError, setGrillError] = useState<string | null>(null);
+  const [grillDismissed, setGrillDismissed] = useState(false);
+  const [grillNudge, setGrillNudge] = useState(false);
+  const grillTurn = useRef(0);
 
   const activeChapter = useMemo(() => {
     if (!chapters.length) return undefined;
@@ -64,6 +77,62 @@ export function useStudioChapter() {
     return () => { cancelled = true; };
   }, [activeChapter?.number, store]);
 
+  useEffect(() => {
+    setGrillMessages([]);
+    setGrillResponse(null);
+    setGrillOpen(false);
+    setGrillError(null);
+    setGrillNudge(false);
+    setGrillDismissed(false);
+    setEditorEngaged(false);
+    grillTurn.current = 0;
+  }, [project.id, activeChapter?.id]);
+
+  useEffect(() => {
+    if (!activeChapter || !editorEngaged || grillOpen || grillDismissed || grillNudge || grillResponse || isWorking) return;
+    const timer = window.setTimeout(() => setGrillNudge(true), GRILL_IDLE_DELAY_MS);
+    return () => window.clearTimeout(timer);
+  }, [editorContent, editorEngaged, activeChapter?.id, grillOpen, grillDismissed, grillNudge, grillResponse, isWorking]);
+
+  const handleEditorFocus = () => setEditorEngaged(true);
+  const handleEditorChange = (content: string) => {
+    setEditorContent(content);
+    setGrillNudge(false);
+  };
+
+  const askGrill = async (messages: BackendGrillMessage[]) => {
+    if (!project.id || grillLoading) return;
+    const nextTurn = grillTurn.current + 1;
+    setGrillLoading(true);
+    setGrillError(null);
+    setGrillOpen(true);
+    setGrillNudge(false);
+    try {
+      const response = await realApiClient.grill(project.id, messages, nextTurn);
+      grillTurn.current = nextTurn;
+      setGrillResponse(response);
+      setGrillMessages([...messages, { role: "assistant", content: [response.reply, response.question].filter(Boolean).join("\n") }]);
+    } catch (error) {
+      console.error("Critical Eye request failed", error);
+      setGrillError("Impossible de faire intervenir votre Œil critique pour le moment.");
+    } finally {
+      setGrillLoading(false);
+    }
+  };
+
+  const startGrill = () => askGrill([]);
+  const answerGrill = async (answer: string) => {
+    const content = answer.trim();
+    if (!content || grillLoading || grillResponse?.done) return;
+    const messages: BackendGrillMessage[] = [...grillMessages, { role: "user", content }];
+    setGrillResponse(null);
+    await askGrill(messages);
+  };
+  const dismissGrill = () => {
+    setGrillDismissed(true);
+    setGrillNudge(false);
+  };
+
   const handleGenerateVersion = async () => {
     if (!activeChapter) return;
     setIsWorking(true);
@@ -100,7 +169,8 @@ export function useStudioChapter() {
     canonicalContext,
     contextError,
     editorContent,
-    setEditorContent,
+    setEditorContent: handleEditorChange,
+    handleEditorFocus,
     isWorking,
     activeChapter,
     versions,
@@ -112,6 +182,16 @@ export function useStudioChapter() {
     canDecide: activeChapter?.status === "needs_review",
     wordCount: editorContent.trim() ? editorContent.trim().split(/\s+/).length : 0,
     latestReview: reviews[0],
+    grillMessages,
+    grillResponse,
+    grillOpen,
+    grillLoading,
+    grillError,
+    grillNudge,
+    startGrill,
+    answerGrill,
+    dismissGrill,
+    closeGrill: () => setGrillOpen(false),
   };
 }
 
