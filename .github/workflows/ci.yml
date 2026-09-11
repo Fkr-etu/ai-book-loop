@@ -45,7 +45,7 @@ jobs:
       - name: Apply database migrations
         run: alembic upgrade head
       - name: Run backend tests
-        run: pytest --ignore=tests/test_postgres_repository.py
+        run: pytest
 
   dependency-audit:
     name: Dependency security audit
