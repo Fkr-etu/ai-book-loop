@@ -70,6 +70,7 @@ export default function ImportManuscriptPage() {
     if (!file || !content.trim() || !title.trim()) return;
     setImporting(true);
     setError(null);
+    track("manuscript_import_started");
     try {
       const book = await realApiClient.createBook({
         title: title.trim(),
