@@ -1,4 +1,4 @@
-import type { Assertion, BookState, CanonicalContextResponse, Character, IngestionResult, LoreItem, SceneReview, UserProfile } from "@/types";
+import type { Assertion, BookState, CanonicalContextResponse, Character, GrillMessage, GrillResponse, LoreItem, SceneReview, UserProfile } from "@/types";
 import type { BackendWorkflowRun } from "@/types/api";
 import type { BookApi } from "@/services/api";
 import { initialProjectData } from "@/lib/mockData";
@@ -6,37 +6,14 @@ import { initialProjectData } from "@/lib/mockData";
 const STORAGE_KEY = "manuscript_studio_project";
 const ASSERTIONS_STORAGE_KEY = "manuscript_studio_assertions";
 
-function loadStorageProject(): BookState {
-  if (typeof window === "undefined") return initialProjectData;
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) as BookState : initialProjectData;
-  } catch {
-    return initialProjectData;
-  }
-}
-function saveStorageProject(state: BookState): void {
-  if (typeof window === "undefined") return;
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch {}
-}
-function loadAssertions(): Assertion[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = localStorage.getItem(ASSERTIONS_STORAGE_KEY);
-    return raw ? JSON.parse(raw) as Assertion[] : [];
-  } catch { return []; }
-}
-function saveAssertions(assertions: Assertion[]): void {
-  if (typeof window === "undefined") return;
-  try { localStorage.setItem(ASSERTIONS_STORAGE_KEY, JSON.stringify(assertions)); } catch {}
-}
+function loadStorageProject(): BookState { if (typeof window === "undefined") return initialProjectData; try { const raw = localStorage.getItem(STORAGE_KEY); return raw ? JSON.parse(raw) as BookState : initialProjectData; } catch { return initialProjectData; } }
+function saveStorageProject(state: BookState): void { if (typeof window === "undefined") return; try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch {} }
+function loadAssertions(): Assertion[] { if (typeof window === "undefined") return []; try { const raw = localStorage.getItem(ASSERTIONS_STORAGE_KEY); return raw ? JSON.parse(raw) as Assertion[] : []; } catch { return []; } }
+function saveAssertions(assertions: Assertion[]): void { if (typeof window === "undefined") return; try { localStorage.setItem(ASSERTIONS_STORAGE_KEY, JSON.stringify(assertions)); } catch {} }
 
 export class MockBookApi implements BookApi {
   async getBook(): Promise<BookState> { return loadStorageProject(); }
-  async createBook(book: Partial<BookState>): Promise<BookState> {
-    const state = { ...initialProjectData, id: `proj-${Date.now()}`, title: book.title || "Nouveau Livre", theme: book.theme || "", authorIdea: book.authorIdea || "", lore: book.lore || "", constraints: book.constraints || [], outlineApproved: false, chapters: [] };
-    saveStorageProject(state); return state;
-  }
+  async createBook(book: Partial<BookState>): Promise<BookState> { const state = { ...initialProjectData, id: `proj-${Date.now()}`, title: book.title || "Nouveau Livre", theme: book.theme || "", authorIdea: book.authorIdea || "", lore: book.lore || "", constraints: book.constraints || [], grillPersonality: book.grillPersonality || "challenger", outlineApproved: false, chapters: [] }; saveStorageProject(state); return state; }
   async updateBook(id: string, updates: Partial<BookState>): Promise<BookState> { const state = { ...loadStorageProject(), ...updates, id }; saveStorageProject(state); return state; }
   async generateOutline(): Promise<BookState> { const state = loadStorageProject(); state.outline = state.outline || "# Structure proposée\n\n## Chapitre 1\nObjectif à définir."; state.outlineApproved = false; saveStorageProject(state); return state; }
   async approveOutline(): Promise<BookState> { const state = loadStorageProject(); state.outlineApproved = true; saveStorageProject(state); return state; }
@@ -49,6 +26,7 @@ export class MockBookApi implements BookApi {
   async rejectChapter(_id: string, n: number): Promise<BookState> { return this.setChapterStatus(n, "rejected"); }
   private async setChapterStatus(n: number, status: BookState["chapters"][number]["status"]): Promise<BookState> { const state = loadStorageProject(); const c = state.chapters.find((item) => item.number === n); if (c) c.status = status; saveStorageProject(state); return state; }
   async getCanonicalContext(_id: string, n: number): Promise<CanonicalContextResponse> { const state = loadStorageProject(); const c = state.chapters.find((item) => item.number === n); const previousSummaries = state.chapters.filter((item) => item.number < n && item.summary).map((item) => `${item.title}: ${item.summary}`).join("\n"); return { authorIdea: state.authorIdea, theme: state.theme, lore: state.lore, globalOutline: state.outline || "", constraints: state.constraints, previousSummaries, currentObjective: c?.objective || "", formattedContext: [state.authorIdea, state.theme, state.lore, state.outline || "", ...state.constraints, previousSummaries, c?.objective || ""].join("\n\n") }; }
+  async grill(_id: string, messages: GrillMessage[], turn: number): Promise<GrillResponse> { if (turn > 8) return { reply: "Nous avons assez creusé pour cette session.", question: null, done: true }; const last = messages[messages.length - 1]; if (!last) return { reply: "Commençons par mettre votre idée à l’épreuve.", question: "Qu’est-ce qui pourrait empêcher votre personnage principal d’atteindre son objectif ?", done: false }; return { reply: "Votre réponse ouvre une piste, mais je vois encore un point à éprouver.", question: "Quelle conséquence concrète découlerait de ce choix ?", done: false }; }
   async createCharacter(_id: string, char: Omit<Character, "id">): Promise<BookState> { const state = loadStorageProject(); state.characters = [...(state.characters || []), { ...char, id: `char-${Date.now()}` }]; saveStorageProject(state); return state; }
   async updateCharacter(_id: string, charId: string, updates: Partial<Character>): Promise<BookState> { const state = loadStorageProject(); state.characters = (state.characters || []).map((c) => c.id === charId ? { ...c, ...updates } : c); saveStorageProject(state); return state; }
   async deleteCharacter(_id: string, charId: string): Promise<BookState> { const state = loadStorageProject(); state.characters = (state.characters || []).filter((c) => c.id !== charId); saveStorageProject(state); return state; }
