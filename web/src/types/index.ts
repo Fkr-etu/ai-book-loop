@@ -9,6 +9,7 @@ export type CanonicalStatus =
   | "pending";
 
 export type RoleType = "Protagoniste" | "Antagoniste" | "Allié Majeur" | "Secondaire";
+export type GrillPersonality = "challenger" | "editor" | "devils_advocate" | "demanding_kind";
 
 export interface Character {
   id: string;
@@ -38,7 +39,7 @@ export interface Scene { id: string; title: string; summary: string; status: Sce
 export interface CreativeConstraint { id: string; type: ConstraintType; description: string; active: boolean; }
 export interface SceneReview { id?: string; sceneId?: string; score: number; approved: boolean; issues: string[]; suggestions: string[]; scoreStyle?: number; scoreCoherence?: number; forbiddenPatternsFound?: string[]; critique?: string; timestamp?: string; }
 export interface AuthorIntent { originalIdea: string; theme: string; constraints: string[]; styleTone: string; }
-export interface BookState { id: string; title: string; theme: string; authorIdea: string; lore: string; constraints: string[]; outline?: string; outlineApproved: boolean; chapters: Chapter[]; subtitle?: string; genre?: string; targetAudience?: string; styleTone?: string; loreSummary?: string; wordCountTarget?: number; currentWordCount?: number; characters?: Character[]; loreItems?: LoreItem[]; graphNodes?: GraphNode[]; graphEdges?: GraphEdge[]; creativeConstraints?: CreativeConstraint[]; reviews?: SceneReview[]; authorIntent?: AuthorIntent; }
+export interface BookState { id: string; title: string; theme: string; authorIdea: string; lore: string; constraints: string[]; outline?: string; outlineApproved: boolean; chapters: Chapter[]; grillPersonality?: GrillPersonality; subtitle?: string; genre?: string; targetAudience?: string; styleTone?: string; loreSummary?: string; wordCountTarget?: number; currentWordCount?: number; characters?: Character[]; loreItems?: LoreItem[]; graphNodes?: GraphNode[]; graphEdges?: GraphEdge[]; creativeConstraints?: CreativeConstraint[]; reviews?: SceneReview[]; authorIntent?: AuthorIntent; }
 export type ProjectState = BookState;
 export type SubscriptionPlan = "free" | "creator" | "pro";
 export interface UserProfile { id: string; email: string; name: string; plan: SubscriptionPlan; avatarUrl?: string; }
@@ -47,3 +48,5 @@ export interface CanonicalContextResponse { authorIdea: string; theme: string; l
 export interface SourceDocument { id: string; book_id: string; name: string; source_type: string; content: string; content_hash: string; version: number; }
 export interface Assertion { id: string; source_document_id: string; chunk_id: string; statement: string; subject: string; predicate: string; object: string; confidence: number; status: "proposed" | "accepted" | "rejected" | "deferred"; evidence_id?: string; }
 export interface IngestionResult { source_document: SourceDocument; already_ingested?: boolean; assertions?: Assertion[]; }
+export interface GrillMessage { role: "user" | "assistant"; content: string; }
+export interface GrillResponse { reply: string; question: string | null; done: boolean; }
