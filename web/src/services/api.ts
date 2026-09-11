@@ -1,47 +1,9 @@
-import type { Assertion, BookState, CanonicalContextResponse, Character, IngestionResult, LoreItem, SceneReview, UserProfile } from "@/types";
+import type { Assertion, BookState, CanonicalContextResponse, Character, GrillMessage, GrillResponse, IngestionResult, LoreItem, SceneReview, UserProfile } from "@/types";
 import type { BackendWorkflowRun } from "@/types/api";
 import { USE_REAL_API } from "@/services/config";
 import { typedBookApi } from "@/services/bookApiAdapter";
 import { MockBookApi } from "@/services/mockBookApi";
-
-export interface BookApi {
-  getBook(id?: string): Promise<BookState>;
-  createBook(book: Partial<BookState>): Promise<BookState>;
-  updateBook(id: string, updates: Partial<BookState>): Promise<BookState>;
-  generateOutline(id: string): Promise<BookState>;
-  approveOutline(id: string): Promise<BookState>;
-  addChapter(id: string, title: string, objective: string): Promise<BookState>;
-  generateChapter(id: string, chapterNumber: number): Promise<{ book: BookState; versionNumber: number; content: string; run: BackendWorkflowRun }>;
-  getChapterWorkflowRun(id: string, chapterNumber: number, runId: string): Promise<BackendWorkflowRun>;
-  getLatestChapterWorkflowRun(id: string, chapterNumber: number): Promise<BackendWorkflowRun | null>;
-  reviewChapter(id: string, chapterNumber: number, versionNumber?: number, draftText?: string): Promise<{ book: BookState; review: SceneReview }>;
-  approveChapter(id: string, chapterNumber: number, versionNumber?: number): Promise<BookState>;
-  rejectChapter(id: string, chapterNumber: number): Promise<BookState>;
-  getCanonicalContext(id: string, chapterNumber: number): Promise<CanonicalContextResponse>;
-  createCharacter(id: string, char: Omit<Character, "id">): Promise<BookState>;
-  updateCharacter(id: string, charId: string, updates: Partial<Character>): Promise<BookState>;
-  deleteCharacter(id: string, charId: string): Promise<BookState>;
-  createLoreItem(id: string, item: Omit<LoreItem, "id">): Promise<BookState>;
-  updateLoreItem(id: string, loreId: string, updates: Partial<LoreItem>): Promise<BookState>;
-  deleteLoreItem(id: string, loreId: string): Promise<BookState>;
-  ingestDocument(id: string, name: string, content: string, sourceType?: string): Promise<IngestionResult>;
-  listAssertions(id: string): Promise<Assertion[]>;
-  reviewAssertion(id: string, assertionId: string, decision: "accept" | "reject" | "defer", rationale?: string): Promise<void>;
-  registerUser(email: string, pass: string, name?: string): Promise<UserProfile>;
-  loginUser(email: string, pass: string): Promise<UserProfile>;
-  logoutUser(): Promise<void>;
-  getCurrentUser(): Promise<UserProfile | null>;
-  createCheckout(plan: "creator" | "pro", billingCycle: "monthly" | "yearly"): Promise<string>;
-  openBillingPortal(): Promise<string>;
-}
-
+export interface BookApi { getBook(id?: string): Promise<BookState>; createBook(book: Partial<BookState>): Promise<BookState>; updateBook(id: string, updates: Partial<BookState>): Promise<BookState>; generateOutline(id: string): Promise<BookState>; approveOutline(id: string): Promise<BookState>; addChapter(id: string, title: string, objective: string): Promise<BookState>; generateChapter(id: string, chapterNumber: number): Promise<{ book: BookState; versionNumber: number; content: string; run: BackendWorkflowRun }>; getChapterWorkflowRun(id: string, chapterNumber: number, runId: string): Promise<BackendWorkflowRun>; getLatestChapterWorkflowRun(id: string, chapterNumber: number): Promise<BackendWorkflowRun | null>; reviewChapter(id: string, chapterNumber: number, versionNumber?: number, draftText?: string): Promise<{ book: BookState; review: SceneReview }>; approveChapter(id: string, chapterNumber: number, versionNumber?: number): Promise<BookState>; rejectChapter(id: string, chapterNumber: number): Promise<BookState>; getCanonicalContext(id: string, chapterNumber: number): Promise<CanonicalContextResponse>; grill(id: string, messages: GrillMessage[], turn: number): Promise<GrillResponse>; createCharacter(id: string, char: Omit<Character, "id">): Promise<BookState>; updateCharacter(id: string, charId: string, updates: Partial<Character>): Promise<BookState>; deleteCharacter(id: string, charId: string): Promise<BookState>; createLoreItem(id: string, item: Omit<LoreItem, "id">): Promise<BookState>; updateLoreItem(id: string, loreId: string, updates: Partial<LoreItem>): Promise<BookState>; deleteLoreItem(id: string, loreId: string): Promise<BookState>; ingestDocument(id: string, name: string, content: string, sourceType?: string): Promise<IngestionResult>; listAssertions(id: string): Promise<Assertion[]>; reviewAssertion(id: string, assertionId: string, decision: "accept" | "reject" | "defer", rationale?: string): Promise<void>; registerUser(email: string, pass: string, name?: string): Promise<UserProfile>; loginUser(email: string, pass: string): Promise<UserProfile>; logoutUser(): Promise<void>; getCurrentUser(): Promise<UserProfile | null>; createCheckout(plan: "creator" | "pro", billingCycle: "monthly" | "yearly"): Promise<string>; openBillingPortal(): Promise<string>; }
 let apiInstance: BookApi | null = null;
-
-export function getApiClient(): BookApi {
-  if (!apiInstance) apiInstance = USE_REAL_API ? typedBookApi : new MockBookApi();
-  return apiInstance;
-}
-
-export function setApiClient(client: BookApi): void {
-  apiInstance = client;
-}
+export function getApiClient(): BookApi { if (!apiInstance) apiInstance = USE_REAL_API ? typedBookApi : new MockBookApi(); return apiInstance; }
+export function setApiClient(client: BookApi): void { apiInstance = client; }
