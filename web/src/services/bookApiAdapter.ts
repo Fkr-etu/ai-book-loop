@@ -1,4 +1,4 @@
-import type { BookState, Character, LoreItem, SceneReview, CanonicalContextResponse, IngestionResult, Assertion, UserProfile } from "@/types";
+import type { BookState, Character, LoreItem, SceneReview, CanonicalContextResponse, IngestionResult, Assertion, UserProfile, GrillMessage, GrillResponse } from "@/types";
 import type { BackendWorkflowRun } from "@/types/api";
 import { realApiClient } from "@/services/realApiClient";
 import { adaptBackendBook } from "@/services/bookAdapter";
@@ -12,8 +12,8 @@ function toCanonicalContext(context: Awaited<ReturnType<typeof realApiClient.get
 
 export class RealBookApi implements BookApi {
   async getBook(id: string): Promise<BookState> { return adaptBackendBook(await realApiClient.getBook(id)); }
-  async createBook(book: Partial<BookState>): Promise<BookState> { return adaptBackendBook(await realApiClient.createBook({ title: book.title || "Nouveau Livre", theme: book.theme || "", author_idea: book.authorIdea || "", lore: book.lore, constraints: book.constraints })); }
-  async updateBook(id: string, updates: Partial<BookState>): Promise<BookState> { return adaptBackendBook(await realApiClient.updateBook(id, { ...(updates.title !== undefined ? { title: updates.title } : {}), ...(updates.theme !== undefined ? { theme: updates.theme } : {}), ...(updates.authorIdea !== undefined ? { author_idea: updates.authorIdea } : {}), ...(updates.lore !== undefined ? { lore: updates.lore } : {}), ...(updates.constraints !== undefined ? { constraints: updates.constraints } : {}) })); }
+  async createBook(book: Partial<BookState>): Promise<BookState> { return adaptBackendBook(await realApiClient.createBook({ title: book.title || "Nouveau Livre", theme: book.theme || "", author_idea: book.authorIdea || "", lore: book.lore, constraints: book.constraints, grill_personality: book.grillPersonality })); }
+  async updateBook(id: string, updates: Partial<BookState>): Promise<BookState> { return adaptBackendBook(await realApiClient.updateBook(id, { ...(updates.title !== undefined ? { title: updates.title } : {}), ...(updates.theme !== undefined ? { theme: updates.theme } : {}), ...(updates.authorIdea !== undefined ? { author_idea: updates.authorIdea } : {}), ...(updates.lore !== undefined ? { lore: updates.lore } : {}), ...(updates.constraints !== undefined ? { constraints: updates.constraints } : {}), ...(updates.grillPersonality !== undefined ? { grill_personality: updates.grillPersonality } : {}) })); }
   async generateOutline(id: string): Promise<BookState> { return adaptBackendBook(await realApiClient.generateOutline(id)); }
   async approveOutline(id: string): Promise<BookState> { return adaptBackendBook(await realApiClient.approveOutline(id)); }
   async addChapter(id: string, title: string, objective: string): Promise<BookState> { void title; void objective; const current = await realApiClient.getBook(id); return adaptBackendBook(await realApiClient.addChapter(id, current.chapters.length + 1)); }
@@ -24,17 +24,14 @@ export class RealBookApi implements BookApi {
   async approveChapter(id: string, n: number, v?: number): Promise<BookState> { return adaptBackendBook(await realApiClient.approveChapter(id, n, v)); }
   async rejectChapter(id: string, n: number): Promise<BookState> { return adaptBackendBook(await realApiClient.rejectChapter(id, n)); }
   async getCanonicalContext(id: string, n: number): Promise<CanonicalContextResponse> { return toCanonicalContext(await realApiClient.getChapterContext(id, n)); }
+  async grill(id: string, messages: GrillMessage[], turn: number): Promise<GrillResponse> { return realApiClient.grill(id, messages, turn); }
   async createCharacter(_id: string, _char: Omit<Character, "id">): Promise<BookState> { return unsupported("La gestion des personnages"); }
   async updateCharacter(_id: string, _charId: string, _updates: Partial<Character>): Promise<BookState> { return unsupported("La gestion des personnages"); }
   async deleteCharacter(_id: string, _charId: string): Promise<BookState> { return unsupported("La gestion des personnages"); }
   async createLoreItem(_id: string, _item: Omit<LoreItem, "id">): Promise<BookState> { return unsupported("La gestion du lore"); }
   async updateLoreItem(_id: string, _loreId: string, _updates: Partial<LoreItem>): Promise<BookState> { return unsupported("La gestion du lore"); }
   async deleteLoreItem(_id: string, _loreId: string): Promise<BookState> { return unsupported("La gestion du lore"); }
-  async ingestDocument(id: string, name: string, content: string, sourceType?: string): Promise<IngestionResult> {
-    const job = await realApiClient.ingestDocument(id, name, content, sourceType);
-    // Keep the legacy BookApi contract for studio pages while the real import is now asynchronous.
-    return { source_document: { id: job.job_id, book_id: id, name, source_type: sourceType || "markdown", content, content_hash: "", version: 1 }, assertions: [], already_ingested: false };
-  }
+  async ingestDocument(id: string, name: string, content: string, sourceType?: string): Promise<IngestionResult> { const job = await realApiClient.ingestDocument(id, name, content, sourceType); return { source_document: { id: job.job_id, book_id: id, name, source_type: sourceType || "markdown", content, content_hash: "", version: 1 }, assertions: [], already_ingested: false }; }
   async listAssertions(id: string): Promise<Assertion[]> { return realApiClient.listAssertions(id) as Promise<Assertion[]>; }
   async reviewAssertion(id: string, assertionId: string, decision: "accept" | "reject" | "defer", rationale?: string): Promise<void> { return realApiClient.reviewAssertion(id, assertionId, decision, rationale); }
   async loginUser(email: string, password: string): Promise<UserProfile> { return realApiClient.login(email, password) as Promise<UserProfile>; }
