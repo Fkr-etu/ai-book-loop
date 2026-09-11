@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AlertTriangle, CheckCircle2, Loader2, RefreshCw, Sparkles } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Loader2, RefreshCw, Sparkles, ThumbsDown, ThumbsUp } from "lucide-react";
 import { realApiClient, RealApiError } from "@/services/realApiClient";
 import { track } from "@/lib/analytics";
 import type { BackendAnalysisJob, BackendConsistencyIssue } from "@/types/api";
@@ -20,6 +20,7 @@ export function ConsistencyAnalysisPanel({ bookId }: { bookId: string }) {
   const [starting, setStarting] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<"useful" | "not_useful" | null>(null);
   const resultViewedJob = useRef<string | null>(null);
   const completedJob = useRef<string | null>(null);
 
@@ -67,6 +68,7 @@ export function ConsistencyAnalysisPanel({ bookId }: { bookId: string }) {
   const start = async () => {
     setStarting(true);
     setError(null);
+    setFeedback(null);
     try {
       const next = await realApiClient.startConsistencyAnalysis(bookId);
       setJob(next);
@@ -77,6 +79,15 @@ export function ConsistencyAnalysisPanel({ bookId }: { bookId: string }) {
     } finally {
       setStarting(false);
     }
+  };
+
+  const submitFeedback = (value: "useful" | "not_useful") => {
+    if (!job || job.status !== "succeeded" || feedback) return;
+    setFeedback(value);
+    track("analysis_finding_feedback", {
+      feedback: value,
+      issue_count: (job.result?.issues ?? []).length,
+    });
   };
 
   const issues = (job?.result?.issues ?? []) as BackendConsistencyIssue[];
@@ -106,6 +117,15 @@ export function ConsistencyAnalysisPanel({ bookId }: { bookId: string }) {
         {job.status === "failed" && <div role="alert" className="text-xs text-[#5c2020]">L’analyse a échoué. {job.error_message || "Vous pouvez relancer l’analyse."}</div>}
         {job.status === "cancelled" && <div className="text-xs text-[#5f5e5b]">L’analyse a été annulée.</div>}
         {issues.length > 0 && <div className="space-y-2">{issues.map((issue) => <article key={issue.id} className="rounded-lg border border-[#c6c6cd]/30 p-3"><div className="flex items-start justify-between gap-3"><p className="text-xs font-semibold text-[#0b1c30]">{issue.message}</p><span className="text-[10px] font-mono uppercase text-[#76777d] shrink-0">{issue.severity}</span></div><p className="text-[11px] text-[#5f5e5b] mt-2">{issue.left_statement}</p><p className="text-[11px] text-[#5f5e5b] mt-1">{issue.right_statement}</p></article>)}</div>}
+        {job.status === "succeeded" && <div className="rounded-lg border border-[#c6c6cd]/30 bg-[#faf9f6] p-4">
+          <p className="text-xs font-semibold text-[#0b1c30]">Ces résultats vous sont-ils utiles ?</p>
+          <p className="text-[11px] text-[#76777d] mt-1">Votre réponse nous aide à améliorer Book Loop.</p>
+          <div className="flex gap-2 mt-3">
+            <button type="button" onClick={() => submitFeedback("useful")} disabled={feedback !== null} aria-pressed={feedback === "useful"} className="px-3 py-2 rounded-lg border border-[#c6c6cd]/50 text-xs font-semibold text-[#0b1c30] flex items-center gap-2 disabled:opacity-60"><ThumbsUp className="w-3.5 h-3.5" />Oui, utile</button>
+            <button type="button" onClick={() => submitFeedback("not_useful")} disabled={feedback !== null} aria-pressed={feedback === "not_useful"} className="px-3 py-2 rounded-lg border border-[#c6c6cd]/50 text-xs font-semibold text-[#0b1c30] flex items-center gap-2 disabled:opacity-60"><ThumbsDown className="w-3.5 h-3.5" />Pas vraiment</button>
+          </div>
+          {feedback && <p className="text-[11px] text-[#5f5e5b] mt-2" role="status">Merci pour votre retour.</p>}
+        </div>}
       </div>}
     </section>
   );

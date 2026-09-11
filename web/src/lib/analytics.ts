@@ -16,6 +16,7 @@ export type AnalyticsEvent =
   | "analysis_started"
   | "analysis_completed"
   | "analysis_result_viewed"
+  | "analysis_finding_feedback"
   | "critical_eye_opened"
   | "critical_eye_message_sent"
   | "critical_eye_completed"
@@ -28,11 +29,14 @@ export type AnalyticsEvent =
   | "subscription_started"
   | "subscription_cancelled";
 
+type AnalyticsFeedback = "useful" | "not_useful";
+
 type EventProperties = {
   plan?: AnalyticsPlan;
   chapter_number?: number;
   generation_status?: "success" | "failure";
   issue_count?: number;
+  feedback?: AnalyticsFeedback;
 };
 
 const GA4_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA4_MEASUREMENT_ID;
