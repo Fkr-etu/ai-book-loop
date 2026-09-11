@@ -1,4 +1,4 @@
-from __future__ import annotations
+from __future__
 
 from enum import StrEnum
 
@@ -18,6 +18,13 @@ class SubscriptionPlan(StrEnum):
     FREE = "free"
     CREATOR = "creator"
     PRO = "pro"
+
+
+class GrillPersonality(StrEnum):
+    CHALLENGER = "challenger"
+    EDITOR = "editor"
+    DEVILS_ADVOCATE = "devils_advocate"
+    DEMANDING_KIND = "demanding_kind"
 
 
 class SceneReview(BaseModel):
@@ -120,6 +127,7 @@ class BookState(BaseModel):
     creative_brief: CreativeBrief | None = None
     lore: str = ""
     constraints: list[str] = Field(default_factory=list)
+    grill_personality: GrillPersonality = GrillPersonality.CHALLENGER
     outline: Outline | None = None
     outline_approved: bool = False
     chapters: list[Chapter] = Field(default_factory=list)
