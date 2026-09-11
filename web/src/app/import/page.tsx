@@ -70,15 +70,16 @@ export default function ImportManuscriptPage() {
     if (!file || !content.trim() || !title.trim()) return;
     setImporting(true);
     setError(null);
+    track("manuscript_import_started");
     try {
       const book = await realApiClient.createBook({
         title: title.trim(),
         theme: "Manuscrit importé",
         author_idea: "À préciser à partir du manuscrit importé.",
       });
+      track("book_created");
       const nextJob = await realApiClient.ingestDocument(book.id, file.name, content, sourceType);
       setJob(nextJob);
-      track("book_created");
     } catch (err) {
       setError(errorMessage(err));
       setImporting(false);

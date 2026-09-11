@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useProjectStore } from "@/lib/useProjectStore";
 import { realApiClient } from "@/services/realApiClient";
+import { track } from "@/lib/analytics";
 import { CanonicalContextResponse, ChapterVersion } from "@/types";
 import type { BackendGrillMessage, BackendGrillResponse } from "@/types/api";
 
@@ -112,6 +113,8 @@ export function useStudioChapter() {
       grillTurn.current = nextTurn;
       setGrillResponse(response);
       setGrillMessages([...messages, { role: "assistant", content: [response.reply, response.question].filter(Boolean).join("\n") }]);
+      if (nextTurn === 1) track("critical_eye_opened");
+      if (response.done) track("critical_eye_completed");
     } catch (error) {
       console.error("Critical Eye request failed", error);
       setGrillError("Impossible de faire intervenir votre Œil critique pour le moment.");
@@ -119,13 +122,13 @@ export function useStudioChapter() {
       setGrillLoading(false);
     }
   };
-
   const startGrill = () => askGrill([]);
   const answerGrill = async (answer: string) => {
     const content = answer.trim();
     if (!content || grillLoading || grillResponse?.done) return;
     const messages: BackendGrillMessage[] = [...grillMessages, { role: "user", content }];
     setGrillResponse(null);
+    track("critical_eye_message_sent");
     await askGrill(messages);
   };
   const dismissGrill = () => {

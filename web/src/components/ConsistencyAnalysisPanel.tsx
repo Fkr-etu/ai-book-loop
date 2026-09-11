@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AlertTriangle, CheckCircle2, Loader2, RefreshCw, Sparkles } from "lucide-react";
 import { realApiClient, RealApiError } from "@/services/realApiClient";
+import { track } from "@/lib/analytics";
 import type { BackendAnalysisJob, BackendConsistencyIssue } from "@/types/api";
 
 const STORAGE_PREFIX = "book-loop:consistency-analysis:";
@@ -19,11 +20,23 @@ export function ConsistencyAnalysisPanel({ bookId }: { bookId: string }) {
   const [starting, setStarting] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const resultViewedJob = useRef<string | null>(null);
+  const completedJob = useRef<string | null>(null);
 
   const refreshJob = useCallback(async (jobId: string) => {
     try {
       const next = await realApiClient.getConsistencyAnalysis(bookId, jobId);
       setJob(next);
+      if (next.status === "succeeded") {
+        if (completedJob.current !== next.job_id) {
+          completedJob.current = next.job_id;
+          track("analysis_completed", { issue_count: next.result?.issues?.length ?? 0 });
+        }
+        if (resultViewedJob.current !== next.job_id) {
+          resultViewedJob.current = next.job_id;
+          track("analysis_result_viewed", { issue_count: next.result?.issues?.length ?? 0 });
+        }
+      }
       if (TERMINAL.has(next.status)) window.localStorage.removeItem(`${STORAGE_PREFIX}${bookId}`);
       return next;
     } catch (err) {
@@ -58,6 +71,7 @@ export function ConsistencyAnalysisPanel({ bookId }: { bookId: string }) {
       const next = await realApiClient.startConsistencyAnalysis(bookId);
       setJob(next);
       window.localStorage.setItem(`${STORAGE_PREFIX}${bookId}`, next.job_id);
+      track("analysis_started");
     } catch (err) {
       setError(err instanceof RealApiError ? err.message : "L’analyse n’a pas pu être lancée.");
     } finally {
