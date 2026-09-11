@@ -3,11 +3,13 @@
 import { Check, X } from "lucide-react";
 import { StudioDecisionState } from "@/components/StudioDecisionState";
 import { StudioChapterController } from "../hooks/useStudioChapter";
+import { CriticalEye } from "./CriticalEye";
 
 export function ManuscriptEditor({ controller }: { controller: StudioChapterController }) {
   const { activeChapter, activeVersion, editorContent, setEditorContent, canDecide, handleApprove, handleReject } = controller;
   return (
     <>
+      <CriticalEye controller={controller} />
       <section className="mb-4 flex flex-col gap-3 rounded-lg border border-[#c6c6cd]/40 bg-[#fffdfc] p-4 shadow-xs sm:flex-row sm:items-center sm:justify-between" aria-live="polite">
         <div className="min-w-0">
           <p className="font-mono text-xs text-[#506070]">{activeVersion ? `Version v${activeVersion.versionNumber}` : "Aucune version sélectionnée"}</p>
