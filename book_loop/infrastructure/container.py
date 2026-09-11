@@ -1,4 +1,4 @@
-from __future__
+from __future__ import annotations
 
 from book_loop.agents.outline import OutlineAgent
 from book_loop.agents.reviewer import ReviewerAgent
