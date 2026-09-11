@@ -30,6 +30,7 @@ export function adaptBackendBook(book: BackendBook): BookState {
     authorIdea: book.author_idea,
     lore: book.lore,
     constraints: book.constraints,
+    grillPersonality: book.grill_personality,
     outline: book.outline
       ? book.outline.chapters
           .map((chapter) => `## Chapitre ${chapter.number}: ${chapter.title}\nObjectif: ${chapter.objective}\n${chapter.synopsis}`)
