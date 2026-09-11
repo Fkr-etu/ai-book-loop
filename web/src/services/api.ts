@@ -1,4 +1,4 @@
-import type { Assertion, BookState, CanonicalContextResponse, Character, IngestionResult, LoreItem, SceneReview, UserProfile } from "@/types";
+import type { Assertion, BookState, CanonicalContextResponse, Character, GrillMessage, GrillResponse, IngestionResult, LoreItem, SceneReview, UserProfile } from "@/types";
 import type { BackendWorkflowRun } from "@/types/api";
 import { USE_REAL_API } from "@/services/config";
 import { typedBookApi } from "@/services/bookApiAdapter";
@@ -18,6 +18,7 @@ export interface BookApi {
   approveChapter(id: string, chapterNumber: number, versionNumber?: number): Promise<BookState>;
   rejectChapter(id: string, chapterNumber: number): Promise<BookState>;
   getCanonicalContext(id: string, chapterNumber: number): Promise<CanonicalContextResponse>;
+  grill(id: string, messages: GrillMessage[], turn: number): Promise<GrillResponse>;
   createCharacter(id: string, char: Omit<Character, "id">): Promise<BookState>;
   updateCharacter(id: string, charId: string, updates: Partial<Character>): Promise<BookState>;
   deleteCharacter(id: string, charId: string): Promise<BookState>;
