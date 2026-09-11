@@ -3,11 +3,13 @@
 import { Check, X } from "lucide-react";
 import { StudioDecisionState } from "@/components/StudioDecisionState";
 import { StudioChapterController } from "../hooks/useStudioChapter";
+import { CriticalEye } from "./CriticalEye";
 
 export function ManuscriptEditor({ controller }: { controller: StudioChapterController }) {
-  const { activeChapter, activeVersion, editorContent, setEditorContent, canDecide, handleApprove, handleReject } = controller;
+  const { activeChapter, activeVersion, editorContent, setEditorContent, handleEditorFocus, canDecide, handleApprove, handleReject } = controller;
   return (
     <>
+      <CriticalEye controller={controller} />
       <section className="mb-4 flex flex-col gap-3 rounded-lg border border-[#c6c6cd]/40 bg-[#fffdfc] p-4 shadow-xs sm:flex-row sm:items-center sm:justify-between" aria-live="polite">
         <div className="min-w-0">
           <p className="font-mono text-xs text-[#506070]">{activeVersion ? `Version v${activeVersion.versionNumber}` : "Aucune version sélectionnée"}</p>
@@ -24,7 +26,7 @@ export function ManuscriptEditor({ controller }: { controller: StudioChapterCont
             <h1 className="mb-2 font-playfair text-2xl font-bold text-[#0f172a] sm:text-3xl">{activeChapter.title}</h1>
             {activeChapter.objective && <p className="font-courier text-xs text-[#5f5e5b]">{activeChapter.objective}</p>}
           </div>
-          <textarea value={editorContent} onChange={(event) => setEditorContent(event.target.value)} placeholder="Écrivez votre récit ici, puis choisissez la suite qui vous convient." className="min-h-[360px] w-full resize-none border-none bg-transparent font-merriweather text-sm leading-[1.8] text-[#0f172a] outline-none focus:ring-0 sm:text-base" aria-label="Manuscrit du chapitre" />
+          <textarea value={editorContent} onFocus={handleEditorFocus} onChange={(event) => setEditorContent(event.target.value)} placeholder="Écrivez votre récit ici, puis choisissez la suite qui vous convient." className="min-h-[360px] w-full resize-none border-none bg-transparent font-merriweather text-sm leading-[1.8] text-[#0f172a] outline-none focus:ring-0 sm:text-base" aria-label="Manuscrit du chapitre" />
           <div className="mt-8 flex flex-wrap justify-between gap-2 border-t border-[#c6c6cd]/20 pt-4 text-[11px] font-mono text-[#76777d]"><span>Vous consultez le texte de la version choisie.</span><StudioDecisionState status={activeChapter.status} /></div>
         </> : <div className="flex min-h-[360px] items-center justify-center text-center text-sm text-[#76777d]">Créez ou sélectionnez un chapitre pour commencer.</div>}
       </section>
