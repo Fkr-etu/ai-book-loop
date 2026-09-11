@@ -15,11 +15,14 @@ The current product already includes:
 - deterministic and linguistic validation;
 - immutable chapter versions and persisted reviews;
 - evidence-backed Canon assertions, conflicts, review decisions and canonical facts;
-- durable workflow execution state and recovery in the production PostgreSQL architecture;
+- narrative events, temporal relations and entity-state foundations;
+- durable chapter workflow execution state and recovery in production PostgreSQL;
+- PostgreSQL-backed asynchronous analysis jobs with a dedicated worker, leases and recovery;
 - idempotent chapter execution;
 - Gemini as the current LLM implementation behind a provider abstraction;
 - deterministic/fake-based backend tests;
 - frontend flows covering project setup, Studio, chapters, characters, lore and Canon/review workflows;
+- Critical Eye / Œil critique MVP for narrative sparring;
 - Stripe billing and capacity controls.
 
 Technical capability is not product validation. The immediate product priority is evidence from real creators.
@@ -30,7 +33,7 @@ Technical capability is not product validation. The immediate product priority i
 
 - [ ] Validate author intent capture and explicit constraints.
 - [ ] Validate outline → draft workflow.
-- [ ] Validate AI review / critique usefulness.
+- [ ] Validate AI review / critique usefulness, including the Critical Eye.
 - [ ] Validate continuity checks against Canon.
 - [ ] Validate explicit human approval gates.
 - [ ] Validate canonical state updates after approval.
@@ -57,6 +60,8 @@ Technical capability is not product validation. The immediate product priority i
 - [x] Human approval of generated chapter revisions as an application/UI decision loop.
 - [x] Canonical state update foundations.
 - [x] Multi-chapter author loop covered by E2E tests.
+- [x] Critical Eye narrative sparring MVP.
+- [x] Long-running analysis execution decoupled from HTTP requests.
 
 ### Book intelligence
 
@@ -66,6 +71,7 @@ Technical capability is not product validation. The immediate product priority i
 - [x] Provenance and review history.
 - [x] Canonical summaries.
 - [x] Deterministic validation where possible.
+- [x] Narrative event / temporal / entity-state foundations.
 - [ ] Richer relationships and timeline intelligence.
 
 **Exit criterion:** the product's main advantage over a generic LLM is its persistent, review-driven loop and trusted narrative Canon, demonstrated by real users.
@@ -74,11 +80,11 @@ Technical capability is not product validation. The immediate product priority i
 
 **Goal:** generalize the underlying state model without prematurely changing the Book UX.
 
-- [ ] Define domain-neutral narrative entity model.
+- [x] Define initial domain narrative state primitives.
 - [x] Canonical claims / facts.
-- [ ] Model relationships and dependencies.
-- [ ] Model events and temporal assertions.
-- [ ] Model rules / constraints.
+- [x] Initial relationship and dependency structures.
+- [x] Model events and temporal assertions foundations.
+- [ ] Model rules / constraints as a first-class narrative subsystem.
 - [x] Provenance and confidence on claims.
 - [x] Versions and approval decisions.
 - [x] Link claims to source content.
@@ -90,15 +96,18 @@ Generalization should be driven by evidence from adjacent creator workflows.
 
 **Goal:** turn continuity into explicit change analysis.
 
-- [ ] Answer `What breaks if I change this?`.
+- [x] Detect contradictory assertions.
+- [x] Initial change-impact analysis foundations.
+- [x] Initial temporal consistency checks.
+- [x] Initial entity-state checks.
+- [ ] Answer `What breaks if I change this?` end-to-end in the author workflow.
 - [ ] Find content affected by a changed claim.
 - [ ] Detect stale assertions.
-- [x] Detect contradictory assertions.
-- [ ] Track dependency chains.
-- [ ] Add temporal consistency checks.
-- [ ] Add entity state checks.
-- [ ] Produce evidence-backed regression reports.
+- [ ] Track dependency chains comprehensively.
+- [ ] Produce evidence-backed regression reports end-to-end.
 - [ ] Re-run analysis after proposed fixes.
+
+The checked items above represent technical foundations already present; they are not evidence that the complete product experience is validated.
 
 ## Phase 4 — Game Master / RPG validation
 
@@ -128,8 +137,8 @@ Validate continuity across screenplay/series scenes, drafts, characters and time
 Prioritize only from observed demand:
 
 - [ ] Markdown / text / structured files.
-- [ ] Import/export of existing story or campaign knowledge.
-- [ ] Git / GitHub where relevant.
+- [x] Git / GitHub import foundations.
+- [ ] Import/export of existing story or campaign knowledge beyond current imports.
 - [ ] Notion / Confluence only if research demonstrates demand.
 - [ ] API / webhooks.
 

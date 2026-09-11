@@ -1,6 +1,6 @@
 # Documentation audit
 
-**Baseline:** `main` on 8 September 2026, after the recent Studio/revision and multi-chapter E2E work.
+**Baseline:** `main` on 11 September 2026, after the PostgreSQL analysis-job worker and Critical Eye MVP work.
 
 This inventory classifies repository documentation against implemented code, tests, workflows and current product direction. The rule is: keep documentation that is useful and true, update documentation that describes a live concept but has drifted, and explicitly mark historical/planning material so it cannot be mistaken for implementation truth.
 
@@ -11,16 +11,21 @@ This inventory classifies repository documentation against implemented code, tes
 - `docs/README.md` — canonical documentation index.
 - `docs/glossary.md` — shared vocabulary.
 - `docs/architecture/overview.md` — current architecture.
+- `docs/architecture/principles.md` — architectural invariants.
 - `docs/architecture/boundaries.md` — architectural boundaries.
 - `docs/architecture/workflows.md` — current workflows.
-- `docs/architecture/chapter-workflow-recovery.md` — recovery behavior and limitations.
-- `docs/architecture/data-model.md` — persisted domain/workflow model.
+- `docs/architecture/chapter-workflow-recovery.md` — chapter recovery behavior and limitations.
+- `docs/architecture/async-analysis-jobs.md` — long-running analysis queue, worker, leases and recovery.
+- `docs/architecture/data-model.md` — persisted domain, workflow and analysis-job model.
+- `docs/architecture/narrative-state.md` — narrative events, temporal relations and entity state.
 - `docs/architecture/consistency-engine.md` — consistency detector composition.
+- `docs/architecture/consistency-issue-contract.md` — author-facing consistency finding contract.
 - `docs/architecture/canonical-review.md` — review semantics.
 - `docs/architecture/canonical-context.md` — Canon context.
 - `docs/architecture/approved-chapter-canon-flow.md` — Canon lifecycle.
 - `docs/architecture/canon-assertion-extraction.md` — extraction/provenance.
 - `docs/architecture/document-ingestion.md` — ingestion design.
+- `docs/architecture/critical-eye.md` — Critical Eye / Œil critique boundaries.
 - `docs/architecture/deployment-guide.md` and `docs/architecture/gcp-architecture.md` — deployment/runtime reference.
 - `docs/development/*` — setup, testing, configuration, migrations, contributing and AI-agent workflow.
 - `docs/security/authentication.md` — security reference; update when security behavior changes.
@@ -48,7 +53,9 @@ This inventory classifies repository documentation against implemented code, tes
 
 - `docs/architecture/linguistic-validation-implementation.md` — historical implementation record; current workflow wiring belongs in live architecture documentation.
 
-The former standalone product strategy, SEO plan/implementation note and Studio contract have been removed because their useful content is now represented by the current product/SEO/architecture sources of truth.
+## Removed during this consolidation
+
+- `docs/architecture/consistency-issue-contract-v2.md` — duplicate of the canonical consistency issue contract.
 
 ## Source-of-truth hierarchy
 
@@ -62,10 +69,11 @@ When a document says a capability is planned, search the current repository and 
 
 ## Known reconciliation rules
 
-- Production workflow persistence is PostgreSQL/Cloud SQL. SQLite is only a local/isolated compatibility path where explicitly supported.
+- Production persistence is PostgreSQL/Cloud SQL. SQLite must not be described as the production persistence layer.
+- Long-running analysis execution uses PostgreSQL `analysis_jobs` and a separate worker with transactional claiming and leases.
 - Gemini is the current implemented LLM provider. Do not list OpenAI, Anthropic or Mistral as implemented providers without corresponding code.
 - Stripe billing and workflow capacity controls are implemented; they must not remain described as future infrastructure.
-- The current commercial grid is Free €0, Creator €19/month (€190/year), Pro €39/month (€390/year). There is no current Studio plan.
+- The Critical Eye is an implemented MVP capability, but its conversation is intentionally not persisted and it does not mutate Canon or manuscript content.
 - Legal/commercial documents may still contain launch prerequisites and hypotheses; they must not be interpreted as proof of legal readiness or product-market fit.
 
 ## Consistency-specific ownership

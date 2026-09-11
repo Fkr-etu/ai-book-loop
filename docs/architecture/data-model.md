@@ -1,20 +1,12 @@
 # Data Model
 
-This document describes the persisted state and its ownership boundaries. The implementation remains the source of truth for exact serialization details.
+This document describes the persisted state and its ownership boundaries. The implementation and Alembic migrations remain the source of truth for exact serialization details.
 
 ## Book
 
 A book contains the author's creative inputs and the generated state needed to continue writing.
 
-Core inputs:
-
-- `id`
-- `owner_id`
-- `title`
-- `theme`
-- `author_idea`
-- `lore`
-- `constraints`
+Core inputs include `id`, `owner_id`, `title`, `theme`, `author_idea`, `lore` and `constraints`. The book also stores the configured Critical Eye personality when selected during setup.
 
 Generated/approval state includes the structured outline, its approval status, and chapters.
 
@@ -45,8 +37,6 @@ The chapter stores the accepted/current state:
 
 Generated attempts are persisted separately through immutable chapter-version history. Reviews are persisted against the corresponding chapter attempt, so rejected drafts are not silently overwritten.
 
-Relevant statuses include `draft`, `proposed`, `approved`, `rejected`, `canonical`, and `needs_review`. The chapter workflow sets an accepted generated chapter to `approved`; exhausted retries end without advancing `current_version` or creating an accepted summary.
-
 ## Chapter versions
 
 A chapter version is identified by `(book_id, chapter_number, version)` and is immutable after persistence. Version numbers start at `1` and increase for retries/corrections.
@@ -57,36 +47,33 @@ The workflow reserves an attempt before calling an LLM. On recovery, an already 
 
 Chapter execution state is persisted separately from `BookState` so workflow progress can survive process restart.
 
-`ChapterWorkflowRun` contains:
-
-- `id` — durable run identifier;
-- `book_id`;
-- `chapter_number`;
-- `idempotency_key`;
-- `status` — `running`, `completed`, or `needs_review`;
-- `step` — `write`, `review`, `correct`, or `summarize`;
-- `attempt` — current chapter version/attempt;
-- `draft` — current draft text;
-- `review` — current `SceneReview`, when available;
-- `decision` — application review decision, when available;
-- `summary` — accepted summary, when available.
+`ChapterWorkflowRun` contains the durable run identifier, book/chapter identity, idempotency key, status, current step, attempt, draft, review, decision and accepted summary when available.
 
 A durable run is uniquely identified by `(book_id, chapter_number, idempotency_key)`. Repeating a completed or terminal run with the same key does not invoke agents again.
 
-`GenerateChapter` derives a stable default idempotency key from the next expected chapter version. Callers can supply an explicit key when request-level idempotency is required.
+Production workflow persistence uses PostgreSQL. In-memory storage is retained for isolated tests and lightweight callers.
 
-The workflow store is an infrastructure concern. Production wiring uses `SQLiteWorkflowRunStore`; isolated tests/lightweight callers can use `InMemoryWorkflowRunStore`.
+## Analysis job
+
+Long-running corpus analyses and document ingestion are decoupled from HTTP request lifetime through a durable PostgreSQL `analysis_jobs` queue.
+
+A job contains a stable identifier, book/analysis identity, payload, lifecycle status, timestamps, attempt count and worker lease information. The API creates the job and returns `202 Accepted`; a separate worker claims pending jobs transactionally with `FOR UPDATE SKIP LOCKED`.
+
+Workers renew `lease_until` while executing. If a worker disappears, an expired lease allows another worker to reclaim the job. Job state is therefore durable across API/worker restarts without introducing Redis or an external queue.
+
+The queue is an execution mechanism, not domain truth: analysis results are persisted through their normal application/domain boundaries.
 
 ## Chapter review
 
-A `SceneReview` contains:
+A `SceneReview` contains a score, approval assessment, issues and suggestions. The application review policy converts the review into a workflow decision. The configured threshold and retry budget remain application policy.
 
-- `score` — numeric score from `0` to `10`, including fractional values such as `8.5`;
-- `approved` — reviewer assessment;
-- `issues`;
-- `suggestions`.
+## Narrative state
 
-The application review policy converts the review into a workflow decision. The configured threshold and retry budget remain application policy.
+Narrative consistency is represented by explicit events and state transitions in addition to static facts.
+
+A `NarrativeEvent` represents a meaningful event in the story. `StateTransition` records the change it causes to an entity's narrative state. Temporal relations can express ordering and overlap between events, while `EntityNarrativeState` represents the state of an entity at a point in the narrative.
+
+These structures support temporal/state consistency checks without replacing the Canon: canonical facts remain explicit, reviewed knowledge. See [`narrative-state.md`](./narrative-state.md) for the current model and invariants.
 
 ## Diagnostics and consistency
 
@@ -96,7 +83,7 @@ Canon diagnostics remain distinct from linguistic diagnostics and are not sent t
 
 Corpus consistency is represented separately through evidence-backed assertions and conflicts. `DetectConflicts` detects competing persisted assertions; the consistency layer projects detector results into the shared `ConsistencyIssue` contract used by the author-facing API.
 
-A consistency issue is a reportable finding, not canonical state. Detection may create/update conflict records as part of its persistence contract, but it never chooses a winning assertion or promotes Canon. Explicit review remains authoritative.
+A consistency issue is a reportable finding, not canonical state. Detection may create or update conflict records as part of its persistence contract, but it never chooses a winning assertion or promotes Canon. Explicit review remains authoritative.
 
 ## Canonical knowledge
 
@@ -106,7 +93,7 @@ A document or source from which knowledge can be derived. It retains stable iden
 
 ### Assertion
 
-A proposed claim extracted or inferred from a source. Assertions are **not canonical by default**.
+A proposed claim extracted or inferred from a source. Assertions are **not canonical by default** and may carry epistemic status indicating whether a statement is known, believed, reported, suspected or otherwise qualified.
 
 ### Evidence / Provenance
 
@@ -152,6 +139,14 @@ GENERATION / QA
 
 The important boundary is between **proposed knowledge** and **approved knowledge**. Generation and validation may consume active canonical facts, but retrieval is never the source of truth.
 
+## Critical Eye
+
+The Critical Eye is a narrative sparring capability, not part of canonical state. Its configuration is limited to a `GrillPersonality` stored on the book. A session uses bounded client-provided conversation history and returns a structured response containing a reply, an optional question and a completion flag.
+
+The Critical Eye may challenge motivation, causality, stakes, character logic and narrative coherence, but it does not write into the manuscript, mutate the Canon, create facts or persist conversation history in the MVP.
+
+See [`async-analysis-jobs.md`](./async-analysis-jobs.md) for long-running analysis execution and the Critical Eye implementation docs for its interaction boundaries.
+
 ## State ownership
 
 - Author inputs are persisted as book state.
@@ -163,7 +158,7 @@ The important boundary is between **proposed knowledge** and **approved knowledg
 - Consistency detectors may extract, compare, classify, and report knowledge findings, but do not own canonical state transitions.
 - Agents may extract, compare, classify, or propose knowledge changes, but do not own canonical state transitions.
 - The workflow owns execution progress, not canonical domain truth.
-- SQLite is an implementation detail of persistence.
+- PostgreSQL is the production persistence layer; storage adapters remain infrastructure concerns.
 
 ## Retrieval rule
 

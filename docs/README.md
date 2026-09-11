@@ -25,16 +25,20 @@ This directory is the project's canonical knowledge base. Keep documentation sma
 - `architecture/principles.md` — architectural invariants.
 - `architecture/boundaries.md` — dependency boundaries.
 - `architecture/workflows.md` — current book/chapter workflows and recovery semantics.
-- `architecture/data-model.md` — persisted domain and workflow-run model.
+- `architecture/data-model.md` — persisted domain and workflow/job model.
+- `architecture/async-analysis-jobs.md` — PostgreSQL analysis queue, worker, leases and recovery.
 - `architecture/approved-chapter-canon-flow.md` — approved-chapter/Canon lifecycle.
 - `architecture/canon-assertion-extraction.md` — assertion extraction and provenance.
 - `architecture/canonical-review.md` — Canon review semantics.
 - `architecture/canonical-context.md` — Canon context construction.
 - `architecture/consistency-engine.md` — current consistency detector composition.
-- `architecture/chapter-workflow-recovery.md` — durable checkpoints and recovery limitations.
+- `architecture/consistency-issue-contract.md` — author-facing consistency finding contract.
+- `architecture/narrative-state.md` — narrative events, temporal relations and entity state.
+- `architecture/chapter-workflow-recovery.md` — durable chapter workflow recovery semantics.
 - `architecture/document-ingestion.md` — document-ingestion design.
 - `architecture/generation-review-correction.md` — generation/review/correction boundaries.
-- `architecture/deployment-guide.md` — deployment operations.
+- `architecture/critical-eye.md` — Critical Eye / Œil critique architecture and MVP boundaries.
+- `architecture/deployment-guide.md` — production deployment operations.
 - `architecture/gcp-architecture.md` / `architecture/hosting-options.md` — infrastructure reference and hosting decisions.
 - `architecture/linguistic-validation-implementation.md` — historical implementation note; not the current source of truth.
 - `architecture/documentation-audit.md` — documentation audit and classification.
@@ -54,9 +58,10 @@ This directory is the project's canonical knowledge base. Keep documentation sma
 
 - **Current implementation** → code + tests.
 - **Persisted schema history** → Alembic migrations.
-- **Current architecture** → `architecture/overview.md`.
+- **Current architecture** → `architecture/overview.md` and the focused architecture documents linked above.
 - **Architecture invariants** → `architecture/principles.md`.
 - **Current workflows/recovery** → `architecture/workflows.md` + `architecture/chapter-workflow-recovery.md`.
+- **Long-running analysis execution** → `architecture/async-analysis-jobs.md`.
 - **Consistency architecture** → `architecture/consistency-engine.md`.
 - **Persisted knowledge model** → `architecture/data-model.md`.
 - **Product intent/scope** → `product/positioning.md`, `product/scope.md`, `product/roadmap.md`.

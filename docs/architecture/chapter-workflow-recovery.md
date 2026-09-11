@@ -31,23 +31,23 @@ A successful run ends in `completed` only after the accepted chapter state and s
 
 ## Persistence and concurrency
 
-The checkpoint store is backed by SQLite in the application container. Each checkpoint is committed independently, so a process restart observes only committed state. Same-process duplicate execution is serialized by a per-run lock.
+Chapter workflow checkpoints are persisted through the configured `WorkflowRunStore`. Production uses PostgreSQL; in-memory storage remains available for isolated tests and lightweight callers.
 
-The uniqueness constraint on `(book_id, chapter_number, idempotency_key)` makes run creation idempotent at the database boundary. It does **not** by itself claim execution of an already-created `running` run across processes.
+The uniqueness constraint on `(book_id, chapter_number, idempotency_key)` makes run creation idempotent at the database boundary. Same-process duplicate execution is also serialized by a per-run lock.
 
-Cross-process execution therefore does not yet provide an exactly-once guarantee. A future worker-oriented deployment should add explicit persistent run claiming/leases (or an equivalent transactional queue) before allowing horizontally concurrent generation workers.
+This checkpoint mechanism is deliberately distinct from the long-running analysis queue. Analysis jobs use the PostgreSQL `analysis_jobs` table and worker leases described in [`async-analysis-jobs.md`](./async-analysis-jobs.md). The analysis worker provides distributed job claiming and recovery; it does not turn chapter generation into an exactly-once LLM operation.
 
-## Known recovery gap
+## Known recovery boundary
 
-Review persistence and workflow-run checkpointing are currently separate writes. A crash after `save_review()` but before the run checkpoint can leave a persisted review without `run.review` being stored. Recovery may then invoke the Reviewer again for the same attempt.
+Workflow checkpointing and some downstream persistence operations remain separate writes. A crash between those writes can leave enough durable state to require a deterministic recovery lookup or a repeated downstream call. Immutable chapter versions and idempotent run identity protect against accepting two versions for the same attempt.
 
-This is a bounded duplicate-call window, not a chapter-version corruption path: chapter versions remain immutable. The preferred follow-up is either an atomic transaction covering review + run checkpoint or a deterministic review lookup/unique constraint that allows recovery to reuse an existing review.
+Strict exactly-once invocation of an external LLM is not a guarantee of this architecture: a process can fail after an external provider accepts a request and before the local checkpoint is committed. The system instead aims for durable state, idempotent retries and bounded duplicate work.
 
 ## Guarantees today
 
 The current implementation provides:
 
-- durable step state in SQLite;
+- durable chapter workflow state in production PostgreSQL;
 - immutable chapter-version history;
 - stable request/run identity;
 - recovery after version persistence without regenerating the same version;
@@ -55,4 +55,4 @@ The current implementation provides:
 - bounded retry behavior;
 - same-process duplicate execution serialization.
 
-It does not yet provide distributed worker leasing or strict exactly-once LLM invocation semantics.
+For long-running analyses, the separate PostgreSQL job queue additionally provides transactional claiming with `FOR UPDATE SKIP LOCKED`, worker leases, heartbeats and reclaim after worker failure.
