@@ -120,11 +120,16 @@ class PostgresBookRepository(BookRepositoryMixin):
             if inserted is not None: return True
             existing = self._connection.execute("SELECT 1 FROM workflow_usage_scoped WHERE quota_subject = ? AND period_start = ? AND idempotency_key = ?", (subject, period_start, idempotency_key)).fetchone(); return existing is not None
     def save_chapter_version(self, book_id: str, chapter_number: int, version: int, draft: str) -> None:
-        if version > 1:
+        if version == 1:
             existing = self._connection.execute("SELECT id FROM chapter_versions WHERE book_id = ? AND chapter_number = ? AND version = 1 AND draft = ''", (book_id, chapter_number)).fetchone()
             if existing is not None:
                 self._connection.execute("UPDATE chapter_versions SET draft = ? WHERE id = ?", (draft, existing["id"])); self._connection.commit(); return
         self._connection.execute("INSERT INTO chapter_versions(book_id, chapter_number, version, draft) VALUES(?, ?, ?, ?)", (book_id, chapter_number, version, draft)); self._connection.commit()
+    def get_chapter_version(self, book_id: str, chapter_number: int, version: int) -> str:
+        row = self._connection.execute("SELECT draft FROM chapter_versions WHERE book_id = ? AND chapter_number = ? AND version = ?", (book_id, chapter_number, version)).fetchone()
+        if row is None or (version == 1 and str(row["draft"]) == ""):
+            raise KeyError(f"Unknown chapter version: {chapter_number} v{version}")
+        return str(row["draft"])
     def save_evidence(self, evidence: Evidence) -> None:
         self._connection.execute("INSERT INTO evidence(id, assertion_id, source_document_id, chunk_id, start_offset, end_offset, excerpt) VALUES(?, ?, ?, ?, ?, ?, ?)", (evidence.id, evidence.assertion_id, evidence.source_document_id, evidence.chunk_id, evidence.start_offset, evidence.end_offset, evidence.excerpt)); self._connection.commit()
 
