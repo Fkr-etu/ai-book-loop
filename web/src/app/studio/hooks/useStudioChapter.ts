@@ -52,18 +52,28 @@ export function useStudioChapter() {
     return () => window.clearTimeout(timer);
   }, [editorContent, editorEngaged, activeChapter?.id, grillOpen, grillDismissed, grillNudge, grillResponse, isWorking]);
 
-  const handleEditorFocus = () => { setEditorEngaged(true); };
+  const handleEditorFocus = () => setEditorEngaged(true);
   const handleEditorChange = (content: string) => { setEditorContent(content); setGrillNudge(false); };
-  const askGrill = async (messages = grillMessages) => {
+  const askGrill = async (messages: GrillMessage[]) => {
     if (!project.id || grillLoading) return;
     const nextTurn = grillTurn.current + 1;
     setGrillLoading(true); setGrillError(null); setGrillOpen(true); setGrillNudge(false);
-    try { const response = await getApiClient().grill(project.id, messages, nextTurn); grillTurn.current = nextTurn; setGrillResponse(response); }
-    catch (error) { console.error("Critical Eye request failed", error); setGrillError("Impossible de faire intervenir votre Œil critique pour le moment."); }
+    try {
+      const response = await getApiClient().grill(project.id, messages, nextTurn);
+      grillTurn.current = nextTurn;
+      setGrillResponse(response);
+      setGrillMessages([...messages, { role: "assistant", content: [response.reply, response.question].filter(Boolean).join("\n") }]);
+    } catch (error) { console.error("Critical Eye request failed", error); setGrillError("Impossible de faire intervenir votre Œil critique pour le moment."); }
     finally { setGrillLoading(false); }
   };
   const startGrill = () => askGrill([]);
-  const answerGrill = async (answer: string) => { const content = answer.trim(); if (!content || grillLoading || grillResponse?.done) return; const messages = [...grillMessages, { role: "user" as const, content }]; setGrillMessages(messages); setGrillResponse(null); await askGrill(messages); };
+  const answerGrill = async (answer: string) => {
+    const content = answer.trim();
+    if (!content || grillLoading || grillResponse?.done) return;
+    const messages = [...grillMessages, { role: "user" as const, content }];
+    setGrillResponse(null);
+    await askGrill(messages);
+  };
   const dismissGrill = () => { setGrillDismissed(true); setGrillNudge(false); };
   const handleGenerateVersion = async () => { if (!activeChapter) return; setIsWorking(true); try { await store.generateChapter(activeChapter.number); } catch (error) { console.error("Chapter generation failed", error); } finally { setIsWorking(false); } };
   const handleReview = async () => { if (!activeChapter) return; setIsWorking(true); try { await store.reviewChapter(activeChapter.number, activeVersion?.versionNumber, editorContent); } catch (error) { console.error("Chapter review failed", error); } finally { setIsWorking(false); } };
