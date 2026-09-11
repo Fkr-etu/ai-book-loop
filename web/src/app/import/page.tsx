@@ -77,9 +77,9 @@ export default function ImportManuscriptPage() {
         theme: "Manuscrit importé",
         author_idea: "À préciser à partir du manuscrit importé.",
       });
+      track("book_created");
       const nextJob = await realApiClient.ingestDocument(book.id, file.name, content, sourceType);
       setJob(nextJob);
-      track("book_created");
     } catch (err) {
       setError(errorMessage(err));
       setImporting(false);
