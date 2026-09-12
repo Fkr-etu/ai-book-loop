@@ -40,6 +40,24 @@ class BenchmarkResult:
     error: str | None = None
     output: str | None = None
     quality_score: float | None = None
+    status: str = "success"
+
+
+def skipped_result(*, workload: str, model: str, reason: str) -> BenchmarkResult:
+    """Represent an intentionally skipped case without confusing it with a provider failure."""
+    return BenchmarkResult(
+        workload=workload,
+        model=model,
+        success=False,
+        latency_ms=0.0,
+        input_tokens=None,
+        output_tokens=None,
+        token_source=None,
+        estimated_cost_usd=None,
+        structured_output_valid=None,
+        error=reason,
+        status="skipped",
+    )
 
 
 def estimate_cost(
@@ -138,6 +156,7 @@ def run_case(
             estimated_cost_usd=None,
             structured_output_valid=False if case.structured else None,
             error=f"{type(exc).__name__}: {exc}",
+            status="failed",
         )
 
 
