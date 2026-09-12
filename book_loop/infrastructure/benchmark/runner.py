@@ -34,6 +34,7 @@ class BenchmarkResult:
     latency_ms: float
     input_tokens: int | None
     output_tokens: int | None
+    token_source: str | None
     estimated_cost_usd: float | None
     structured_output_valid: bool | None
     error: str | None = None
@@ -51,6 +52,17 @@ def estimate_cost(
         input_tokens / 1_000_000 * pricing.input_per_million
         + output_tokens / 1_000_000 * pricing.output_per_million
     )
+
+
+def _provider_usage(provider: LLMProvider) -> tuple[int, int] | None:
+    usage = getattr(provider, "last_usage", None)
+    if not isinstance(usage, dict):
+        return None
+    input_tokens = usage.get("input_tokens")
+    output_tokens = usage.get("output_tokens")
+    if isinstance(input_tokens, int) and isinstance(output_tokens, int):
+        return input_tokens, output_tokens
+    return None
 
 
 def run_case(
@@ -82,8 +94,17 @@ def run_case(
             structured_valid = None
 
         elapsed_ms = (time.perf_counter() - started) * 1000
-        input_tokens = token_counter(case.system_prompt + "\n" + case.user_prompt) if token_counter else None
-        output_tokens = token_counter(output) if token_counter else None
+        usage = _provider_usage(provider)
+        if usage is not None:
+            input_tokens, output_tokens = usage
+            token_source = "provider"
+        elif token_counter is not None:
+            input_tokens = token_counter(case.system_prompt + "\n" + case.user_prompt)
+            output_tokens = token_counter(output)
+            token_source = "estimated"
+        else:
+            input_tokens = output_tokens = None
+            token_source = None
         cost = (
             estimate_cost(
                 pricing=pricing,
@@ -100,6 +121,7 @@ def run_case(
             latency_ms=round(elapsed_ms, 2),
             input_tokens=input_tokens,
             output_tokens=output_tokens,
+            token_source=token_source,
             estimated_cost_usd=cost,
             structured_output_valid=structured_valid,
             output=output,
@@ -112,6 +134,7 @@ def run_case(
             latency_ms=round((time.perf_counter() - started) * 1000, 2),
             input_tokens=None,
             output_tokens=None,
+            token_source=None,
             estimated_cost_usd=None,
             structured_output_valid=False if case.structured else None,
             error=f"{type(exc).__name__}: {exc}",
