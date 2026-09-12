@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 from book_loop.domain.models import CreativeBrief, Outline
+from book_loop.infrastructure.benchmark.cli import run as run_benchmark
 from book_loop.infrastructure.config import Settings
 from book_loop.infrastructure.container import Container
 
@@ -45,6 +46,12 @@ def build_parser() -> argparse.ArgumentParser:
     chapter = subparsers.add_parser("chapter-add", help="Add a chapter from the approved outline")
     chapter.add_argument("book_id")
     chapter.add_argument("chapter_number", type=int)
+
+    benchmark = subparsers.add_parser("benchmark", help="Benchmark configured LLM providers without router fallback")
+    benchmark.add_argument("--fixtures", type=Path, default=Path("book_loop/infrastructure/benchmark/fixtures.json"))
+    benchmark.add_argument("--pricing", type=Path, default=Path("book_loop/infrastructure/benchmark/pricing.json"))
+    benchmark.add_argument("--output", type=Path, default=Path("artifacts/llm-benchmark.json"))
+    benchmark.add_argument("--provider", action="append", choices=("gemini", "kimi", "minimax", "deepseek"))
 
     real_run = subparsers.add_parser("real-run", help="Run a two-chapter live LLM smoke test")
     real_run.add_argument("--title", default="Les Veilleurs de Marseille")
@@ -122,6 +129,10 @@ def _run_real_test(args: argparse.Namespace, container: Container) -> None:
 def main() -> None:
     args = build_parser().parse_args()
     settings = Settings()
+
+    if args.command == "benchmark":
+        raise SystemExit(run_benchmark(args, settings))
+
     container = Container(settings)
 
     if args.command == "real-run":

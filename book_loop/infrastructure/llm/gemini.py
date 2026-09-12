@@ -20,6 +20,19 @@ class GeminiProvider(LLMProvider):
             raise ValueError("A Gemini model is required for live generation")
         self.model = model
         self.client = genai.Client(api_key=api_key)
+        self.last_usage: dict[str, int] | None = None
+
+    def _capture_usage(self, interaction: object) -> None:
+        usage = getattr(interaction, "usage", None)
+        input_tokens = getattr(usage, "input_tokens", None)
+        output_tokens = getattr(usage, "output_tokens", None)
+        if isinstance(input_tokens, int) and isinstance(output_tokens, int):
+            self.last_usage = {
+                "input_tokens": input_tokens,
+                "output_tokens": output_tokens,
+            }
+        else:
+            self.last_usage = None
 
     def generate(self, *, system_prompt: str, user_prompt: str, task: str = "default") -> str:
         del task
@@ -28,6 +41,7 @@ class GeminiProvider(LLMProvider):
             input=user_prompt,
             system_instruction=system_prompt,
         )
+        self._capture_usage(interaction)
         text = interaction.output_text
         if not text or not text.strip():
             raise RuntimeError("Gemini returned an empty response")
@@ -60,6 +74,7 @@ class GeminiProvider(LLMProvider):
             },
             generation_config=generation_config,
         )
+        self._capture_usage(interaction)
         text = interaction.output_text
         if not text or not text.strip():
             raise RuntimeError("Gemini returned an empty structured response")

@@ -1,0 +1,46 @@
+{
+  "benchmark_version": "1",
+  "language": "fr",
+  "cases": [
+    {
+      "workload": "writer",
+      "system_prompt": "Tu es le writer de Book Loop. Rédige une scène cohérente avec le contexte fourni. N'invente pas de faits qui contredisent le canon.",
+      "user_prompt": "Contexte canonique : Émile est le frère de Jeanne. Il habite Lyon depuis trois ans. Jeanne ignore encore qu'Émile a retrouvé la lettre de leur père.\n\nSituation : Jeanne arrive chez Émile pour lui demander s'il a des nouvelles de leur père.\n\nÉcris une scène de 500 mots maximum, en français, avec dialogue et sous-texte."
+    },
+    {
+      "workload": "reviewer",
+      "system_prompt": "Tu es le reviewer de Book Loop. Analyse le draft uniquement à partir du contexte canonique et identifie les incohérences, contradictions et ruptures de continuité. Cite les éléments précis qui justifient chaque problème.",
+      "user_prompt": "Canon : Émile est le frère de Jeanne. Il habite Lyon depuis trois ans. Jeanne ignore qu'Émile a retrouvé la lettre de leur père.\n\nDraft : Jeanne entra dans l'appartement d'Émile. Elle savait déjà qu'il avait retrouvé la lettre de leur père. Émile, qui vivait à Paris depuis six mois, posa son manteau et lui proposa un café.\n\nDonne une analyse structurée et distingue les problèmes certains des simples choix narratifs."
+    },
+    {
+      "workload": "corrector",
+      "system_prompt": "Tu es le corrector de Book Loop. Corrige le draft en appliquant les problèmes explicitement signalés, sans modifier inutilement le style ni introduire de nouveaux faits.",
+      "user_prompt": "Canon : Émile vit à Lyon depuis trois ans et Jeanne ignore qu'il a retrouvé la lettre de leur père.\n\nDraft : Jeanne entra dans l'appartement d'Émile. Elle savait déjà qu'il avait retrouvé la lettre de leur père. Émile, qui vivait à Paris depuis six mois, posa son manteau.\n\nProblèmes à corriger : Jeanne ne doit pas connaître la lettre ; Émile doit vivre à Lyon.\n\nRetourne uniquement le passage corrigé."
+    },
+    {
+      "workload": "summarizer",
+      "system_prompt": "Tu es le summarizer de Book Loop. Résume fidèlement les événements narratifs et les informations importantes sans ajouter d'interprétation non présente dans le texte.",
+      "user_prompt": "Chapitre : Jeanne arrive à Lyon sous une pluie battante. Elle retrouve Émile après trois mois sans le voir. Ils évitent d'abord de parler de leur père. Pendant le dîner, Émile révèle qu'il a retrouvé une vieille lettre dans les archives de leur mère, mais il refuse encore de la montrer. Jeanne comprend que la lettre pourrait expliquer pourquoi leur père a quitté la famille. Le lendemain, elle décide de rester quelques jours à Lyon.\n\nContexte : Jeanne et Émile sont frère et sœur ; leur père a disparu de leur vie il y a quinze ans.\n\nFais un résumé de 100 mots maximum."
+    },
+    {
+      "workload": "outline",
+      "system_prompt": "Tu es l'outline planner de Book Loop. Construis un plan narratif court, causal et cohérent avec le canon. Chaque étape doit faire progresser le conflit.",
+      "user_prompt": "Genre : roman policier contemporain.\nCanon : une enquêtrice, Nora, poursuit une série de cambriolages sans violence. Le voleur ne prend jamais d'argent, uniquement un objet précis dans chaque appartement.\n\nObjectif du prochain chapitre : Nora doit comprendre le lien entre les victimes sans découvrir encore l'identité du voleur.\n\nPropose 6 scènes avec objectif, conflit et information révélée pour chacune."
+    },
+    {
+      "workload": "assertion_extraction",
+      "system_prompt": "Extrais uniquement les faits explicites et vérifiables du passage. Ne déduis pas les intentions ou les relations non dites.",
+      "user_prompt": "Passage : Marc a quitté Marseille en 2019 pour s'installer à Lille. Il travaille depuis lors comme horloger dans une boutique de la rue Nationale. Sa sœur Claire lui téléphone chaque dimanche.\n\nRetourne une liste JSON d'assertions avec les champs subject, predicate et object."
+    },
+    {
+      "workload": "linguistic",
+      "system_prompt": "Tu es un assistant de contextualisation linguistique. Corrige les formulations problématiques en français en préservant le sens, le registre et la voix narrative.",
+      "user_prompt": "Texte : \"Elle se rappela de la promesse qu'il lui avait faite hier, mais elle ne se souvenait plus exactement ce qu'il avait dit.\"\n\nPropose une correction minimale et explique brièvement le problème grammatical."
+    },
+    {
+      "workload": "grill",
+      "system_prompt": "Tu es le Grill de Book Loop : un partenaire de confrontation narrative exigeant mais constructif. Ton rôle est de poser une question précise qui aide l'auteur à résoudre un blocage plutôt que d'écrire à sa place.",
+      "user_prompt": "L'auteur dit : \"Je sais que mon personnage doit trahir son meilleur ami, mais je n'arrive pas à rendre cette trahison crédible. Je veux que le lecteur comprenne son choix sans lui pardonner immédiatement.\"\n\nPose une seule question de confrontation, concrète et difficile, qui oblige l'auteur à préciser le dilemme moral."
+    }
+  ]
+}
