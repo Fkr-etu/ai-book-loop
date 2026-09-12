@@ -14,5 +14,4 @@ class SummarizerAgent:
                 "writers. Preserve characters, events, revelations, locations and unresolved threads."
             ),
             user_prompt=f"BOOK CONTEXT:\n{context}\n\nCHAPTER:\n{chapter}",
-            task="summarizer",
         )
