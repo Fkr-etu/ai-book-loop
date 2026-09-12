@@ -30,7 +30,7 @@ Fixtures are stored in `book_loop/infrastructure/benchmark/fixtures.json`. Every
 
 Each invocation records:
 
-- success/failure
+- status: `success`, `failed` or `skipped`
 - wall-clock latency in milliseconds
 - input/output token counts when reported by the provider
 - token source (`provider` or `estimated`)
@@ -66,7 +66,32 @@ The first benchmark uses uncached pricing. Cache-hit economics should be evaluat
 
 ## Running a benchmark
 
-The benchmark runner is an infrastructure utility and can be driven by a provider factory from a script or test harness. It does not belong in the domain/application layers.
+A live benchmark is available through the existing CLI:
+
+```bash
+book-loop benchmark
+```
+
+Run only one provider while validating credentials:
+
+```bash
+book-loop benchmark --provider gemini
+```
+
+The command loads the committed fixtures and pricing snapshot, executes each selected model directly, and writes `artifacts/llm-benchmark.json` by default. It never goes through `LLMRouter`, so a provider failure cannot be hidden by production fallback behavior.
+
+API keys are optional per provider. If a key is absent, all workloads for that provider are recorded as `skipped` with the missing environment variable name. A configured key that fails during an API call is recorded as `failed`. The command continues with the other configured providers.
+
+Expected environment variables:
+
+```env
+GEMINI_API_KEY=...
+KIMI_API_KEY=...
+MINIMAX_API_KEY=...
+DEEPSEEK_API_KEY=...
+```
+
+The benchmark therefore supports partial local runs without requiring all four accounts to be configured.
 
 A live benchmark run must:
 
