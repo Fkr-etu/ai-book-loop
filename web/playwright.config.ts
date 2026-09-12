@@ -3,16 +3,22 @@ import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
   testDir: "./tests",
   testMatch: "**/*.spec.ts",
-  fullyParallel: false,
-  workers: 1,
-  forbidOnly: false,
-  retries: 0,
-  reporter: "list",
+  fullyParallel: true,
+  workers: process.env.CI ? 3 : undefined,
+  timeout: 15 * 1000,
+  expect: {
+    timeout: 4 * 1000
+  },
   use: {
     baseURL: "http://localhost:3000",
     trace: "on-first-retry",
-    viewport: { width: 1400, height: 900 }
+    viewport: { width: 1400, height: 900 },
+    actionTimeout: 8 * 1000,
+    navigationTimeout: 8 * 1000
   },
+  forbidOnly: false,
+  retries: 0,
+  reporter: "list",
   projects: [
     {
       name: "chromium",
