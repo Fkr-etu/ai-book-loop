@@ -10,6 +10,7 @@ from book_loop.infrastructure.benchmark.runner import (
     ModelPricing,
     estimate_cost,
     run_case,
+    skipped_result,
     write_results,
 )
 
@@ -49,10 +50,11 @@ def test_run_case_records_success_and_cost() -> None:
     )
 
     assert result.success is True
+    assert result.status == "success"
     assert result.workload == "writer"
-    assert result.input_tokens == 3
-    assert result.output_tokens == 4
-    assert result.estimated_cost_usd == 0.000011
+    assert result.input_tokens == 2
+    assert result.output_tokens == 3
+    assert result.estimated_cost_usd == 0.000008
 
 
 def test_run_case_never_hides_provider_failure() -> None:
@@ -63,7 +65,20 @@ def test_run_case_never_hides_provider_failure() -> None:
     )
 
     assert result.success is False
+    assert result.status == "failed"
     assert result.error == "RuntimeError: provider unavailable"
+
+
+def test_missing_provider_key_is_explicitly_skipped() -> None:
+    result = skipped_result(
+        workload="writer",
+        model="gemini-3.6-flash",
+        reason="GEMINI_API_KEY is not configured",
+    )
+
+    assert result.success is False
+    assert result.status == "skipped"
+    assert result.error == "GEMINI_API_KEY is not configured"
 
 
 def test_structured_case_records_validity() -> None:
