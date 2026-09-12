@@ -12,11 +12,7 @@ StructuredModel = TypeVar("StructuredModel", bound=BaseModel)
 
 
 class OpenAICompatibleProvider(LLMProvider):
-    """Small dependency-free adapter for OpenAI-compatible chat-completions APIs.
-
-    This covers providers such as Kimi, MiniMax and DeepSeek without coupling the
-    application layer to their SDKs. Provider-specific differences stay in this adapter.
-    """
+    """Small dependency-free adapter for OpenAI-compatible chat-completions APIs."""
 
     def __init__(self, *, api_key: str, base_url: str, model: str, timeout_seconds: float = 120.0) -> None:
         if not api_key.strip():
@@ -55,24 +51,20 @@ class OpenAICompatibleProvider(LLMProvider):
         except (KeyError, IndexError, TypeError) as exc:
             raise RuntimeError("OpenAI-compatible provider returned an invalid response") from exc
         if isinstance(content, list):
-            content = "".join(
-                item.get("text", "") for item in content if isinstance(item, dict)
-            )
+            content = "".join(item.get("text", "") for item in content if isinstance(item, dict))
         if not isinstance(content, str) or not content.strip():
             raise RuntimeError("OpenAI-compatible provider returned an empty response")
         return content.strip()
 
     def generate(self, *, system_prompt: str, user_prompt: str, task: str = "default") -> str:
         del task
-        return self._request(
-            {
-                "model": self.model,
-                "messages": [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-            }
-        )
+        return self._request({
+            "model": self.model,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+        })
 
     def generate_structured(
         self,
@@ -84,7 +76,7 @@ class OpenAICompatibleProvider(LLMProvider):
         max_output_tokens: int | None = None,
         task: str = "default",
     ) -> StructuredModel:
-        del task
+        del task, thinking_level
         payload: dict[str, object] = {
             "model": self.model,
             "messages": [
@@ -102,9 +94,6 @@ class OpenAICompatibleProvider(LLMProvider):
         }
         if max_output_tokens is not None:
             payload["max_tokens"] = max_output_tokens
-        # Keep the semantic setting available to compatible providers that support it.
-        if thinking_level != "medium":
-            payload["thinking_level"] = thinking_level
         text = self._request(payload)
         try:
             return schema.model_validate_json(text)
