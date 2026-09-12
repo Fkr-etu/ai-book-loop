@@ -84,7 +84,7 @@ class Container:
         self.analysis_job_store = PostgresAnalysisJobStore(self.settings.database_url)
         self.observability = ObservabilityStore(self.settings.database_url)
         self.llm = create_llm(self.settings)
-        self.grill_llm = create_llm(self.settings, model=self.settings.grill_llm_model)
+        self.grill_llm = self.llm if self.settings.llm_router_enabled else create_llm(self.settings, model=self.settings.grill_llm_model)
         self.embedding_provider = create_embedding_provider(self.settings)
         self.embedding_indexer = CanonicalFactEmbeddingIndexer(provider=self.embedding_provider, repository=self.repository, model=self.settings.embedding_model)
         self.semantic_retriever = EmbeddingCanonicalRetriever(self.embedding_provider, embedding_store=self.repository, embedding_model=self.settings.embedding_model)
