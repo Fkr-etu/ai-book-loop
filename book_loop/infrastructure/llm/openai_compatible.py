@@ -20,11 +20,12 @@ class OpenAICompatibleProvider(LLMProvider):
         if not base_url.strip():
             raise ValueError("A base URL is required for an OpenAI-compatible provider")
         if not model.strip():
-            raise ValueError("A model is required for an OpenAI-compatible provider")
+            raise ValueError("A model is required for live generation")
         self.api_key = api_key
         self.base_url = base_url.rstrip("/")
         self.model = model
         self.timeout_seconds = timeout_seconds
+        self.last_usage: dict[str, int] | None = None
 
     def _request(self, payload: dict[str, object]) -> str:
         body = json.dumps(payload).encode("utf-8")
@@ -45,6 +46,18 @@ class OpenAICompatibleProvider(LLMProvider):
             raise RuntimeError(f"OpenAI-compatible provider returned HTTP {exc.code}: {detail}") from exc
         except error.URLError as exc:
             raise RuntimeError("OpenAI-compatible provider request failed") from exc
+
+        usage = data.get("usage")
+        if isinstance(usage, dict):
+            input_tokens = usage.get("prompt_tokens")
+            output_tokens = usage.get("completion_tokens")
+            self.last_usage = (
+                {"input_tokens": input_tokens, "output_tokens": output_tokens}
+                if isinstance(input_tokens, int) and isinstance(output_tokens, int)
+                else None
+            )
+        else:
+            self.last_usage = None
 
         try:
             content = data["choices"][0]["message"]["content"]
