@@ -84,24 +84,28 @@ class Container:
         self.analysis_job_store = PostgresAnalysisJobStore(self.settings.database_url)
         self.observability = ObservabilityStore(self.settings.database_url)
         self.llm = create_llm(self.settings)
-        self.grill_llm = self.llm if self.settings.llm_router_enabled else create_llm(self.settings, model=self.settings.grill_llm_model)
+        self.grill_llm = self._llm_for("grill") if self.settings.llm_router_enabled else create_llm(self.settings, model=self.settings.grill_llm_model)
         self.embedding_provider = create_embedding_provider(self.settings)
         self.embedding_indexer = CanonicalFactEmbeddingIndexer(provider=self.embedding_provider, repository=self.repository, model=self.settings.embedding_model)
         self.semantic_retriever = EmbeddingCanonicalRetriever(self.embedding_provider, embedding_store=self.repository, embedding_model=self.settings.embedding_model)
         self.canonical_retriever = HybridCanonicalRetriever(CanonicalRetriever(), self.semantic_retriever)
-        self.outline_agent = OutlineAgent(self.llm)
-        self.writer_agent = WriterAgent(self.llm)
-        self.reviewer_agent = ReviewerAgent(self.llm)
-        self.summarizer_agent = SummarizerAgent(self.llm)
+        self.outline_agent = OutlineAgent(self._llm_for("outline"))
+        self.writer_agent = WriterAgent(self._llm_for("writer"))
+        self.reviewer_agent = ReviewerAgent(self._llm_for("reviewer"))
+        self.summarizer_agent = SummarizerAgent(self._llm_for("summarizer"))
         self.grill_agent = Grill(self.grill_llm)
         self.context_builder = ContextBuilder(knowledge_repository=self.repository, retriever=self.canonical_retriever)
         self.linter = ChapterLinter()
-        self.linguistic_contextualizer = GeminiDiagnosticContextualizer(llm=self.llm)
+        self.linguistic_contextualizer = GeminiDiagnosticContextualizer(llm=self._llm_for("linguistic"))
         self.chapter_workflow = ChapterWorkflow(repository=self.repository, writer=self.writer_agent, reviewer=self.reviewer_agent, summarizer=self.summarizer_agent, context_builder=self.context_builder, linter=self.linter, linguistic_validator_factory=self._linguistic_validator, linguistic_contextualizer=self._contextualize_linguistic_diagnostics, linguistic_language=self.settings.linguistic_language, max_retries=self.settings.max_retries, review_threshold=self.settings.review_threshold, workflow_store=self.workflow_store, observability=self.observability)
         self.chapter_workflow_port = ChapterWorkflowAdapter(self.chapter_workflow, self.workflow_store)
         self.register_user_use_case = RegisterUser(self.repository, self.password_hasher, self.token_service, self.auth_rate_limiter, rate_limit=self.settings.auth_register_rate_limit, rate_window_seconds=self.settings.auth_register_rate_window_seconds)
         self.login_user_use_case = LoginUser(self.repository, self.password_hasher, self.token_service, self.auth_rate_limiter, email_limit=self.settings.auth_login_rate_limit, email_window_seconds=self.settings.auth_login_rate_window_seconds, ip_limit=self.settings.auth_login_ip_rate_limit, ip_window_seconds=self.settings.auth_login_ip_rate_window_seconds, dummy_password_hash=DUMMY_PASSWORD_HASH)
         self.authenticate_user_use_case = AuthenticateUser(self.repository, self.token_service)
+
+    def _llm_for(self, task: str):
+        binder = getattr(self.llm, "for_task", None)
+        return binder(task) if binder is not None else self.llm
 
     def _contextualize_linguistic_diagnostics(self, chapter: str, diagnostics):
         return self.linguistic_contextualizer.review(chapter=chapter, diagnostics=diagnostics)
@@ -116,7 +120,7 @@ class Container:
         if mode in {"spacy", "both", "all"}:
             checkers.append(SpacyFrenchChecker(model_name=self.settings.spacy_model))
         if mode in {"canon", "all", "both", "languagetool", "spacy"}:
-            checkers.append(CanonDiagnosticChecker(book_id=book.id, knowledge_repository=self.repository, assertion_extractor=LLMAssertionExtractor(self.llm)))
+            checkers.append(CanonDiagnosticChecker(book_id=book.id, knowledge_repository=self.repository, assertion_extractor=LLMAssertionExtractor(self._llm_for("assertion_extraction"))))
         if not checkers:
             raise ValueError("Unsupported LINGUISTIC_CHECKER value; use disabled, languagetool, spacy, canon, both or all")
         return LinguisticValidationService(checkers)
@@ -139,10 +143,10 @@ class Container:
     def generate_chapter(self) -> GenerateChapter: return GenerateChapter(self.chapter_workflow_port, repository=self.repository, workflow_store=self.workflow_store, book_usage=self.repository)
     def review_chapter(self) -> ReviewChapter: return ReviewChapter(repository=self.repository, reviewer=self.reviewer_agent, context_builder=self.context_builder, linter=self.linter, max_retries=self.settings.max_retries, threshold=self.settings.review_threshold)
     def approve_chapter(self) -> ApproveChapter: return ApproveChapter(self.repository)
-    def approve_chapter_and_sync_canon(self) -> ApproveChapterAndSyncCanon: return ApproveChapterAndSyncCanon(book_repository=self.repository, knowledge_repository=self.repository, extractor=LLMAssertionExtractor(self.llm), temporal_context_store=self.temporal_context_store)
+    def approve_chapter_and_sync_canon(self) -> ApproveChapterAndSyncCanon: return ApproveChapterAndSyncCanon(book_repository=self.repository, knowledge_repository=self.repository, extractor=LLMAssertionExtractor(self._llm_for("assertion_extraction")), temporal_context_store=self.temporal_context_store)
     def reject_chapter(self) -> RejectChapter: return RejectChapter(self.repository)
-    def ingest_document(self) -> IngestDocument: return IngestDocument(repository=self.repository, extractor=LLMAssertionExtractor(self.llm), temporal_context_store=self.temporal_context_store)
-    def extract_chapter_assertions(self) -> ExtractChapterAssertions: return ExtractChapterAssertions(book_repository=self.repository, knowledge_repository=self.repository, extractor=LLMAssertionExtractor(self.llm), temporal_context_store=self.temporal_context_store)
+    def ingest_document(self) -> IngestDocument: return IngestDocument(repository=self.repository, extractor=LLMAssertionExtractor(self._llm_for("assertion_extraction")), temporal_context_store=self.temporal_context_store)
+    def extract_chapter_assertions(self) -> ExtractChapterAssertions: return ExtractChapterAssertions(book_repository=self.repository, knowledge_repository=self.repository, extractor=LLMAssertionExtractor(self._llm_for("assertion_extraction")), temporal_context_store=self.temporal_context_store)
     def review_assertion(self) -> ReviewAssertion: return ReviewAssertion(self.repository, embedding_indexer=self.embedding_indexer)
     def propose_canon_change(self) -> ProposeCanonChange: return ProposeCanonChange(self.repository)
     def review_canon_change(self) -> ReviewCanonChange: return ReviewCanonChange(self.repository, embedding_indexer=self.embedding_indexer)
