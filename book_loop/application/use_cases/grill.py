@@ -80,7 +80,6 @@ Retourne uniquement le JSON correspondant au schéma demandé.
             schema=GrillResponse,
             thinking_level="low",
             max_output_tokens=500,
-            task="grill",
         )
 
     @staticmethod
