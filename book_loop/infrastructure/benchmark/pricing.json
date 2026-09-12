@@ -1,0 +1,12 @@
+{
+  "pricing_version": "2026-09-12",
+  "currency": "USD",
+  "unit": "USD per 1M tokens",
+  "models": {
+    "gemini-3.6-flash": {"input": 0.75, "output": 3.75},
+    "kimi-k2.6": {"input": 0.95, "output": 4.0},
+    "minimax-m2.7": {"input": 0.30, "output": 1.20},
+    "deepseek-v4-flash": {"input": 0.44, "output": 1.32}
+  },
+  "notes": "Snapshot used for benchmark comparisons. Verify against provider pricing before publishing commercial conclusions. Cache-hit pricing is intentionally excluded from the first benchmark so all candidates are compared on uncached requests."
+}
