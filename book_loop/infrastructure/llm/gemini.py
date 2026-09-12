@@ -21,7 +21,8 @@ class GeminiProvider(LLMProvider):
         self.model = model
         self.client = genai.Client(api_key=api_key)
 
-    def generate(self, *, system_prompt: str, user_prompt: str) -> str:
+    def generate(self, *, system_prompt: str, user_prompt: str, task: str = "default") -> str:
+        del task
         interaction = self.client.interactions.create(
             model=self.model,
             input=user_prompt,
@@ -40,8 +41,10 @@ class GeminiProvider(LLMProvider):
         schema: type[StructuredModel],
         thinking_level: str = "medium",
         max_output_tokens: int | None = None,
+        task: str = "default",
     ) -> StructuredModel:
         """Generate and validate a response using Gemini's native JSON-schema output."""
+        del task
         generation_config: dict[str, object] = {"thinking_level": thinking_level}
         if max_output_tokens is not None:
             generation_config["max_output_tokens"] = max_output_tokens

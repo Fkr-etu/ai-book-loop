@@ -74,7 +74,13 @@ Retourne uniquement le JSON correspondant au schéma demandé.
             return GrillResponse(reply="Nous avons assez creusé pour cette session. Reviens à ton histoire avec ces questions en tête.", question=None, done=True)
         user_prompt = self._build_user_prompt(book=book, messages=messages)
         personality = PERSONALITY_PROMPTS[book.grill_personality]
-        return self.llm.generate_structured(system_prompt=f"{self.SYSTEM_PROMPT}\n\nStyle de confrontation : {personality}", user_prompt=user_prompt, schema=GrillResponse, thinking_level="low", max_output_tokens=500)
+        return self.llm.generate_structured(
+            system_prompt=f"{self.SYSTEM_PROMPT}\n\nStyle de confrontation : {personality}",
+            user_prompt=user_prompt,
+            schema=GrillResponse,
+            thinking_level="low",
+            max_output_tokens=500,
+        )
 
     @staticmethod
     def _build_user_prompt(*, book: BookState, messages: list[GrillMessage]) -> str:

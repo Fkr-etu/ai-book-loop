@@ -12,6 +12,31 @@ class Settings(BaseSettings):
     embedding_provider: str = "gemini"
     embedding_model: str = "gemini-embedding-001"
     gemini_api_key: str = ""
+
+    llm_router_enabled: bool = False
+    llm_router_default_target: str = "main"
+    llm_router_targets: dict[str, str] = {
+        "main": "gemini:gemini-3.6-flash",
+        "cheap": "gemini:gemini-3.6-flash",
+        "reasoning": "gemini:gemini-3.6-flash",
+    }
+    llm_router_routes: dict[str, str] = {
+        "writer": "main",
+        "reviewer": "reasoning",
+        "corrector": "main",
+        "summarizer": "cheap",
+        "grill": "reasoning",
+        "outline": "cheap",
+        "assertion_extraction": "cheap",
+        "linguistic": "cheap",
+        "default": "main",
+    }
+    kimi_api_key: str = ""
+    kimi_base_url: str = "https://api.moonshot.ai/v1"
+    minimax_api_key: str = ""
+    minimax_base_url: str = "https://api.minimax.io/v1"
+    deepseek_api_key: str = ""
+    deepseek_base_url: str = "https://api.deepseek.com/v1"
     database_url: str = "postgresql://book_loop:book_loop@localhost:5432/book_loop"
     max_retries: int = 3
     review_threshold: int = 7

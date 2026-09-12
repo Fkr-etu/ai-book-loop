@@ -14,7 +14,8 @@ StructuredModel = TypeVar("StructuredModel", bound=BaseModel)
 class FakeLLMProvider(LLMProvider):
     """Fake LLM Provider for local development and offline testing."""
 
-    def generate(self, *, system_prompt: str, user_prompt: str) -> str:
+    def generate(self, *, system_prompt: str, user_prompt: str, task: str = "default") -> str:
+        del task
         sys_lower = system_prompt.lower()
         if "grill" in sys_lower or "œil critique" in sys_lower:
             return json.dumps({
@@ -79,8 +80,9 @@ class FakeLLMProvider(LLMProvider):
         schema: type[StructuredModel],
         thinking_level: str = "medium",
         max_output_tokens: int | None = None,
+        task: str = "default",
     ) -> StructuredModel:
-        del thinking_level, max_output_tokens
+        del thinking_level, max_output_tokens, task
         return schema.model_validate_json(
             self.generate(system_prompt=system_prompt, user_prompt=user_prompt)
         )
