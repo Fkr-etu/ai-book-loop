@@ -11,4 +11,11 @@ test.describe("public navigation", () => {
     await expect(header.getByRole("link", { name: "Se connecter" })).toBeVisible();
     await expect(header.getByRole("link", { name: "Commencer" })).toBeVisible();
   });
+
+  test("homepage uses the official Book Loop lockup", async ({ page }) => {
+    await page.goto("/");
+    const logo = page.locator('header a[aria-label="Book Loop — accueil"] img');
+    await expect(logo).toHaveAttribute("src", /\/brand\/lockup-horizontal\.svg/);
+    await expect(logo).toHaveAttribute("alt", "Book Loop");
+  });
 });

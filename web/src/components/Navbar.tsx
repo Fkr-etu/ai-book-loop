@@ -1,10 +1,10 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ArrowRight, BookOpen, CreditCard, Download, LayoutDashboard, Menu, PanelLeft, X } from "lucide-react";
-import { BrandMark } from "./BrandMark";
 import { getApiClient } from "@/services/api";
 
 interface NavbarProps {
@@ -72,9 +72,15 @@ export function Navbar({ onToggleSidebar, showSidebarToggle = false }: NavbarPro
               <PanelLeft className="w-5 h-5 text-[#0b1c30]" />
             </button>
           )}
-          <Link href={logoHref} className="flex items-center gap-2.5 group min-w-0" aria-label={logoLabel}>
-            <div className="w-8 h-8 md:w-9 md:h-9 rounded-lg bg-[#13243a] text-[#fffdfc] flex items-center justify-center shadow-xs group-hover:bg-[#0b1c30] transition-colors shrink-0"><BrandMark className="w-5 h-5 md:w-6 md:h-6" /></div>
-            <div className="min-w-0"><span className="font-playfair text-base md:text-lg font-bold tracking-tight text-[#0b1c30] block leading-none">Book Loop</span><span className="font-courier text-[9px] md:text-[10px] text-[#45464d] tracking-widest uppercase block mt-0.5 truncate">La continuité de votre récit</span></div>
+          <Link href={logoHref} className="flex items-center min-w-0 group" aria-label={logoLabel}>
+            <Image
+              src="/brand/lockup-horizontal.svg"
+              alt="Book Loop"
+              width={560}
+              height={170}
+              priority
+              className="h-9 w-auto md:h-10 max-w-[145px] md:max-w-[170px] transition-opacity group-hover:opacity-80"
+            />
           </Link>
         </div>
 
