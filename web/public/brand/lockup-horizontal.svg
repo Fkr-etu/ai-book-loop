@@ -1,0 +1,9 @@
+<svg viewBox="0 0 560 170" xmlns="http://www.w3.org/2000/svg">
+  <g transform="translate(-27,-20)">
+    <path d="M 58,42 C 53.469,55.592 61.665,72.468 72.358,91.513" fill="none" stroke="#13243a" stroke-width="17" stroke-linecap="round"/>
+    <circle cx="114" cy="106" r="44" fill="none" stroke="#13243a" stroke-width="19"/>
+    <path d="M 99.906,147.608 C 101.989,154.309 103.449,161.116 104,168" fill="none" stroke="#13243a" stroke-width="17" stroke-linecap="round"/>
+    <circle cx="87.9" cy="119.5" r="13" fill="#b87500"/>
+  </g>
+  <text x="205" y="108" font-family="Playfair Display, Georgia, serif" font-size="58" font-weight="600" fill="#13243a">Book Loop</text>
+</svg>

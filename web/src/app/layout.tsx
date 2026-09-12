@@ -34,9 +34,12 @@ export const metadata: Metadata = {
     description: "Écrivez, relisez et continuez votre histoire sans perdre ce qui compte.",
   },
   icons: {
-    icon: "/book-loop-mark.svg",
-    shortcut: "/book-loop-mark.svg",
-    apple: "/book-loop-mark.svg",
+    icon: [
+      { url: "/brand/favicon-256.png", type: "image/png", sizes: "256x256" },
+      { url: "/brand/symbol-transparent.svg", type: "image/svg+xml" },
+    ],
+    shortcut: "/brand/favicon-256.png",
+    apple: [{ url: "/brand/favicon-256.png", type: "image/png", sizes: "256x256" }],
   },
 };
 
