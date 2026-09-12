@@ -33,7 +33,7 @@ def _provider_for_target(settings: Settings, target: str) -> LLMProvider | None:
 
 
 def create_llm(settings: Settings, *, model: str | None = None) -> LLMProvider:
-    if settings.llm_provider == "fake" or not settings.gemini_api_key:
+    if settings.llm_provider == "fake":
         return FakeLLMProvider()
 
     if settings.llm_router_enabled and model is None:
@@ -63,5 +63,7 @@ def create_llm(settings: Settings, *, model: str | None = None) -> LLMProvider:
         )
 
     if settings.llm_provider == "gemini":
+        if not settings.gemini_api_key:
+            return FakeLLMProvider()
         return GeminiProvider(api_key=settings.gemini_api_key, model=model or settings.llm_model)
     return FakeLLMProvider()
