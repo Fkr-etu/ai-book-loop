@@ -14,5 +14,4 @@ class WriterAgent:
                 "Preserve continuity with established facts and characters. Write only the requested chapter."
             ),
             user_prompt=context,
-            task="writer",
         )
