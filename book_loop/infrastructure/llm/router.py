@@ -16,47 +16,57 @@ class LLMRoute:
     fallback_target: str | None = None
 
 
+class TaskBoundLLMProvider(LLMProvider):
+    """Application-facing provider bound to one semantic workload."""
+
+    def __init__(self, router: "LLMRouter", task: str) -> None:
+        self._router = router
+        self._task = task
+
+    def generate(self, *, system_prompt: str, user_prompt: str) -> str:
+        return self._router.generate(system_prompt=system_prompt, user_prompt=user_prompt, task=self._task)
+
+    def generate_structured(self, *, system_prompt: str, user_prompt: str, schema: type[StructuredModel], thinking_level: str = "medium", max_output_tokens: int | None = None) -> StructuredModel:
+        return self._router.generate_structured(
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            schema=schema,
+            thinking_level=thinking_level,
+            max_output_tokens=max_output_tokens,
+            task=self._task,
+        )
+
+
 class LLMRouter(LLMProvider):
-    """Route LLM calls by workload while keeping provider details in infrastructure.
+    """Route LLM calls by workload while keeping provider details in infrastructure."""
 
-    The router is intentionally deterministic: application code selects a semantic task
-    (writer, reviewer, summarizer, etc.), while configuration decides which model handles it.
-    A target may optionally define a fallback target for transient provider failures.
-    """
-
-    def __init__(
-        self,
-        *,
-        providers: dict[str, LLMProvider],
-        routes: dict[str, LLMRoute],
-        default_route: LLMRoute,
-    ) -> None:
+    def __init__(self, *, providers: dict[str, LLMProvider], routes: dict[str, LLMRoute], default_route: LLMRoute) -> None:
         if not providers:
             raise ValueError("LLMRouter requires at least one provider")
         self._providers = providers
         self._routes = routes
         self._default_route = default_route
 
+    def for_task(self, task: str) -> TaskBoundLLMProvider:
+        return TaskBoundLLMProvider(self, task)
+
+    def _route_for(self, task: str) -> LLMRoute:
+        return self._routes.get(task, self._default_route)
+
     def _provider_for(self, task: str) -> LLMProvider:
-        route = self._routes.get(task, self._default_route)
+        route = self._route_for(task)
         try:
             return self._providers[route.target]
         except KeyError as exc:
             raise RuntimeError(f"No LLM provider configured for target {route.target!r}") from exc
 
     def _fallback_for(self, task: str) -> LLMProvider | None:
-        route = self._routes.get(task, self._default_route)
-        if not route.fallback_target:
+        fallback_target = self._route_for(task).fallback_target
+        if not fallback_target:
             return None
-        return self._providers.get(route.fallback_target)
+        return self._providers.get(fallback_target)
 
-    def generate(
-        self,
-        *,
-        system_prompt: str,
-        user_prompt: str,
-        task: str = "default",
-    ) -> str:
+    def generate(self, *, system_prompt: str, user_prompt: str, task: str = "default") -> str:
         provider = self._provider_for(task)
         try:
             return provider.generate(system_prompt=system_prompt, user_prompt=user_prompt)
@@ -66,16 +76,7 @@ class LLMRouter(LLMProvider):
                 raise
             return fallback.generate(system_prompt=system_prompt, user_prompt=user_prompt)
 
-    def generate_structured(
-        self,
-        *,
-        system_prompt: str,
-        user_prompt: str,
-        schema: type[StructuredModel],
-        thinking_level: str = "medium",
-        max_output_tokens: int | None = None,
-        task: str = "default",
-    ) -> StructuredModel:
+    def generate_structured(self, *, system_prompt: str, user_prompt: str, schema: type[StructuredModel], thinking_level: str = "medium", max_output_tokens: int | None = None, task: str = "default") -> StructuredModel:
         provider = self._provider_for(task)
         try:
             return provider.generate_structured(
