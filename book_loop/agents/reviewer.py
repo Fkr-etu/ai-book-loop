@@ -32,7 +32,6 @@ class ReviewerAgent:
                 schema=SceneReview,
                 thinking_level="medium",
                 max_output_tokens=2048,
-                task="reviewer",
             )
         except (ValueError, TypeError) as exc:
             raise ValueError("Reviewer returned invalid structured output") from exc
