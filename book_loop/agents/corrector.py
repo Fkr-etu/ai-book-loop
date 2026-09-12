@@ -26,4 +26,5 @@ class CorrectorAgent:
                 "Return only the corrected chapter."
             ),
             user_prompt=f"CONTEXT:\n{context}\n\nEDITORIAL FEEDBACK:\n{feedback}\n\nDRAFT:\n{draft}",
+            task="corrector",
         )
