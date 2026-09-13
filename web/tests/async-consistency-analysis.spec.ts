@@ -30,10 +30,12 @@ test.describe("Book Loop — async consistency analysis", () => {
     await expect(page.getByRole("heading", { name: "Vérifier la continuité" })).toBeVisible();
     const startButton = page.getByRole("button", { name: "Vérifier la continuité" });
     await expect(startButton).toBeEnabled();
-    const startResponsePromise = page.waitForResponse((response) => response.url().includes(`/api/books/${bookId}/consistency/analyze`) && response.request().method() === "POST");
-    await startButton.evaluate((element) => (element as HTMLButtonElement).click());
-    const startResponse = await startResponsePromise;
-    expect(startResponse.status()).toBe(202);
+    const startRequestPromise = page.waitForRequest((request) => request.url().includes(`/api/books/${bookId}/consistency/analyze`) && request.method() === "POST");
+    await startButton.click();
+    const startRequest = await startRequestPromise;
+    const startResponse = await startRequest.response();
+    expect(startResponse).not.toBeNull();
+    expect(startResponse!.status()).toBe(202);
 
     await expect(page.getByText("Vérification de la continuité en cours")).toBeVisible({ timeout: 5_000 });
     await expect(page.getByText("35%")).toBeVisible();
