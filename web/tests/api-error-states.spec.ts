@@ -22,7 +22,7 @@ test.describe("Book Loop — frontend API error states", () => {
 
       await page.goto(`/studio?bookId=error-state-${scenario.status}`);
 
-      await expect(page.getByRole("alert")).toContainText(scenario.message);
+      await expect(page.getByTestId("studio-api-error")).toContainText(scenario.message);
       if (scenario.actionType === "link") {
         await expect(page.getByRole("link", { name: scenario.action })).toBeVisible();
       } else {
