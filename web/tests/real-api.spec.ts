@@ -49,9 +49,9 @@ test.describe("Book Loop — real API author journey", () => {
     const bookId = new URL(page.url()).searchParams.get("bookId");
     expect(bookId).toBeTruthy();
     await page.goto(`/studio/outline?bookId=${encodeURIComponent(bookId!)}`);
-    await expect(page.getByRole("heading", { name: "Plan du livre" })).toBeVisible();
-    await page.getByRole("button", { name: "Générer le plan IA" }).click();
-    await expect(page.getByRole("heading", { name: "Plan proposé", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Votre plan", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Proposer un plan", exact: true }).click();
+    await expect(page.locator("pre")).toBeVisible();
     await expect(page.getByTestId("approve-outline-btn")).toBeEnabled();
     const proposedOutline = await page.locator("pre").innerText();
     const firstChapterTitle = proposedOutline.match(/^## Chapitre 1: (.+)$/m)?.[1]?.trim();
@@ -59,7 +59,7 @@ test.describe("Book Loop — real API author journey", () => {
     expect(firstChapterTitle).toBeTruthy();
     expect(secondChapterTitle).toBeTruthy();
     await page.getByTestId("approve-outline-btn").click();
-    await expect(page.getByText("Plan approuvé")).toBeVisible();
+    await expect(page.getByText("Plan retenu")).toBeVisible();
 
     await page.getByTestId("add-chapter-btn").click();
     await page.locator('form input[type="text"]').nth(0).fill(firstChapterTitle!);
