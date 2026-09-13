@@ -46,7 +46,9 @@ test.describe("Book Loop — real API author journey", () => {
     await page.getByRole("button", { name: /C’est bien ça — commencer l’atelier/ }).click();
 
     await expect(page).toHaveURL(/\/studio\?bookId=/);
-    await page.goto("/studio/outline");
+    const bookId = new URL(page.url()).searchParams.get("bookId");
+    expect(bookId).toBeTruthy();
+    await page.goto(`/studio/outline?bookId=${encodeURIComponent(bookId!)}`);
     await expect(page.getByRole("heading", { name: "Plan du livre" })).toBeVisible();
     await page.getByRole("button", { name: "Générer le plan IA" }).click();
     await expect(page.getByRole("heading", { name: "Plan proposé", exact: true })).toBeVisible();
@@ -70,7 +72,7 @@ test.describe("Book Loop — real API author journey", () => {
     expect(createdBook.chapters?.at(-1)).toMatchObject({ number: 1, title: firstChapterTitle });
     const bookApiBase = createChapterResponse.url().replace(/\/chapters$/, "");
 
-    await page.goto("/studio/chapters");
+    await page.goto(`/studio/chapters?bookId=${encodeURIComponent(bookId!)}`);
     await expect(page.getByRole("heading", { name: "Écrire, relire, décider" })).toBeVisible();
     await page.getByRole("button", { name: "Générer une version" }).click();
     await expect(page.getByRole("button", { name: /Version 1 ·/ })).toBeVisible({ timeout: 20_000 });
@@ -81,7 +83,7 @@ test.describe("Book Loop — real API author journey", () => {
     await page.getByRole("button", { name: "Approuver" }).click();
     await expect(page.getByText("Chapitre approuvé")).toBeVisible();
 
-    await page.goto("/studio/canon");
+    await page.goto(`/studio/canon?bookId=${encodeURIComponent(bookId!)}`);
     await expect(page.getByRole("heading", { name: "Revue du Canon" })).toBeVisible();
     const acceptAssertionButton = page.getByRole("button", { name: "Accepter" }).first();
     await expect(acceptAssertionButton).toBeVisible();
