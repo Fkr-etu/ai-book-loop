@@ -57,7 +57,7 @@ test.describe("Book Loop - Complete Page Coverage Suite", () => {
 
   test("SEO — private and authentication pages are noindex", async ({ page }) => {
     for (const path of ["/login", "/register", "/setup", "/dashboard", "/studio", "/parametres"]) {
-      await page.goto(path);
+      await page.goto(path, { waitUntil: "domcontentloaded" });
       await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/);
     }
   });
