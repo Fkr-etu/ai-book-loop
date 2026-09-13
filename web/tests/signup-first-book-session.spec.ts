@@ -22,6 +22,12 @@ test.describe("Book Loop — signup to first book", () => {
     const meAfterRegister = await page.request.get("/api/auth/me");
     expect(meAfterRegister.ok()).toBeTruthy();
     expect((await meAfterRegister.json()).user.email).toBe(email);
+
+    await page.getByLabel("Comment appelez-vous votre projet ?").fill("Premier livre signup E2E");
+    await page.getByLabel("De quoi parle votre histoire ?").fill("Vérifier la création du premier livre après inscription.");
+    await page.getByTestId("next-step-btn").click();
+    await page.getByTestId("next-step-btn").click();
+    await page.getByRole("button", { name: "Voir la synthèse" }).click();
     const createBookResponsePromise = page.waitForResponse(
       (response) => response.url().endsWith("/api/books") && response.request().method() === "POST",
     );
