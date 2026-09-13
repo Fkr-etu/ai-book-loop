@@ -79,7 +79,15 @@ test.describe("Book Loop — real API author journey", () => {
     await expect(generateButton).toBeEnabled({ timeout: 10_000 });
     await generateButton.click();
     await expect(page.getByRole("button", { name: /Version 1/ })).toBeVisible({ timeout: 20_000 });
-    await expect(page.getByRole("textbox", { name: "Contenu du chapitre" })).not.toHaveValue("", { timeout: 20_000 });
+    const editor = page.getByRole("textbox", { name: "Contenu du chapitre" });
+    await expect.poll(async () => {
+      const response = await page.request.get(bookApiBase);
+      if (!response.ok()) return "";
+      const currentBook = (await response.json()) as { chapters?: Array<{ number: number; versions?: Array<{ versionNumber: number; content: string }> }> };
+      return currentBook.chapters?.find((chapter) => chapter.number === 1)?.versions?.find((version) => version.versionNumber === 1)?.content || "";
+    }, { timeout: 20_000 }).not.toBe("");
+    await page.reload();
+    await expect(editor).not.toHaveValue("", { timeout: 10_000 });
 
     await page.getByRole("button", { name: "Analyser le chapitre" }).click();
     await expect(page.getByRole("button", { name: /Version 1 · relue/ })).toBeVisible({ timeout: 20_000 });
