@@ -37,6 +37,11 @@ test.describe("Book Loop — same-origin auth session", () => {
     expect((await meAfterLogin.json()).user.email).toBe(email);
 
     await page.goto("/setup");
+    await page.getByLabel("Comment appelez-vous votre projet ?").fill("Same-origin E2E");
+    await page.getByLabel("De quoi parle votre histoire ?").fill("Vérifier la conservation de session lors de la création du premier livre.");
+    await page.getByTestId("next-step-btn").click();
+    await page.getByTestId("next-step-btn").click();
+    await page.getByRole("button", { name: "Voir la synthèse" }).click();
     const createBookResponsePromise = page.waitForResponse(
       (response) => response.url().endsWith("/api/books") && response.request().method() === "POST",
     );
