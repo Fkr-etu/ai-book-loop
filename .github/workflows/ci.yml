@@ -74,29 +74,7 @@ jobs:
         run: npm ci && npm audit --audit-level=high
 
   frontend:
-    name: Frontend lint and build
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: web
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-      - name: Set up Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version: "22"
-          cache: npm
-          cache-dependency-path: web/package-lock.json
-      - name: Install dependencies
-        run: npm ci
-      - name: Lint
-        run: npm run lint
-      - name: Build
-        run: npm run build
-
-  e2e:
-    name: Frontend E2E (zero-cost)
+    name: Frontend lint, build and E2E
     runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:
@@ -116,10 +94,12 @@ jobs:
           cache-dependency-path: web/package-lock.json
       - name: Install dependencies
         run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Build
+        run: npm run build
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
-      - name: Build E2E app
-        run: npm run build
       - name: Run Playwright E2E
         run: npm run test:e2e
 
@@ -146,6 +126,17 @@ jobs:
       LLM_PROVIDER: fake
       GEMINI_API_KEY: ""
       AUTH_SECRET_KEY: "book-loop-e2e-test-secret"
+      # The real API E2E suite intentionally creates many isolated users and
+      # exercises login/logout flows in parallel. Keep production-like rate
+      # limiting enabled, but raise the thresholds for this isolated CI process
+      # so the suite does not rate-limit itself and turn valid auth journeys
+      # into cascaded 401/429 failures.
+      AUTH_REGISTER_RATE_LIMIT: "1000"
+      AUTH_REGISTER_RATE_WINDOW_SECONDS: "60"
+      AUTH_LOGIN_RATE_LIMIT: "1000"
+      AUTH_LOGIN_RATE_WINDOW_SECONDS: "60"
+      AUTH_LOGIN_IP_RATE_LIMIT: "1000"
+      AUTH_LOGIN_IP_RATE_WINDOW_SECONDS: "60"
       NEXT_PUBLIC_USE_REAL_API: "true"
       NEXT_PUBLIC_API_URL: "http://localhost:8000"
     steps:
@@ -184,14 +175,14 @@ jobs:
       - name: Build E2E app against real API
         working-directory: web
         run: npm run build
-      - name: Run real API Playwright journey
-        id: real-api-test
-        continue-on-error: true
+      - name: Run all real API Playwright journeys
         working-directory: web
-        run: npx playwright test tests/real-api.spec.ts
+        run: npx playwright test
       - name: Print backend API log after E2E failure
-        if: steps.real-api-test.conclusion == 'failure'
-        run: cat /tmp/book-loop-api.log
-      - name: Fail job after diagnostics
-        if: steps.real-api-test.conclusion == 'failure'
-        run: exit 1
+        if: failure()
+        run: |
+          if [ -f /tmp/book-loop-api.log ]; then
+            cat /tmp/book-loop-api.log
+          else
+            echo "Backend API log unavailable: /tmp/book-loop-api.log does not exist."
+          fi

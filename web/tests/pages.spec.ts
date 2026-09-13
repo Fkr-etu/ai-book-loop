@@ -1,6 +1,16 @@
 import { test, expect } from "@playwright/test";
 
 test.describe("Book Loop - Complete Page Coverage Suite", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.route("/api/auth/me", async (route) => {
+      await route.fulfill({
+        status: 401,
+        contentType: "application/json",
+        body: JSON.stringify({ detail: "Not authenticated" }),
+      });
+    });
+  });
+
   test("France B2C — public legal pages are reachable", async ({ page }) => {
     await page.goto("/mentions-legales");
     await expect(page.getByRole("heading", { name: "Mentions légales" })).toBeVisible();
@@ -57,7 +67,9 @@ test.describe("Book Loop - Complete Page Coverage Suite", () => {
 
   test("SEO — private and authentication pages are noindex", async ({ page }) => {
     for (const path of ["/login", "/register", "/setup", "/dashboard", "/studio", "/parametres"]) {
-      await page.goto(path);
+      // Some protected pages redirect client-side and can abort the initial navigation.
+      await page.goto(path, { waitUntil: "commit" }).catch(() => undefined);
+      await page.waitForLoadState("domcontentloaded").catch(() => undefined);
       await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/);
     }
   });

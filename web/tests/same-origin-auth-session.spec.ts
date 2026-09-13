@@ -16,13 +16,13 @@ test.describe("Book Loop — same-origin auth session", () => {
       await expect(cookieBanner).toBeHidden();
     }
 
-    await page.getByLabel("Nom complet / Pseudonyme d'auteur").fill("Same Origin E2E Author");
+    await page.getByLabel("Nom ou pseudonyme").fill("Same Origin E2E Author");
     await page.getByLabel("Adresse e-mail").fill(email);
     await page.getByLabel("Mot de passe").fill(password);
     await page.getByRole("button", { name: "Créer mon compte" }).click();
     await expect(page).toHaveURL(/\/setup$/);
 
-    const meAfterRegister = await page.request.get(new URL("/api/auth/me", page.url()).toString());
+    const meAfterRegister = await page.request.get("/api/auth/me");
     expect(meAfterRegister.ok()).toBeTruthy();
     expect((await meAfterRegister.json()).user.email).toBe(email);
 
@@ -32,11 +32,16 @@ test.describe("Book Loop — same-origin auth session", () => {
     await page.getByRole("button", { name: "Se connecter" }).click();
     await expect(page).toHaveURL(/\/studio$/);
 
-    const meAfterLogin = await page.request.get(new URL("/api/auth/me", page.url()).toString());
+    const meAfterLogin = await page.request.get("/api/auth/me");
     expect(meAfterLogin.ok()).toBeTruthy();
     expect((await meAfterLogin.json()).user.email).toBe(email);
 
     await page.goto("/setup");
+    await page.getByLabel("Comment appelez-vous votre projet ?").fill("Same-origin E2E");
+    await page.getByLabel("De quoi parle votre histoire ?").fill("Vérifier la conservation de session lors de la création du premier livre.");
+    await page.getByTestId("next-step-btn").click();
+    await page.getByTestId("next-step-btn").click();
+    await page.getByRole("button", { name: "Voir la synthèse" }).click();
     const createBookResponsePromise = page.waitForResponse(
       (response) => response.url().endsWith("/api/books") && response.request().method() === "POST",
     );

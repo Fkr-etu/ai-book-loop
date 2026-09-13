@@ -7,16 +7,11 @@ test.describe("Book Loop — authentication journey", () => {
   test.skip(!realApiEnabled, "Requires NEXT_PUBLIC_USE_REAL_API=true");
 
   test("registers, restores the session, logs out, rejects bad credentials and logs back in", async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem("book-loop-cookie-consent", "rejected"));
     const email = `auth-e2e-${Date.now()}@bookloop-e2e.com`;
 
     await page.goto("/register");
-    const cookieBanner = page.getByRole("complementary", { name: "Préférences de cookies" });
-    if (await cookieBanner.isVisible()) {
-      await cookieBanner.getByRole("button", { name: "Refuser" }).click();
-      await expect(cookieBanner).toBeHidden();
-    }
-
-    await page.getByLabel("Nom complet / Pseudonyme d'auteur").fill("Auth E2E Author");
+    await page.getByLabel("Nom ou pseudonyme").fill("Auth E2E Author");
     await page.getByLabel("Adresse e-mail").fill(email);
     await page.getByLabel("Mot de passe").fill(password);
     await page.getByRole("button", { name: "Créer mon compte" }).click();
@@ -38,12 +33,12 @@ test.describe("Book Loop — authentication journey", () => {
 
     await page.getByLabel("Adresse e-mail").fill(email);
     await page.getByLabel("Mot de passe").fill("Wrong-Password-123!");
-    await page.getByRole("button", { name: "Connexion" }).click();
-    await expect(page.getByRole("alert")).toContainText("Adresse e-mail ou mot de passe incorrect.");
+    await page.getByRole("button", { name: "Se connecter" }).click();
+    await expect(page.getByText("Adresse e-mail ou mot de passe incorrect.", { exact: true })).toBeVisible();
     await expect(page).toHaveURL(/\/login$/);
 
     await page.getByLabel("Mot de passe").fill(password);
-    await page.getByRole("button", { name: "Connexion" }).click();
+    await page.getByRole("button", { name: "Se connecter" }).click();
     await expect(page).toHaveURL(/\/studio$/);
 
     const meAfterLogin = await page.request.get("/api/auth/me");
@@ -58,11 +53,12 @@ test.describe("Book Loop — authentication journey", () => {
     await page.goto("/register");
 
     await page.getByRole("link", { name: "Conditions d'utilisation" }).click();
-    await expect(page).toHaveURL(/\/terms$/);
-    await expect(page.getByRole("heading", { name: "Conditions d’utilisation" })).toBeVisible();
+    await expect(page).toHaveURL(/\/cgv$/);
+    await expect(page.getByRole("heading", { name: /Conditions générales de vente|Conditions d’utilisation/ })).toBeVisible();
 
-    await page.getByRole("link", { name: "Consulter la politique de confidentialité" }).click();
-    await expect(page).toHaveURL(/\/privacy$/);
+    await page.goto("/register");
+    await page.getByRole("link", { name: "Politique de confidentialité" }).click();
+    await expect(page).toHaveURL(/\/politique-confidentialite$/);
     await expect(page.getByRole("heading", { name: "Politique de confidentialité" })).toBeVisible();
   });
 });

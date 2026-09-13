@@ -106,7 +106,7 @@ export function ConsistencyAnalysisPanel({ bookId }: { bookId: string }) {
             <p className="text-xs text-[#76777d] mt-1 max-w-xl">Parcourez l’ensemble du récit pour repérer les contradictions ou les éléments qui semblent ne plus correspondre.</p>
           </div>
         </div>
-        <button type="button" onClick={() => void start()} disabled={starting || running || loading} className="shrink-0 px-4 py-2.5 bg-[#0b1c30] text-white text-xs font-bold rounded-lg flex items-center justify-center gap-2 disabled:opacity-50">
+        <button data-testid="consistency-start-btn" type="button" onClick={() => void start()} disabled={starting || running || loading} className="shrink-0 px-4 py-2.5 bg-[#0b1c30] text-white text-xs font-bold rounded-lg flex items-center justify-center gap-2 disabled:opacity-50">
           {starting || running ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
           {starting ? "Lancement…" : running ? "Vérification en cours…" : "Vérifier la continuité"}
         </button>

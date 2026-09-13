@@ -19,8 +19,12 @@ class AddChapter:
         outline_chapter = next((chapter for chapter in book.outline.chapters if chapter.number == chapter_number), None)
         if outline_chapter is None:
             raise ValueError(f"Unknown chapter {chapter_number} in outline")
-        chapter = Chapter(id=f"{book.id}:chapter:{chapter_number}", number=chapter_number, title=outline_chapter.title, objective=outline_chapter.objective, current_version=1)
+        chapter = Chapter(
+            id=f"{book.id}:chapter:{chapter_number}",
+            number=chapter_number,
+            title=outline_chapter.title,
+            objective=outline_chapter.objective,
+        )
         book.chapters.append(chapter)
         self.repository.save(book)
-        self.repository.save_chapter_version(book.id, chapter_number, 1, "")
         return book
