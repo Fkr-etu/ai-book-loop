@@ -60,8 +60,9 @@ def test_use_cases_compose_without_services():
     assert book.chapters[0].number == 1
     assert book.chapters[0].title == "The beginning"
     assert book.chapters[0].objective == "Start the conflict"
-    assert book.chapters[0].current_version == 1
-    assert repository.get_chapter_version(book.id, 1, 1) == ""
+    assert book.chapters[0].current_version == 0
+    with pytest.raises(KeyError):
+        repository.get_chapter_version(book.id, 1, 1)
 
 
 def test_structured_outline_round_trips_through_repository():
