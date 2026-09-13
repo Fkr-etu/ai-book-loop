@@ -29,7 +29,7 @@ test.describe("Book Loop — real API author journey", () => {
     await expect(page.getByRole("heading", { name: "Qu’avez-vous envie de raconter ?" })).toBeVisible();
     await page.getByLabel("Qu'aimeriez-vous faire ressentir, raconter ou explorer ?").fill("Explorer la confiance et le choix de l'auteur face aux propositions de l'IA.");
     await page.getByRole("button", { name: "Créer du suspense" }).click();
-    await page.getByRole("button", { name: "Tendu" }).click();
+    await page.getByRole("radio", { name: "Tendu" }).click();
     await page.getByPlaceholder("Ajouter une contrainte").fill("Les décisions de l'auteur restent canoniques");
     await page.getByRole("button", { name: "Ajouter une contrainte" }).click();
     await page.getByTestId("next-step-btn").click();
