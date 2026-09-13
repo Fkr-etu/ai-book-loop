@@ -13,7 +13,7 @@ test.describe("Book Loop — first chapter writing", () => {
     if (await cookieBanner.isVisible()) await cookieBanner.getByRole("button", { name: "Refuser" }).click();
     await page.getByPlaceholder("Votre nom ou pseudonyme").fill("Writing Author");
     await page.getByPlaceholder("votre@email.com").fill(email);
-    await page.getByPlaceholder("8 caractères minimum").fill(password);
+    await page.getByLabel("Mot de passe").fill(password);
     await page.getByRole("button", { name: "Créer mon compte" }).click();
     await page.getByLabel("Comment appelez-vous votre projet ?").fill("Premier chapitre E2E");
     await page.getByLabel("De quoi parle votre histoire ?").fill("Une archiviste découvre un secret dans les souvenirs de sa ville.");
