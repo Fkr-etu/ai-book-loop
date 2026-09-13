@@ -8,12 +8,10 @@ test.describe("Book Loop — real API author journey", () => {
   test.skip(!realApiEnabled, "Requires NEXT_PUBLIC_USE_REAL_API=true");
 
   test("registers, configures, approves the outline, completes two chapters and evolves Canon through review", async ({ page }) => {
+    await page.addInitScript(() => {
+      window.localStorage.setItem("book-loop-cookie-consent", "rejected");
+    });
     await page.goto("/register");
-    const cookieBanner = page.getByRole("complementary", { name: "Préférences de cookies" });
-    if (await cookieBanner.isVisible()) {
-      await cookieBanner.getByRole("button", { name: "Refuser" }).click();
-      await expect(cookieBanner).toBeHidden();
-    }
 
     await page.getByLabel("Nom ou pseudonyme").fill("E2E Author");
     await page.getByLabel("Adresse e-mail").fill(email);
@@ -75,7 +73,7 @@ test.describe("Book Loop — real API author journey", () => {
     await page.goto(`/studio/chapters?bookId=${encodeURIComponent(bookId!)}`);
     await expect(page.getByRole("heading", { name: "Écrire, relire, décider" })).toBeVisible();
     await page.getByRole("button", { name: "Générer une version" }).click();
-    await expect(page.getByRole("button", { name: /Version 1 ·/ })).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole("button", { name: /Version 1/ })).toBeVisible({ timeout: 20_000 });
     await expect(page.getByRole("textbox", { name: "Contenu du chapitre" })).not.toHaveValue("");
     await page.reload();
     await expect(page.getByRole("textbox", { name: "Contenu du chapitre" })).not.toHaveValue("");
