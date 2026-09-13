@@ -5,8 +5,6 @@ const realApiEnabled = process.env.NEXT_PUBLIC_USE_REAL_API === "true";
 test.describe("Book Loop — protected routes and session expiry", () => {
   test.skip(!realApiEnabled, "Requires NEXT_PUBLIC_USE_REAL_API=true");
 
-  // Dashboard and account currently perform their own auth check and redirect
-  // to the canonical login route without preserving a next parameter.
   for (const path of ["/dashboard", "/account"]) {
     test(`${path} redirects unauthenticated users to login`, async ({ page }) => {
       await page.goto(path);
@@ -41,7 +39,7 @@ test.describe("Book Loop — protected routes and session expiry", () => {
 
     await page.context().clearCookies();
     await page.goto("/studio?bookId=session-expiry-test");
-    await expect(page).toHaveURL(/\/login\?next=%2Fstudio%3FbookId=session-expiry-test$/);
+    await expect(page).toHaveURL(/\/login\?next=%2Fstudio%3FbookId%3Dsession-expiry-test$/);
 
     await page.getByLabel("Adresse e-mail").fill(email);
     await page.getByLabel("Mot de passe").fill(password);
