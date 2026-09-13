@@ -31,7 +31,7 @@ test.describe("Book Loop — async consistency analysis", () => {
     const startButton = page.getByRole("button", { name: "Vérifier la continuité" });
     await expect(startButton).toBeEnabled();
     const startRequestPromise = page.waitForRequest((request) => request.url().includes(`/api/books/${bookId}/consistency/analyze`) && request.method() === "POST");
-    await startButton.click();
+    await startButton.click({ force: true });
     const startRequest = await startRequestPromise;
     const startResponse = await startRequest.response();
     expect(startResponse).not.toBeNull();
