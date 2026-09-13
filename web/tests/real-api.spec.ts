@@ -2,17 +2,12 @@ import { test, expect } from "@playwright/test";
 
 const email = `e2e-${Date.now()}@bookloop-e2e.com`;
 const password = "BookLoop-E2E-123!";
-
 const realApiEnabled = process.env.NEXT_PUBLIC_USE_REAL_API === "true";
 
 test.describe("Book Loop — real API author journey", () => {
   test.skip(!realApiEnabled, "Requires NEXT_PUBLIC_USE_REAL_API=true");
 
   test("registers, configures, approves the outline, completes two chapters and evolves Canon through review", async ({ page }) => {
-    page.on("response", async (response) => {
-      if (response.url().endsWith("/api/auth/register")) console.log(`[real-api] register ${response.status()} ${await response.text()}`);
-    });
-
     await page.goto("/register");
     const cookieBanner = page.getByRole("complementary", { name: "Préférences de cookies" });
     if (await cookieBanner.isVisible()) {
@@ -20,9 +15,9 @@ test.describe("Book Loop — real API author journey", () => {
       await expect(cookieBanner).toBeHidden();
     }
 
-    await page.getByPlaceholder("Votre nom ou pseudonyme").fill("E2E Author");
-    await page.getByPlaceholder("votre@email.com").fill(email);
-    await page.getByPlaceholder("8 caractères minimum").fill(password);
+    await page.getByLabel("Nom ou pseudonyme").fill("E2E Author");
+    await page.getByLabel("Adresse e-mail").fill(email);
+    await page.getByLabel("Mot de passe").fill(password);
     await page.getByRole("button", { name: "Créer mon compte" }).click();
     await expect(page).toHaveURL(/\/setup$/);
 
@@ -45,7 +40,6 @@ test.describe("Book Loop — real API author journey", () => {
     await page.getByPlaceholder("Ce que vous savez déjà de cet élément…").fill("Archiviste, protagoniste de l'histoire.");
     await page.getByRole("button", { name: "Ajouter cet élément" }).click();
     await page.getByRole("button", { name: "Voir la synthèse" }).click();
-
     await expect(page.getByRole("heading", { name: "Voici ce que nous avons compris" })).toBeVisible();
     await expect(page.getByText("Le livre E2E", { exact: true })).toBeVisible();
     await expect(page.getByText("Maya", { exact: true })).toBeVisible();
