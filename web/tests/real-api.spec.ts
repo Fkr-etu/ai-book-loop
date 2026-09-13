@@ -1,5 +1,7 @@
 import { test, expect } from "@playwright/test";
 
+test.setTimeout(45_000);
+
 const email = `e2e-${Date.now()}@bookloop-e2e.com`;
 const password = "BookLoop-E2E-123!";
 const realApiEnabled = process.env.NEXT_PUBLIC_USE_REAL_API === "true";
