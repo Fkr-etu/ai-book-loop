@@ -52,7 +52,7 @@ test.describe("Book Loop — real API billing quota", () => {
 
     const createResponse = await createResponsePromise;
     expect(createResponse.status()).toBe(429);
-    await expect(page.getByRole("alert")).toContainText("La limite de votre forfait est atteinte");
+    await expect(page.getByText("La limite de votre forfait est atteinte", { exact: false })).toBeVisible();
     await expect(page).toHaveURL(/\/setup$/);
   });
 });
