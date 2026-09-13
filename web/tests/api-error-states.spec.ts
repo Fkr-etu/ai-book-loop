@@ -1,7 +1,6 @@
 import { test, expect } from "@playwright/test";
 
 const realApiEnabled = process.env.NEXT_PUBLIC_USE_REAL_API === "true";
-const apiBaseUrl = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/+$/, "");
 
 test.describe("Book Loop — frontend API error states", () => {
   test.skip(!realApiEnabled, "Requires NEXT_PUBLIC_USE_REAL_API=true");
@@ -12,7 +11,9 @@ test.describe("Book Loop — frontend API error states", () => {
     { status: 404, message: "Ce livre n’existe plus ou n’est plus disponible.", action: "Réessayer", actionType: "button" as const },
   ]) {
     test(`${scenario.status} shows a contextual Studio error`, async ({ page }) => {
-      await page.route(`${apiBaseUrl}/api/auth/me`, async (route) => {
+      // Browser API calls use the same-origin Next.js rewrite so session cookies
+      // stay on the web origin. Mock that public origin, not localhost:8000.
+      await page.route("**/api/auth/me", async (route) => {
         await route.fulfill({
           status: 200,
           contentType: "application/json",
@@ -24,7 +25,7 @@ test.describe("Book Loop — frontend API error states", () => {
         });
       });
 
-      await page.route(`${apiBaseUrl}/api/books/**`, async (route) => {
+      await page.route("**/api/books/**", async (route) => {
         await route.fulfill({
           status: scenario.status,
           contentType: "application/json",
