@@ -12,6 +12,18 @@ test.describe("Book Loop — frontend API error states", () => {
     { status: 404, message: "Ce livre n’existe plus ou n’est plus disponible.", action: "Réessayer", actionType: "button" as const },
   ]) {
     test(`${scenario.status} shows a contextual Studio error`, async ({ page }) => {
+      await page.route(`${apiBaseUrl}/api/auth/me`, async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            id: "e2e-user",
+            email: "e2e@bookloop.test",
+            name: "E2E User",
+          }),
+        });
+      });
+
       await page.route(`${apiBaseUrl}/api/books/**`, async (route) => {
         await route.fulfill({
           status: scenario.status,
@@ -22,7 +34,8 @@ test.describe("Book Loop — frontend API error states", () => {
 
       await page.goto(`/studio?bookId=error-state-${scenario.status}`);
 
-      await expect(page.getByTestId("studio-api-error")).toContainText(scenario.message);
+      const errorAlert = page.getByTestId("studio-api-error");
+      await expect(errorAlert).toContainText(scenario.message);
       if (scenario.actionType === "link") {
         await expect(page.getByRole("link", { name: scenario.action })).toBeVisible();
       } else {
