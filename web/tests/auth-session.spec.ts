@@ -34,7 +34,7 @@ test.describe("Book Loop — authentication journey", () => {
     await page.getByLabel("Adresse e-mail").fill(email);
     await page.getByLabel("Mot de passe").fill("Wrong-Password-123!");
     await page.getByRole("button", { name: "Se connecter" }).click();
-    await expect(page.getByRole("alert")).toContainText("Adresse e-mail ou mot de passe incorrect.");
+    await expect(page.getByText("Adresse e-mail ou mot de passe incorrect.", { exact: true })).toBeVisible();
     await expect(page).toHaveURL(/\/login$/);
 
     await page.getByLabel("Mot de passe").fill(password);
