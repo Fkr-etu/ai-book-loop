@@ -48,6 +48,7 @@ test.describe("Book Loop — first chapter writing", () => {
     await generateButton.click();
     await expect(page.getByRole("button", { name: /Version 1/ })).toBeVisible({ timeout: 20_000 });
     const editor = page.getByRole("textbox", { name: "Contenu du chapitre" });
+    await expect(editor).not.toHaveValue("", { timeout: 20_000 });
     await editor.fill("Maya ouvre le registre et comprend que quelqu'un a réécrit son passé.");
     await page.getByRole("button", { name: "Enregistrer" }).click();
     await expect(page.getByRole("button", { name: /Version 2/ })).toBeVisible();
