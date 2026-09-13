@@ -29,14 +29,14 @@ test.describe("Book Loop — first chapter writing", () => {
 
     const bookId = new URL(page.url()).searchParams.get("bookId");
     expect(bookId).toBeTruthy();
-    await page.goto("/studio/outline");
+    await page.goto(`/studio/outline?bookId=${encodeURIComponent(bookId!)}`);
     await page.getByRole("button", { name: "Générer le plan IA" }).click();
     await expect(page.getByRole("heading", { name: "Plan proposé", exact: true })).toBeVisible();
     await page.getByTestId("approve-outline-btn").click();
     await page.getByTestId("add-chapter-btn").click();
     await page.getByRole("button", { name: "Créer le chapitre" }).click();
 
-    await page.goto("/studio/chapters");
+    await page.goto(`/studio/chapters?bookId=${encodeURIComponent(bookId!)}`);
     await expect(page.getByRole("button", { name: /Version 1/ })).toBeVisible();
     const editor = page.getByRole("textbox", { name: "Contenu du chapitre" });
     await editor.fill("Maya ouvre le registre et comprend que quelqu'un a réécrit son passé.");
