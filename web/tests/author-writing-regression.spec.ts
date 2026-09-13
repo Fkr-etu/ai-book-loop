@@ -6,6 +6,7 @@ test.describe("Book Loop — first chapter writing", () => {
   test.skip(!realApiEnabled, "Requires NEXT_PUBLIC_USE_REAL_API=true");
 
   test("makes the first chapter immediately writable and keeps the setup character", async ({ page }) => {
+    test.setTimeout(45_000);
     const email = `writing-${Date.now()}@bookloop-e2e.com`;
     const password = "BookLoop-E2E-123!";
     await page.addInitScript(() => {
@@ -41,7 +42,10 @@ test.describe("Book Loop — first chapter writing", () => {
 
     await page.goto(`/studio/chapters?bookId=${encodeURIComponent(bookId!)}`);
     await expect(page.getByRole("heading", { name: "Écrire, relire, décider" })).toBeVisible();
-    await page.getByRole("button", { name: "Générer une version" }).click();
+    const generateButton = page.getByRole("button", { name: "Générer une version" });
+    await expect(generateButton).toBeVisible({ timeout: 10_000 });
+    await expect(generateButton).toBeEnabled({ timeout: 10_000 });
+    await generateButton.click();
     await expect(page.getByRole("button", { name: /Version 1/ })).toBeVisible({ timeout: 20_000 });
     const editor = page.getByRole("textbox", { name: "Contenu du chapitre" });
     await editor.fill("Maya ouvre le registre et comprend que quelqu'un a réécrit son passé.");
