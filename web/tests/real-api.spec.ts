@@ -26,7 +26,7 @@ test.describe("Book Loop — real API author journey", () => {
     await page.getByLabel("De quoi parle votre histoire ?").fill("Une jeune archiviste découvre que ses souvenirs ont été volontairement modifiés.");
     await page.getByTestId("next-step-btn").click();
 
-    await expect(page.getByRole("heading", { name: "Qu'avez-vous envie de raconter ?" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Qu’avez-vous envie de raconter ?" })).toBeVisible();
     await page.getByLabel("Qu'aimeriez-vous faire ressentir, raconter ou explorer ?").fill("Explorer la confiance et le choix de l'auteur face aux propositions de l'IA.");
     await page.getByRole("button", { name: "Créer du suspense" }).click();
     await page.getByRole("button", { name: "Tendu" }).click();
@@ -43,7 +43,7 @@ test.describe("Book Loop — real API author journey", () => {
     await expect(page.getByRole("heading", { name: "Voici ce que nous avons compris" })).toBeVisible();
     await expect(page.getByText("Le livre E2E", { exact: true })).toBeVisible();
     await expect(page.getByText("Maya", { exact: true })).toBeVisible();
-    await page.getByRole("button", { name: /C'est bien ça — commencer l'atelier/ }).click();
+    await page.getByRole("button", { name: /C’est bien ça — commencer l’atelier/ }).click();
 
     await expect(page).toHaveURL(/\/studio\?bookId=/);
     await page.goto("/studio/outline");
