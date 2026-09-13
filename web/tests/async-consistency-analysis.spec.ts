@@ -21,7 +21,19 @@ test.describe("Book Loop — async consistency analysis", () => {
     await page.route(`${apiBasePath}/books/${bookId}/canonical-facts`, async (route) => { await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ facts: [] }) }); });
     await page.route(`${apiBasePath}/books/${bookId}/canon-change-proposals`, async (route) => { await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ proposals: [] }) }); });
     await page.route(`${apiBasePath}/books/${bookId}/consistency/analyze`, async (route) => { expect(route.request().method()).toBe("POST"); await route.fulfill({ status: 202, contentType: "application/json", body: JSON.stringify(queuedJob) }); });
-    await page.route(`${apiBasePath}/books/${bookId}/consistency/analyses/job-async-e2e`, async (route) => { statusCalls += 1; const response = allowSuccess ? succeededJob : (statusCalls === 1 ? queuedJob : runningJob); await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(response) }); });
+    await page.route(`${apiBasePath}/books/${bookId}/consistency/analyses/job-async-e2e`, async (route) => {
+      statusCalls += 1;
+      if (allowSuccess) {
+        await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(succeededJob) });
+        return;
+      }
+      if (statusCalls === 1) {
+        await new Promise((resolve) => setTimeout(resolve, 150));
+        await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(queuedJob) });
+        return;
+      }
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(runningJob) });
+    });
 
     await page.goto(`/studio/canon?bookId=${bookId}`);
     await expect(page.getByRole("heading", { name: "Vérifier la continuité" })).toBeVisible();
