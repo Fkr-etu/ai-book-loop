@@ -19,7 +19,9 @@ export function StudioErrorNotice() {
   return (
     <div
       role="alert"
+      aria-label="Erreur de l’espace Studio"
       aria-live="assertive"
+      data-testid="studio-api-error"
       className="border-b border-[#d9aaaa] bg-[#fff4f4] px-4 py-3 text-[#5c2020]"
     >
       <div className="mx-auto flex max-w-7xl items-start gap-3 text-xs">
