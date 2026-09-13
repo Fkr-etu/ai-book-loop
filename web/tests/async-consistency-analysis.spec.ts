@@ -28,9 +28,10 @@ test.describe("Book Loop — async consistency analysis", () => {
 
     await page.goto(`/studio/canon?bookId=${bookId}`);
     await expect(page.getByRole("heading", { name: "Vérifier la continuité" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Vérifier la continuité" })).toBeEnabled();
+    const startButton = page.getByRole("button", { name: "Vérifier la continuité" });
+    await expect(startButton).toBeEnabled();
     const startResponsePromise = page.waitForResponse((response) => response.url().includes(`/api/books/${bookId}/consistency/analyze`) && response.request().method() === "POST");
-    await page.getByRole("button", { name: "Vérifier la continuité" }).click({ force: true });
+    await startButton.evaluate((element) => (element as HTMLButtonElement).click());
     const startResponse = await startResponsePromise;
     expect(startResponse.status()).toBe(202);
 
