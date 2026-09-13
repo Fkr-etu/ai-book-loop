@@ -67,9 +67,8 @@ test.describe("Book Loop - Complete Page Coverage Suite", () => {
 
   test("SEO — private and authentication pages are noindex", async ({ page }) => {
     for (const path of ["/login", "/register", "/setup", "/dashboard", "/studio", "/parametres"]) {
-      // Some protected pages redirect client-side after the initial document commit.
-      // Waiting for the commit avoids failing on Playwright's transient ERR_ABORTED.
-      await page.goto(path, { waitUntil: "commit" });
+      // Some protected pages redirect client-side and can abort the initial navigation.
+      await page.goto(path, { waitUntil: "commit" }).catch(() => undefined);
       await page.waitForLoadState("domcontentloaded").catch(() => undefined);
       await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/);
     }
