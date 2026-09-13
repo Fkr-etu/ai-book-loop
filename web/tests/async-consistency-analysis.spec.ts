@@ -38,7 +38,10 @@ test.describe("Book Loop — async consistency analysis", () => {
     await page.goto(`/studio/canon?bookId=${bookId}`);
     await expect(page.getByRole("heading", { name: "Vérifier la continuité" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Vérifier la continuité" })).toBeEnabled();
-    await page.getByRole("button", { name: "Vérifier la continuité" }).evaluate((button) => (button as HTMLButtonElement).click());
+    const startResponsePromise = page.waitForResponse((response) => response.url().includes(`/api/books/${bookId}/consistency/analyze`) && response.request().method() === "POST");
+    await page.getByRole("button", { name: "Vérifier la continuité" }).click({ force: true });
+    const startResponse = await startResponsePromise;
+    expect(startResponse.status()).toBe(202);
 
     await expect(page.getByText(/En attente|Vérification de la continuité en cours/)).toBeVisible({ timeout: 5_000 });
     await expect(page.getByText("Vérification de la continuité en cours")).toBeVisible({ timeout: 5_000 });
