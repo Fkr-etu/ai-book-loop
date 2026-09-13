@@ -59,7 +59,7 @@ test.describe("Book Loop — real API author journey", () => {
     expect(firstChapterTitle).toBeTruthy();
     expect(secondChapterTitle).toBeTruthy();
     await page.getByTestId("approve-outline-btn").click();
-    await expect(page.getByText("Plan retenu")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Plan retenu" })).toBeVisible();
 
     await page.getByTestId("add-chapter-btn").click();
     await page.locator('form input[type="text"]').nth(0).fill(firstChapterTitle!);
