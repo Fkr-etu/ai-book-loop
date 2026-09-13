@@ -29,7 +29,7 @@ test.describe("Book Loop — real API billing quota", () => {
     await page.getByLabel("Qu'aimeriez-vous faire ressentir, raconter ou explorer ?").fill("Vérifier les limites du forfait.");
     await page.getByTestId("next-step-btn").click();
     await page.getByRole("button", { name: "Voir la synthèse" }).click();
-    await page.getByRole("button", { name: /C'est bien ça — commencer l'atelier/ }).click();
+    await page.getByRole("button", { name: /C’est bien ça — commencer l’atelier/ }).click();
 
     await expect(page).toHaveURL(/\/studio\?bookId=/);
     await page.goto("/dashboard");
@@ -48,7 +48,7 @@ test.describe("Book Loop — real API billing quota", () => {
     const createResponsePromise = page.waitForResponse(
       (response) => response.url().endsWith("/api/books") && response.request().method() === "POST"
     );
-    await page.getByRole("button", { name: /C'est bien ça — commencer l'atelier/ }).click();
+    await page.getByRole("button", { name: /C’est bien ça — commencer l’atelier/ }).click();
 
     const createResponse = await createResponsePromise;
     expect(createResponse.status()).toBe(429);
