@@ -29,7 +29,7 @@ test.describe("Book Loop — real API multi-book selection", () => {
     await page.getByLabel("Qu'aimeriez-vous faire ressentir, raconter ou explorer ?").fill("Construire un premier récit.");
     await page.getByTestId("next-step-btn").click();
     await page.getByRole("button", { name: "Voir la synthèse" }).click();
-    await page.getByRole("button", { name: /C'est bien ça — commencer l'atelier/ }).click();
+    await page.getByRole("button", { name: /C’est bien ça — commencer l’atelier/ }).click();
     await expect(page).toHaveURL(/\/studio\?bookId=/);
 
     await page.goto("/dashboard");
@@ -43,7 +43,7 @@ test.describe("Book Loop — real API multi-book selection", () => {
     await page.getByTestId("next-step-btn").click();
     await page.getByTestId("next-step-btn").click();
     await page.getByRole("button", { name: "Voir la synthèse" }).click();
-    await page.getByRole("button", { name: /C'est bien ça — commencer l'atelier/ }).click();
+    await page.getByRole("button", { name: /C’est bien ça — commencer l’atelier/ }).click();
 
     await expect(page).toHaveURL(/\/studio\?bookId=/);
     await expect(page.getByText("Livre B — récit sélectionné", { exact: true })).toBeVisible();
