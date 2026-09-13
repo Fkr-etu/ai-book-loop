@@ -96,6 +96,9 @@ test.describe("Book Loop — async consistency analysis", () => {
       window.localStorage.setItem("manuscript_studio_project", JSON.stringify(project));
     }, { project: mockProject });
 
+    // Canon page also loads canonical facts and canon-change proposals. Keep
+    // those requests inside the mock boundary so they cannot trigger real 401s
+    // and rerender the page while the analysis button is being clicked.
     await page.route(`${apiBasePath}/auth/me`, async (route) => {
       await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ user: { id: "e2e-user", email: "e2e@example.com", name: "E2E", plan: "free" } }) });
     });
@@ -104,6 +107,12 @@ test.describe("Book Loop — async consistency analysis", () => {
     });
     await page.route(`${apiBasePath}/books/${bookId}/assertions`, async (route) => {
       await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([]) });
+    });
+    await page.route(`${apiBasePath}/books/${bookId}/canonical-facts`, async (route) => {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ facts: [] }) });
+    });
+    await page.route(`${apiBasePath}/books/${bookId}/canon-change-proposals`, async (route) => {
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ proposals: [] }) });
     });
     await page.route(`${apiBasePath}/books/${bookId}/consistency/analyze`, async (route) => {
       expect(route.request().method()).toBe("POST");
@@ -117,7 +126,10 @@ test.describe("Book Loop — async consistency analysis", () => {
 
     await page.goto(`/studio/canon?bookId=${bookId}`);
     await expect(page.getByRole("heading", { name: "Vérifier la continuité" })).toBeVisible();
-    await page.getByRole("button", { name: "Vérifier la continuité" }).click();
+    const consistencyButton = page.getByRole("button", { name: "Vérifier la continuité" });
+    await expect(consistencyButton).toBeVisible();
+    await expect(consistencyButton).toBeEnabled();
+    await consistencyButton.click();
 
     await expect(page.getByText("En attente")).toBeVisible();
     await expect(page.getByText("Vérification de la continuité en cours")).toBeVisible({ timeout: 5_000 });
