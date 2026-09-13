@@ -165,13 +165,13 @@ jobs:
         working-directory: web
         run: npm run build
       - name: Run all real API Playwright journeys
-        id: real-api-test
-        continue-on-error: true
         working-directory: web
         run: npx playwright test
       - name: Print backend API log after E2E failure
-        if: steps.real-api-test.conclusion == 'failure'
-        run: cat /tmp/book-loop-api.log
-      - name: Fail job after diagnostics
-        if: steps.real-api-test.conclusion == 'failure'
-        run: exit 1
+        if: failure()
+        run: |
+          if [ -f /tmp/book-loop-api.log ]; then
+            cat /tmp/book-loop-api.log
+          else
+            echo "Backend API log unavailable: /tmp/book-loop-api.log does not exist."
+          fi
