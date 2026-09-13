@@ -93,7 +93,12 @@ test.describe("Book Loop — real API author journey", () => {
     const approveButton = page.getByRole("button", { name: /Approuver la version 1/ });
     await expect(approveButton).toBeEnabled({ timeout: 10_000 });
     await approveButton.click();
-    await expect(page.getByText("Chapitre approuvé")).toBeVisible();
+    await expect.poll(async () => {
+      const response = await page.request.get(bookApiBase);
+      if (!response.ok()) return null;
+      const currentBook = (await response.json()) as { chapters?: Array<{ number: number; status?: string }> };
+      return currentBook.chapters?.find((chapter) => chapter.number === 1)?.status ?? null;
+    }, { timeout: 10_000 }).toBe("approved");
     await page.goto(`/studio/canon?bookId=${encodeURIComponent(bookId!)}`);
     await expect(page.getByRole("heading", { name: "Continuité du livre" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Revue du Canon" })).toBeVisible();
