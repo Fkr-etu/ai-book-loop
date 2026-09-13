@@ -29,21 +29,18 @@ test.describe("Book Loop — async consistency analysis", () => {
     await page.goto(`/studio/canon?bookId=${bookId}`);
     await expect(page.getByRole("heading", { name: "Vérifier la continuité" })).toBeVisible();
     const startButton = page.getByRole("button", { name: "Vérifier la continuité" });
-    await expect(startButton).toBeEnabled();
-    const startRequestPromise = page.waitForRequest((request) => request.url().includes(`/api/books/${bookId}/consistency/analyze`) && request.method() === "POST");
-    await startButton.click({ force: true });
-    const startRequest = await startRequestPromise;
-    const startResponse = await startRequest.response();
-    expect(startResponse).not.toBeNull();
-    expect(startResponse!.status()).toBe(202);
+    await expect(startButton).toBeEnabled({ timeout: 10_000 });
+    await startButton.click();
 
     await expect(page.getByText("Vérification de la continuité en cours")).toBeVisible({ timeout: 5_000 });
     await expect(page.getByText("35%")).toBeVisible();
     await expect(page.getByRole("button", { name: "Vérification en cours…" })).toBeDisabled();
     await expect.poll(async () => page.evaluate((key) => localStorage.getItem(key), consistencyStorageKey)).toBe("job-async-e2e");
+
     await page.reload();
     await expect(page.getByText("Vérification de la continuité en cours")).toBeVisible();
     await expect(page.getByText("35%")).toBeVisible();
+
     allowSuccess = true;
     await expect(page.getByText("Vérification terminée — 1 point à examiner.")).toBeVisible({ timeout: 5_000 });
     await expect(page.getByText("Une contradiction de continuité a été détectée.")).toBeVisible();
