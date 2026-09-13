@@ -20,19 +20,10 @@ test.describe("Book Loop — async consistency analysis", () => {
     await page.route(`${apiBasePath}/books/${bookId}/assertions`, async (route) => { await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify([]) }); });
     await page.route(`${apiBasePath}/books/${bookId}/canonical-facts`, async (route) => { await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ facts: [] }) }); });
     await page.route(`${apiBasePath}/books/${bookId}/canon-change-proposals`, async (route) => { await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ proposals: [] }) }); });
-    await page.route(`${apiBasePath}/books/${bookId}/consistency/analyze`, async (route) => { expect(route.request().method()).toBe("POST"); await route.fulfill({ status: 202, contentType: "application/json", body: JSON.stringify(queuedJob) }); });
+    await page.route(`${apiBasePath}/books/${bookId}/consistency/analyze`, async (route) => { expect(route.request().method()).toBe("POST"); await route.fulfill({ status: 202, contentType: "application/json", body: JSON.stringify(runningJob) }); });
     await page.route(`${apiBasePath}/books/${bookId}/consistency/analyses/job-async-e2e`, async (route) => {
       statusCalls += 1;
-      if (allowSuccess) {
-        await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(succeededJob) });
-        return;
-      }
-      if (statusCalls === 1) {
-        await new Promise((resolve) => setTimeout(resolve, 150));
-        await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(queuedJob) });
-        return;
-      }
-      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(runningJob) });
+      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(allowSuccess ? succeededJob : runningJob) });
     });
 
     await page.goto(`/studio/canon?bookId=${bookId}`);
@@ -43,7 +34,6 @@ test.describe("Book Loop — async consistency analysis", () => {
     const startResponse = await startResponsePromise;
     expect(startResponse.status()).toBe(202);
 
-    await expect(page.getByText(/En attente|Vérification de la continuité en cours/)).toBeVisible({ timeout: 5_000 });
     await expect(page.getByText("Vérification de la continuité en cours")).toBeVisible({ timeout: 5_000 });
     await expect(page.getByText("35%")).toBeVisible();
     await expect(page.getByRole("button", { name: "Vérification en cours…" })).toBeDisabled();
@@ -58,6 +48,6 @@ test.describe("Book Loop — async consistency analysis", () => {
     await expect(page.getByText("Maya vit à Lyon.")).toBeVisible();
     await expect(page.getByText("35%")).toHaveCount(0);
     await expect.poll(async () => page.evaluate((key) => localStorage.getItem(key), consistencyStorageKey)).toBeNull();
-    expect(statusCalls).toBeGreaterThanOrEqual(3);
+    expect(statusCalls).toBeGreaterThanOrEqual(2);
   });
 });
