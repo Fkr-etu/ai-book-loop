@@ -30,8 +30,10 @@ test.describe("Book Loop — first chapter writing", () => {
     const bookId = new URL(page.url()).searchParams.get("bookId");
     expect(bookId).toBeTruthy();
     await page.goto(`/studio/outline?bookId=${encodeURIComponent(bookId!)}`);
-    await page.getByRole("button", { name: "Générer le plan IA" }).click();
-    await expect(page.getByRole("heading", { name: "Plan proposé", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Votre plan", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Proposer un plan", exact: true }).click();
+    await expect(page.locator("pre")).toBeVisible();
+    await expect(page.getByTestId("approve-outline-btn")).toBeEnabled();
     await page.getByTestId("approve-outline-btn").click();
     await page.getByTestId("add-chapter-btn").click();
     await page.getByRole("button", { name: "Créer le chapitre" }).click();
