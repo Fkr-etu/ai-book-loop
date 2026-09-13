@@ -126,6 +126,17 @@ jobs:
       LLM_PROVIDER: fake
       GEMINI_API_KEY: ""
       AUTH_SECRET_KEY: "book-loop-e2e-test-secret"
+      # The real API E2E suite intentionally creates many isolated users and
+      # exercises login/logout flows in parallel. Keep production-like rate
+      # limiting enabled, but raise the thresholds for this isolated CI process
+      # so the suite does not rate-limit itself and turn valid auth journeys
+      # into cascaded 401/429 failures.
+      AUTH_REGISTER_RATE_LIMIT: "1000"
+      AUTH_REGISTER_RATE_WINDOW_SECONDS: "60"
+      AUTH_LOGIN_RATE_LIMIT: "1000"
+      AUTH_LOGIN_RATE_WINDOW_SECONDS: "60"
+      AUTH_LOGIN_IP_RATE_LIMIT: "1000"
+      AUTH_LOGIN_IP_RATE_WINDOW_SECONDS: "60"
       NEXT_PUBLIC_USE_REAL_API: "true"
       NEXT_PUBLIC_API_URL: "http://localhost:8000"
     steps:
