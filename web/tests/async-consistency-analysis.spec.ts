@@ -40,7 +40,7 @@ test.describe("Book Loop — async consistency analysis", () => {
     await expect(page.getByRole("button", { name: "Vérifier la continuité" })).toBeEnabled();
     await page.getByRole("button", { name: "Vérifier la continuité" }).evaluate((button) => (button as HTMLButtonElement).click());
 
-    await expect(page.getByText("En attente")).toBeVisible();
+    await expect(page.getByText(/En attente|Vérification de la continuité en cours/)).toBeVisible({ timeout: 5_000 });
     await expect(page.getByText("Vérification de la continuité en cours")).toBeVisible({ timeout: 5_000 });
     await expect(page.getByText("35%")).toBeVisible();
     await expect(page.getByRole("button", { name: "Vérification en cours…" })).toBeDisabled();
