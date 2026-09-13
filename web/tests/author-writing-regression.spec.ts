@@ -8,9 +8,10 @@ test.describe("Book Loop — first chapter writing", () => {
   test("makes the first chapter immediately writable and keeps the setup character", async ({ page }) => {
     const email = `writing-${Date.now()}@bookloop-e2e.com`;
     const password = "BookLoop-E2E-123!";
+    await page.addInitScript(() => {
+      window.localStorage.setItem("book-loop-cookie-consent", "rejected");
+    });
     await page.goto("/register");
-    const cookieBanner = page.getByRole("complementary", { name: "Préférences de cookies" });
-    if (await cookieBanner.isVisible()) await cookieBanner.getByRole("button", { name: "Refuser" }).click();
     await page.getByPlaceholder("Votre nom ou pseudonyme").fill("Writing Author");
     await page.getByPlaceholder("votre@email.com").fill(email);
     await page.getByLabel("Mot de passe").fill(password);
@@ -41,7 +42,7 @@ test.describe("Book Loop — first chapter writing", () => {
     await page.goto(`/studio/chapters?bookId=${encodeURIComponent(bookId!)}`);
     await expect(page.getByRole("heading", { name: "Écrire, relire, décider" })).toBeVisible();
     await page.getByRole("button", { name: "Générer une version" }).click();
-    await expect(page.getByRole("button", { name: /Version 1 ·/ })).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole("button", { name: /Version 1/ })).toBeVisible({ timeout: 20_000 });
     const editor = page.getByRole("textbox", { name: "Contenu du chapitre" });
     await editor.fill("Maya ouvre le registre et comprend que quelqu'un a réécrit son passé.");
     await page.getByRole("button", { name: "Enregistrer" }).click();
