@@ -74,15 +74,23 @@ test.describe("Book Loop — real API author journey", () => {
 
     await page.goto(`/studio/chapters?bookId=${encodeURIComponent(bookId!)}`);
     await expect(page.getByRole("heading", { name: "Écrire, relire, décider" })).toBeVisible();
-    await page.getByRole("button", { name: "Générer une version" }).click();
+    const generateButton = page.getByRole("button", { name: "Générer une version" });
+    await expect(generateButton).toBeVisible({ timeout: 10_000 });
+    await expect(generateButton).toBeEnabled({ timeout: 10_000 });
+    await generateButton.click();
     await expect(page.getByRole("button", { name: /Version 1/ })).toBeVisible({ timeout: 20_000 });
-    await page.reload();
     await expect(page.getByRole("textbox", { name: "Contenu du chapitre" })).not.toHaveValue("", { timeout: 20_000 });
-    await expect(page.getByRole("button", { name: "Approuver" })).toBeVisible();
-    await page.getByRole("button", { name: "Approuver" }).click();
+
+    await page.getByRole("button", { name: "Analyser le chapitre" }).click();
+    await expect(page.getByRole("button", { name: /Version 1 · relue/ })).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText("cette version a été relue")).toBeVisible();
+    const approveButton = page.getByRole("button", { name: /Approuver la version 1/ });
+    await expect(approveButton).toBeEnabled({ timeout: 10_000 });
+    await approveButton.click();
     await expect(page.getByText("Chapitre approuvé")).toBeVisible();
 
     await page.goto(`/studio/canon?bookId=${encodeURIComponent(bookId!)}`);
+    await expect(page.getByRole("heading", { name: "Continuité du livre" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Revue du Canon" })).toBeVisible();
     const acceptAssertionButton = page.getByRole("button", { name: "Accepter" }).first();
     await expect(acceptAssertionButton).toBeVisible();
