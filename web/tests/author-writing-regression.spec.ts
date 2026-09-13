@@ -24,7 +24,7 @@ test.describe("Book Loop — first chapter writing", () => {
     await page.getByPlaceholder("Ce que vous savez déjà de cet élément…").fill("Archiviste et protagoniste.");
     await page.getByRole("button", { name: "Ajouter cet élément" }).click();
     await page.getByRole("button", { name: "Voir la synthèse" }).click();
-    await page.getByRole("button", { name: /C'est bien ça — commencer l'atelier/ }).click();
+    await page.getByRole("button", { name: /C’est bien ça — commencer l’atelier/ }).click();
 
     const bookId = new URL(page.url()).searchParams.get("bookId");
     expect(bookId).toBeTruthy();
